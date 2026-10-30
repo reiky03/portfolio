@@ -31,30 +31,29 @@ const C = {
   mintSoft: 'D1FAE5',
   
   white: 'FFFFFF',
-  gold: 'D97706',
+  frameBorder: 'CBD5E1',
+  phoneFrame: '1E293B'
 };
 
 const imgPath = (name) => path.join(__dirname, '..', 'public', 'images', 'ppt', name);
 
 // --- HELPER FUNCTIONS ---
 function addTopNav(slide, category, slideNum, isDark = false) {
-  // Pill badge
   slide.addShape(pres.ShapeType.roundRect, {
-    x: 0.8, y: 0.55, w: 2.8, h: 0.32,
+    x: 0.8, y: 0.52, w: 2.8, h: 0.32,
     rectRadius: 0.16,
     fill: { color: isDark ? '193427' : 'EBF7EE' },
     line: { color: isDark ? '2A523E' : 'C2E5CD', width: 1 }
   });
   slide.addText(category.toUpperCase(), {
-    x: 0.8, y: 0.55, w: 2.8, h: 0.32,
+    x: 0.8, y: 0.52, w: 2.8, h: 0.32,
     fontSize: 9, fontFace: 'Calibri', bold: true,
     color: isDark ? '6EE7B7' : '15803D',
     align: 'center', valign: 'middle', margin: 0
   });
 
-  // Slide counter
   slide.addText(slideNum, {
-    x: 11.5, y: 0.55, w: 1.0, h: 0.32,
+    x: 11.5, y: 0.52, w: 1.0, h: 0.32,
     fontSize: 10, fontFace: 'Calibri', bold: true,
     color: isDark ? C.darkMuted : C.muted,
     align: 'right', valign: 'middle', margin: 0
@@ -63,14 +62,14 @@ function addTopNav(slide, category, slideNum, isDark = false) {
 
 function addSlideHeading(slide, title, subtitle, isDark = false) {
   slide.addText(title, {
-    x: 0.8, y: 0.98, w: 11.7, h: 0.55,
+    x: 0.8, y: 0.94, w: 11.7, h: 0.52,
     fontSize: 24, fontFace: 'Georgia', bold: true,
     color: isDark ? C.darkText : C.ink,
     valign: 'top', margin: 0
   });
   if (subtitle) {
     slide.addText(subtitle, {
-      x: 0.8, y: 1.55, w: 11.7, h: 0.32,
+      x: 0.8, y: 1.5, w: 11.7, h: 0.32,
       fontSize: 12.5, fontFace: 'Calibri',
       color: isDark ? C.darkTextSoft : C.inkSoft,
       valign: 'top', margin: 0
@@ -94,10 +93,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   const slide = pres.addSlide();
   slide.background = { color: C.darkBg };
 
-  // Background subtle card
   addBentoCard(slide, 0.8, 0.7, 11.733, 6.1, true);
 
-  // Top capsule
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.3, y: 1.15, w: 3.8, h: 0.36,
     rectRadius: 0.18,
@@ -110,21 +107,18 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     color: '6EE7B7', align: 'center', valign: 'middle', margin: 0
   });
 
-  // Name Title
   slide.addText('Reiky Aryanando Pratama', {
     x: 1.3, y: 1.7, w: 7.2, h: 0.9,
     fontSize: 38, fontFace: 'Georgia', bold: true,
     color: C.white, valign: 'middle', margin: 0
   });
 
-  // Subtitle
   slide.addText('Backend & Full-Stack Developer · Distributed Systems · High-Load APIs', {
     x: 1.3, y: 2.65, w: 7.2, h: 0.45,
     fontSize: 16, fontFace: 'Calibri', bold: true,
     color: C.mint, valign: 'top', margin: 0
   });
 
-  // Bio Description
   slide.addText(
     'Informatics graduate (GPA 3.81 / 4.00) & Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. ' +
     'Architecting resilient REST APIs, normalized relational databases, and high-performance digital products across Laravel, Go, Flutter, and React.',
@@ -135,7 +129,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     }
   );
 
-  // Contact Pills
   const contactPills = [
     { label: 'EMAIL', val: 'reikyranp@gmail.com' },
     { label: 'LOCATION', val: 'Yogyakarta, Indonesia (WIB)' },
@@ -161,7 +154,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     });
   });
 
-  // Right Side Metrics Bento Block
   const metricBoxX = 8.6;
   slide.addShape(pres.ShapeType.roundRect, {
     x: metricBoxX, y: 1.6, w: 3.4, h: 4.4,
@@ -193,7 +185,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     });
   });
 
-  // Footer label
   slide.addText('Handcrafted with discipline · reiky03.github.io · Confidential & Curated', {
     x: 1.3, y: 6.35, w: 10.7, h: 0.3,
     fontSize: 8.5, fontFace: 'Calibri', color: C.darkMuted, margin: 0
@@ -211,7 +202,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '01 · Professional Profile', '02 / 11');
   addSlideHeading(slide, 'Beyond the Code: Systems, Craft & Precision', 'A blend of strong academic grounding, rigorous software engineering, and active production delivery.');
 
-  // Left Bento Card (Philosophy & Identity)
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.15, y: 2.3, w: 2.4, h: 0.28,
@@ -237,7 +227,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     }
   );
 
-  // Pillars
   const pillars = [
     { title: 'Reliability-First', desc: 'Normalized schemas, idempotent transactions, and defensive error boundaries.' },
     { title: 'Full-Stack Agility', desc: 'Seamless bridge between server-side Go/PHP and client-side TypeScript/Flutter.' },
@@ -251,7 +240,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     ], { x: 1.15, y: py, w: 5.0, h: 0.38, margin: 0 });
   });
 
-  // Right Top Card: BSI UII Role
   addBentoCard(slide, 6.75, 2.05, 5.78, 2.3);
   slide.addText('CURRENT PRODUCTION ROLE · SINCE DEC 2025', {
     x: 7.05, y: 2.25, w: 4.5, h: 0.25,
@@ -275,7 +263,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     }
   );
 
-  // Right Bottom Card: Education & Recognition
   addBentoCard(slide, 6.75, 4.6, 5.78, 2.3);
   slide.addText('ACADEMIC EXCELLENCE & PUBLISHED RESEARCH', {
     x: 7.05, y: 4.8, w: 4.5, h: 0.25,
@@ -316,77 +303,72 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
       num: '01',
       title: 'Backend & Systems',
       summary: 'Reliable server architectures, high-concurrency API endpoints, and structured protocol communications.',
-      chips: ['PHP', 'Laravel', 'Lumen', 'Go (Golang)', 'RESTful APIs', 'gRPC', 'MCP Protocol', 'RBAC Security']
+      chips: ['PHP & Laravel', 'Lumen Microservices', 'Go (Golang)', 'RESTful APIs', 'gRPC & Protobuf', 'MCP AI Protocol', 'RBAC Security']
     },
     {
       num: '02',
       title: 'Web & Interfaces',
       summary: 'Interactive, accessible, and fast web applications with crisp design systems and zero layout thrash.',
-      chips: ['TypeScript', 'React', 'Next.js', 'Vue.js 3', 'Tailwind CSS', 'Vite', 'HTML5/CSS3', 'GSAP Motion']
+      chips: ['TypeScript', 'React & Next.js', 'Vue.js 3 & Vite', 'Tailwind CSS', 'HTML5 / Modern CSS', 'GSAP Animation', 'Component Systems']
     },
     {
       num: '03',
       title: 'Mobile Engineering',
       summary: 'Native and cross-platform mobile apps with fluid animations, offline caches, and hardware integrations.',
-      chips: ['Flutter & Dart', 'Riverpod', 'Kotlin (Android)', 'Jetpack Compose', 'React Native', 'Expo', 'Room DB']
+      chips: ['Flutter & Dart', 'Riverpod State Mgmt', 'Kotlin (Android Native)', 'Jetpack Compose', 'React Native & Expo', 'SQLite / AsyncStorage', 'Hardware Sensors']
     },
     {
       num: '04',
-      title: 'Data & Cloud Infrastructure',
+      title: 'Data & Infrastructure',
       summary: 'Normalized data models, real-time database synchronizations, and containerized deployment pipelines.',
-      chips: ['PostgreSQL', 'MySQL', 'Redis Caching', 'Firebase Firestore', 'Docker', 'AWS Cloud', 'Git Workflows']
+      chips: ['PostgreSQL', 'MySQL Tuning', 'Redis In-Memory Cache', 'Firebase Firestore', 'Docker Containers', 'AWS Cloud Services', 'Git CI/CD Workflows']
     }
   ];
 
   categories.forEach((cat, idx) => {
     const cx = 0.8 + (idx * 2.98);
     const cardW = 2.82;
-    addBentoCard(slide, cx, 2.05, cardW, 4.85);
+    addBentoCard(slide, cx, 2.05, cardW, 4.88);
 
-    // Number tag
     slide.addText(cat.num, {
-      x: cx + 0.25, y: 2.25, w: 0.6, h: 0.3,
+      x: cx + 0.22, y: 2.22, w: 0.6, h: 0.28,
       fontSize: 16, fontFace: 'Georgia', bold: true, color: C.emerald, margin: 0
     });
 
-    // Title
     slide.addText(cat.title, {
-      x: cx + 0.25, y: 2.65, w: cardW - 0.5, h: 0.45,
-      fontSize: 14, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
+      x: cx + 0.22, y: 2.55, w: cardW - 0.44, h: 0.42,
+      fontSize: 13.5, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
     });
 
-    // Summary
     slide.addText(cat.summary, {
-      x: cx + 0.25, y: 3.15, w: cardW - 0.5, h: 0.8,
-      fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.2, margin: 0
+      x: cx + 0.22, y: 3.02, w: cardW - 0.44, h: 0.72,
+      fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.15, margin: 0
     });
 
-    // Separator line
     slide.addShape(pres.ShapeType.line, {
-      x: cx + 0.25, y: 4.05, w: cardW - 0.5, h: 0,
+      x: cx + 0.22, y: 3.82, w: cardW - 0.44, h: 0,
       line: { color: C.cardBorder, width: 1 }
     });
 
-    // Chip pill tags
     slide.addText('CORE COMPETENCIES', {
-      x: cx + 0.25, y: 4.25, w: cardW - 0.5, h: 0.2,
+      x: cx + 0.22, y: 3.98, w: cardW - 0.44, h: 0.2,
       fontSize: 7.5, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
     });
 
-    let currentY = 4.55;
+    let currentY = 4.25;
     cat.chips.forEach(chip => {
       slide.addShape(pres.ShapeType.roundRect, {
-        x: cx + 0.25, y: currentY, w: cardW - 0.5, h: 0.26,
-        rectRadius: 0.13,
+        x: cx + 0.22, y: currentY, w: cardW - 0.44, h: 0.24,
+        rectRadius: 0.12,
         fill: { color: 'F4F2E9' },
         line: { color: 'E2DEC9', width: 1 }
       });
       slide.addText(chip, {
-        x: cx + 0.35, y: currentY, w: cardW - 0.7, h: 0.26,
+        x: cx + 0.32, y: currentY, w: cardW - 0.64, h: 0.24,
         fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.ink,
         valign: 'middle', margin: 0
       });
-      currentY += 0.31;
+      currentY += 0.29;
     });
   });
 
@@ -402,8 +384,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '03 · Case Study 01 / Platform', '04 / 11');
   addSlideHeading(slide, 'OpsFlow: Enterprise Service Desk & Asset Control', 'Make internal IT work visible, assignable, and auditable from initial request to resolution.');
 
-  // Left Details Card
-  addBentoCard(slide, 0.8, 2.05, 5.0, 4.85);
+  addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.1, y: 2.3, w: 2.5, h: 0.28,
@@ -415,7 +396,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('OpsFlow Platform', {
-    x: 1.1, y: 2.7, w: 4.4, h: 0.45,
+    x: 1.1, y: 2.7, w: 4.2, h: 0.45,
     fontSize: 20, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
@@ -423,13 +404,13 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     'A full-featured internal operations and service desk platform built to eliminate lost tickets and opaque IT requests. ' +
     'Engineered with multi-role access controls, automated technician handoffs, audit histories, and asset allocation tracking.',
     {
-      x: 1.1, y: 3.25, w: 4.4, h: 1.1,
+      x: 1.1, y: 3.25, w: 4.2, h: 1.1,
       fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
   slide.addText('KEY ARCHITECTURAL HIGHLIGHTS', {
-    x: 1.1, y: 4.45, w: 4.4, h: 0.22,
+    x: 1.1, y: 4.45, w: 4.2, h: 0.22,
     fontSize: 8, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
 
@@ -442,34 +423,40 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     slide.addText([
       { text: '•  ' + h.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
       { text: h.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.4, h: 0.42, margin: 0 });
+    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.2, h: 0.42, margin: 0 });
   });
 
-  // Stack pills at bottom
-  const stack = ['Laravel', 'React', 'TypeScript', 'PostgreSQL', 'Docker'];
-  slide.addText('TECH STACK: ' + stack.join('  ·  '), {
-    x: 1.1, y: 6.35, w: 4.4, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+  slide.addText('TECH STACK: Laravel  ·  React  ·  TypeScript  ·  PostgreSQL  ·  Docker', {
+    x: 1.1, y: 6.35, w: 4.2, h: 0.3,
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
-  // Right Side Visuals (Dashboard Screenshot + Inset)
-  const imgX = 6.05;
-  addBentoCard(slide, imgX, 2.05, 6.48, 4.85);
+  // Right Side Visuals
+  const imgX = 5.85;
+  addBentoCard(slide, imgX, 2.05, 6.68, 4.85);
 
+  slide.addShape(pres.ShapeType.rect, {
+    x: imgX + 0.35, y: 2.25, w: 5.98, h: 3.0,
+    fill: { color: 'F1F5F9' },
+    line: { color: C.cardBorder, width: 1 }
+  });
   slide.addImage({
     path: imgPath('opsflow.png'),
-    x: imgX + 0.25, y: 2.3, w: 6.0, h: 3.0,
-    rounding: true
+    x: imgX + 0.35, y: 2.25, w: 5.98, h: 3.0
   });
-  slide.addText('OpsFlow Operational Dashboard: Real-time ticket queue, priority metrics, and resolution velocity.', {
-    x: imgX + 0.25, y: 5.35, w: 6.0, h: 0.25,
-    fontSize: 9, fontFace: 'Calibri', color: C.muted, italic: true, margin: 0
+  slide.addText('OpsFlow Operations Dashboard: Real-time ticket queues, SLA metrics & status breakdown', {
+    x: imgX + 0.35, y: 5.32, w: 5.98, h: 0.22,
+    fontSize: 8.5, fontFace: 'Calibri', color: C.muted, italic: true, margin: 0
   });
 
+  slide.addShape(pres.ShapeType.rect, {
+    x: imgX + 0.35, y: 5.62, w: 5.98, h: 1.05,
+    fill: { color: 'F1F5F9' },
+    line: { color: C.cardBorder, width: 1 }
+  });
   slide.addImage({
     path: imgPath('opsflow-detail.png'),
-    x: imgX + 0.25, y: 5.65, w: 6.0, h: 1.1,
-    rounding: true
+    x: imgX + 0.35, y: 5.62, w: 5.98, h: 1.05
   });
 
   slide.addNotes('Case study on OpsFlow: internal IT service desk platform with Laravel, React, TypeScript, and PostgreSQL.');
@@ -484,8 +471,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '04 · Case Study 02 / Mobile & Cloud', '05 / 11');
   addSlideHeading(slide, 'Kizen: Manga & Comic Reader with Cloud Sync', 'A high-performance personal comic reader built with Flutter, Riverpod, and multi-source cloud sync.');
 
-  // Left Card
-  addBentoCard(slide, 0.8, 2.05, 4.9, 4.85);
+  addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.1, y: 2.3, w: 2.6, h: 0.28,
@@ -497,7 +483,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('Kizen Application', {
-    x: 1.1, y: 2.7, w: 4.3, h: 0.45,
+    x: 1.1, y: 2.7, w: 4.2, h: 0.45,
     fontSize: 20, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
@@ -505,13 +491,13 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     'A cross-platform manga and comic reader application delivering an ad-free, high-speed reading experience. ' +
     'Engineered with Riverpod reactive state management, Tachiyomi-inspired library organization, and multi-source scraping architecture.',
     {
-      x: 1.1, y: 3.25, w: 4.3, h: 1.1,
+      x: 1.1, y: 3.25, w: 4.2, h: 1.1,
       fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
   slide.addText('CORE CAPABILITIES & ENGINEERING', {
-    x: 1.1, y: 4.45, w: 4.3, h: 0.22,
+    x: 1.1, y: 4.45, w: 4.2, h: 0.22,
     fontSize: 8, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
 
@@ -524,32 +510,37 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     slide.addText([
       { text: '•  ' + h.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
       { text: h.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.3, h: 0.42, margin: 0 });
+    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.2, h: 0.42, margin: 0 });
   });
 
   slide.addText('TECH STACK: Flutter  ·  Dart  ·  Riverpod  ·  Firebase  ·  Firestore', {
-    x: 1.1, y: 6.35, w: 4.3, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+    x: 1.1, y: 6.35, w: 4.2, h: 0.3,
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
   // Right Side 3 Mobile Screens
-  const imgX = 5.95;
-  addBentoCard(slide, imgX, 2.05, 6.58, 4.85);
+  const imgX = 5.85;
+  addBentoCard(slide, imgX, 2.05, 6.68, 4.85);
 
   const screens = [
     { file: 'kizen-welcome.png', label: 'Cloud Sync Onboarding' },
-    { file: 'comic-library.png', label: 'Library & Reading Progress' },
+    { file: 'comic-library.png', label: 'Library & Collections' },
     { file: 'comic-reader.png', label: 'High-Res Infinite Reader' }
   ];
   screens.forEach((sc, idx) => {
-    const sx = imgX + 0.3 + (idx * 2.05);
+    const sx = imgX + 0.32 + (idx * 2.08);
+    slide.addShape(pres.ShapeType.roundRect, {
+      x: sx - 0.05, y: 2.22, w: 1.95, h: 4.12,
+      rectRadius: 0.08,
+      fill: { color: '0F172A' },
+      line: { color: '334155', width: 1.5 }
+    });
     slide.addImage({
       path: imgPath(sc.file),
-      x: sx, y: 2.25, w: 1.85, h: 4.0,
-      rounding: true
+      x: sx, y: 2.27, w: 1.85, h: 4.02
     });
     slide.addText(sc.label, {
-      x: sx, y: 6.35, w: 1.85, h: 0.35,
+      x: sx, y: 6.42, w: 1.85, h: 0.28,
       fontSize: 8.5, fontFace: 'Calibri', color: C.muted, align: 'center', bold: true, margin: 0
     });
   });
@@ -566,8 +557,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '05 · Case Study 03 / Thesis & IoT', '06 / 11');
   addSlideHeading(slide, 'Park Masjid: IoT-Integrated Smart Mosque Parking', 'Hardware-integrated vehicle counter with realtime Firebase sync and prayer schedule automation.');
 
-  // Left Card
-  addBentoCard(slide, 0.8, 2.05, 5.0, 4.85);
+  addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.1, y: 2.3, w: 2.8, h: 0.28,
@@ -579,7 +569,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('Park Masjid Platform', {
-    x: 1.1, y: 2.7, w: 4.4, h: 0.45,
+    x: 1.1, y: 2.7, w: 4.2, h: 0.45,
     fontSize: 20, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
@@ -588,13 +578,13 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     'Directly connects gate sensors to Firebase Realtime Database to broadcast live parking availability to thousands of worshippers.\n\n' +
     'Published as academic research in Technologia: Jurnal Ilmiah (2026).',
     {
-      x: 1.1, y: 3.25, w: 4.4, h: 1.25,
+      x: 1.1, y: 3.25, w: 4.2, h: 1.25,
       fontSize: 10.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
   slide.addText('KEY INNOVATIONS & ACHIEVEMENTS', {
-    x: 1.1, y: 4.6, w: 4.4, h: 0.22,
+    x: 1.1, y: 4.6, w: 4.2, h: 0.22,
     fontSize: 8, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
 
@@ -607,35 +597,41 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     slide.addText([
       { text: '•  ' + h.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
       { text: h.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 1.1, y: 4.88 + (idx * 0.46), w: 4.4, h: 0.42, margin: 0 });
+    ], { x: 1.1, y: 4.88 + (idx * 0.46), w: 4.2, h: 0.42, margin: 0 });
   });
 
   slide.addText('TECH STACK: Kotlin  ·  Android SDK  ·  Firebase Realtime DB  ·  IoT  ·  Material 3', {
-    x: 1.1, y: 6.35, w: 4.4, h: 0.3,
+    x: 1.1, y: 6.35, w: 4.2, h: 0.3,
     fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
-  // Right Side Screens (App screen + Admin dashboard)
-  const imgX = 6.05;
-  addBentoCard(slide, imgX, 2.05, 6.48, 4.85);
+  // Right Side Screens
+  const imgX = 5.85;
+  addBentoCard(slide, imgX, 2.05, 6.68, 4.85);
 
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: imgX + 0.35, y: 2.22, w: 2.05, h: 4.12,
+    rectRadius: 0.08, fill: { color: '0F172A' }, line: { color: '334155', width: 1.5 }
+  });
   slide.addImage({
     path: imgPath('park-masjid-app.png'),
-    x: imgX + 0.35, y: 2.25, w: 1.95, h: 4.15,
-    rounding: true
+    x: imgX + 0.4, y: 2.27, w: 1.95, h: 4.02
   });
-  slide.addText('Visitor Live Counter', {
-    x: imgX + 0.35, y: 6.45, w: 1.95, h: 0.25,
+  slide.addText('Visitor Live Slot Counter', {
+    x: imgX + 0.35, y: 6.42, w: 2.05, h: 0.28,
     fontSize: 8.5, fontFace: 'Calibri', color: C.muted, align: 'center', bold: true, margin: 0
   });
 
+  slide.addShape(pres.ShapeType.rect, {
+    x: imgX + 2.65, y: 2.22, w: 3.65, h: 4.12,
+    fill: { color: 'F8FAFC' }, line: { color: C.cardBorder, width: 1.5 }
+  });
   slide.addImage({
     path: imgPath('park-masjid-admin.png'),
-    x: imgX + 2.55, y: 2.25, w: 3.65, h: 4.15,
-    rounding: true
+    x: imgX + 2.7, y: 2.27, w: 3.55, h: 4.02
   });
-  slide.addText('Administrator Capacity & Prayer Editor', {
-    x: imgX + 2.55, y: 6.45, w: 3.65, h: 0.25,
+  slide.addText('Administrator Capacity & Schedule Editor', {
+    x: imgX + 2.65, y: 6.42, w: 3.65, h: 0.28,
     fontSize: 8.5, fontFace: 'Calibri', color: C.muted, align: 'center', bold: true, margin: 0
   });
 
@@ -649,7 +645,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
   addTopNav(slide, '06 · Case Study 04 / Reliability & Architecture', '07 / 11');
-  addSlideHeading(slide, 'OrderForge & Android Native Systems', 'Architectural explorations in high-concurrency checkout and clean native mobile architecture.');
+  addSlideHeading(slide, 'OrderForge & Native Android Architecture', 'Architectural explorations in high-concurrency checkout and clean native mobile architecture.');
 
   // Left Bento Card: OrderForge
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
@@ -664,34 +660,41 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('OrderForge Checkout Engine', {
-    x: 1.15, y: 2.7, w: 5.0, h: 0.45,
-    fontSize: 18, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
+    x: 1.15, y: 2.7, w: 5.0, h: 0.42,
+    fontSize: 17, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
   slide.addText(
-    'An e-commerce order and inventory engine designed to guarantee data consistency during high-volume flash sales. ' +
-    'Engineered with idempotent payment processing, atomic stock reservations, and event-driven rollback handlers.',
+    'An e-commerce order engine designed to guarantee data consistency during high-volume flash sales with atomic Redis locks and idempotent payment processing.',
     {
-      x: 1.15, y: 3.25, w: 5.0, h: 1.1,
-      fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
+      x: 1.15, y: 3.18, w: 5.0, h: 0.72,
+      fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.2, margin: 0
     }
   );
 
-  const ofFeatures = [
-    { title: 'Stock Reservation Locks', desc: 'Atomic Redis locks preventing overselling during race-condition surges.' },
-    { title: 'Idempotent Payment Hooks', desc: 'Cryptographic deduplication of webhook events to prevent double-charges.' },
-    { title: 'Event Rollback Recovery', desc: 'Automated compensating transactions when downstream fulfillment fails.' }
+  slide.addShape(pres.ShapeType.rect, {
+    x: 1.15, y: 3.96, w: 5.0, h: 1.85,
+    fill: { color: 'F1F5F9' }, line: { color: C.cardBorder, width: 1 }
+  });
+  slide.addImage({
+    path: imgPath('orderforge.png'),
+    x: 1.15, y: 3.96, w: 5.0, h: 1.85
+  });
+
+  const ofPoints = [
+    '• Atomic Redis reservation locks preventing overselling.',
+    '• Cryptographic webhook deduplication preventing double-charges.'
   ];
-  ofFeatures.forEach((f, idx) => {
-    slide.addText([
-      { text: '•  ' + f.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
-      { text: f.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 1.15, y: 4.45 + (idx * 0.5), w: 5.0, h: 0.45, margin: 0 });
+  ofPoints.forEach((p, idx) => {
+    slide.addText(p, {
+      x: 1.15, y: 5.88 + (idx * 0.24), w: 5.0, h: 0.22,
+      fontSize: 8.5, fontFace: 'Calibri', color: C.inkSoft, margin: 0
+    });
   });
 
   slide.addText('TECH STACK: Laravel  ·  Next.js  ·  PostgreSQL  ·  Docker  ·  Redis', {
-    x: 1.15, y: 6.35, w: 5.0, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+    x: 1.15, y: 6.42, w: 5.0, h: 0.25,
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
   // Right Bento Card: Katalog Komik
@@ -707,34 +710,41 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('Katalog Komik Android App', {
-    x: 7.1, y: 2.7, w: 5.0, h: 0.45,
-    fontSize: 18, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
+    x: 7.1, y: 2.7, w: 5.0, h: 0.42,
+    fontSize: 17, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
   slide.addText(
-    'A modern native Android application showcasing Google Clean Architecture, declarative Jetpack Compose UI, ' +
-    'and offline-first synchronization using Room Database and Kotlin Coroutines/Flow.',
+    'A modern native Android application showcasing Google Clean Architecture, declarative Jetpack Compose UI, and offline-first Room Database caching.',
     {
-      x: 7.1, y: 3.25, w: 5.0, h: 1.1,
-      fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
+      x: 7.1, y: 3.18, w: 5.0, h: 0.72,
+      fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.2, margin: 0
     }
   );
 
-  const komikFeatures = [
-    { title: 'Jetpack Compose UI', desc: '100% declarative UI with fluid animations and responsive orientation adapts.' },
-    { title: 'Room Database Caching', desc: 'Complete offline cache with Single Source of Truth repository pattern.' },
-    { title: 'Kotlin Coroutines & Flow', desc: 'Asynchronous reactive streams with structured cancellation handling.' }
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: 7.1, y: 3.96, w: 5.0, h: 1.85,
+    rectRadius: 0.08, fill: { color: '0F172A' }, line: { color: '334155', width: 1 }
+  });
+  slide.addImage({
+    path: imgPath('comic-library.png'),
+    x: 7.15, y: 4.01, w: 4.9, h: 1.75
+  });
+
+  const komikPoints = [
+    '• 100% declarative Jetpack Compose UI with adaptive orientations.',
+    '• Reactive Single Source of Truth repository with Room DB & Coroutines.'
   ];
-  komikFeatures.forEach((f, idx) => {
-    slide.addText([
-      { text: '•  ' + f.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
-      { text: f.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 7.1, y: 4.45 + (idx * 0.5), w: 5.0, h: 0.45, margin: 0 });
+  komikPoints.forEach((p, idx) => {
+    slide.addText(p, {
+      x: 7.1, y: 5.88 + (idx * 0.24), w: 5.0, h: 0.22,
+      fontSize: 8.5, fontFace: 'Calibri', color: C.inkSoft, margin: 0
+    });
   });
 
   slide.addText('TECH STACK: Kotlin  ·  Jetpack Compose  ·  Room DB  ·  Retrofit  ·  Coroutines', {
-    x: 7.1, y: 6.35, w: 5.0, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+    x: 7.1, y: 6.42, w: 5.0, h: 0.25,
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
   slide.addNotes('Dual case study presenting OrderForge commerce reliability engine and Katalog Komik native Android app.');
@@ -749,8 +759,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '07 · Case Study 05 / Personal Finance', '08 / 11');
   addSlideHeading(slide, 'MoneyTrack: Offline-First Expense & Cash Flow Analytics', 'Know where every rupiah moves — zero cloud latency, multi-wallet accounts, and complete privacy.');
 
-  // Left Card
-  addBentoCard(slide, 0.8, 2.05, 5.0, 4.85);
+  addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.1, y: 2.3, w: 2.7, h: 0.28,
@@ -762,7 +771,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('MoneyTrack Mobile App', {
-    x: 1.1, y: 2.7, w: 4.4, h: 0.45,
+    x: 1.1, y: 2.7, w: 4.2, h: 0.45,
     fontSize: 20, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
@@ -770,13 +779,13 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     'A personal finance management application engineered for speed, privacy, and full offline functionality. ' +
     'Enables users to manage multiple bank accounts, e-wallets, and cash reserves with automated expense categorization and visual analytics.',
     {
-      x: 1.1, y: 3.25, w: 4.4, h: 1.1,
+      x: 1.1, y: 3.25, w: 4.2, h: 1.1,
       fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
   slide.addText('CORE PRODUCT HIGHLIGHTS', {
-    x: 1.1, y: 4.45, w: 4.4, h: 0.22,
+    x: 1.1, y: 4.45, w: 4.2, h: 0.22,
     fontSize: 8, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
 
@@ -789,35 +798,41 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     slide.addText([
       { text: '•  ' + h.title + ': ', options: { bold: true, color: C.emerald, fontSize: 9.5 } },
       { text: h.desc, options: { color: C.inkSoft, fontSize: 9 } }
-    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.4, h: 0.42, margin: 0 });
+    ], { x: 1.1, y: 4.75 + (idx * 0.48), w: 4.2, h: 0.42, margin: 0 });
   });
 
   slide.addText('TECH STACK: React Native  ·  Expo  ·  TypeScript  ·  AsyncStorage  ·  Charts', {
-    x: 1.1, y: 6.35, w: 4.4, h: 0.3,
+    x: 1.1, y: 6.35, w: 4.2, h: 0.3,
     fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
   // Right Side Mobile Screens
-  const imgX = 6.05;
-  addBentoCard(slide, imgX, 2.05, 6.48, 4.85);
+  const imgX = 5.85;
+  addBentoCard(slide, imgX, 2.05, 6.68, 4.85);
 
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: imgX + 0.65, y: 2.22, w: 2.45, h: 4.12,
+    rectRadius: 0.08, fill: { color: '0F172A' }, line: { color: '334155', width: 1.5 }
+  });
   slide.addImage({
     path: imgPath('moneytrack-dashboard.png'),
-    x: imgX + 0.65, y: 2.25, w: 2.3, h: 4.15,
-    rounding: true
+    x: imgX + 0.7, y: 2.27, w: 2.35, h: 4.02
   });
   slide.addText('Balance & Wallet Breakdown', {
-    x: imgX + 0.65, y: 6.45, w: 2.3, h: 0.25,
+    x: imgX + 0.65, y: 6.42, w: 2.45, h: 0.28,
     fontSize: 8.5, fontFace: 'Calibri', color: C.muted, align: 'center', bold: true, margin: 0
   });
 
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: imgX + 3.55, y: 2.22, w: 2.45, h: 4.12,
+    rectRadius: 0.08, fill: { color: '0F172A' }, line: { color: '334155', width: 1.5 }
+  });
   slide.addImage({
     path: imgPath('moneytrack-transactions.png'),
-    x: imgX + 3.45, y: 2.25, w: 2.3, h: 4.15,
-    rounding: true
+    x: imgX + 3.6, y: 2.27, w: 2.35, h: 4.02
   });
   slide.addText('Filterable Transaction Ledger', {
-    x: imgX + 3.45, y: 6.45, w: 2.3, h: 0.25,
+    x: imgX + 3.55, y: 6.42, w: 2.45, h: 0.28,
     fontSize: 8.5, fontFace: 'Calibri', color: C.muted, align: 'center', bold: true, margin: 0
   });
 
@@ -833,7 +848,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   addTopNav(slide, '08 · Supplementary Archive', '09 / 11');
   addSlideHeading(slide, 'Also in the Making: Health Tech & Enterprise Deliveries', 'Additional explorations and production client deliverables from research and freelance projects.');
 
-  // Card 1: JiwaKu
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
@@ -846,42 +860,44 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText('JiwaKu Mental Health App', {
-    x: 1.15, y: 2.7, w: 5.0, h: 0.45,
-    fontSize: 18, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
+    x: 1.15, y: 2.65, w: 3.2, h: 0.55,
+    fontSize: 16.5, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
   slide.addText(
     'A comprehensive mental wellness support app built with Kotlin, featuring real-time counseling chat, emergency psychiatric helpline routing, guided audio meditation, and Firebase Firestore authentication.',
     {
-      x: 1.15, y: 3.25, w: 3.2, h: 1.25,
+      x: 1.15, y: 3.25, w: 3.1, h: 1.25,
       fontSize: 10.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: 4.45, y: 2.85, w: 1.8, h: 3.45,
+    rectRadius: 0.08, fill: { color: '0F172A' }, line: { color: '334155', width: 1 }
+  });
   slide.addImage({
     path: imgPath('jiwaku.png'),
-    x: 4.6, y: 3.0, w: 1.6, h: 3.2,
-    rounding: true
+    x: 4.5, y: 2.9, w: 1.7, h: 3.35
   });
 
   const jwFeatures = [
     '• Real-time counseling chat with Firestore listeners.',
-    '• Direct routing to certified psychiatric emergency services.',
+    '• Direct routing to certified psychiatric helplines.',
     '• Built-in mood tracking journal and guided audio exercises.'
   ];
   jwFeatures.forEach((jf, idx) => {
     slide.addText(jf, {
-      x: 1.15, y: 4.65 + (idx * 0.45), w: 3.3, h: 0.4,
-      fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, margin: 0
+      x: 1.15, y: 4.65 + (idx * 0.45), w: 3.1, h: 0.4,
+      fontSize: 9, fontFace: 'Calibri', color: C.inkSoft, margin: 0
     });
   });
 
   slide.addText('TECH STACK: Kotlin  ·  Android SDK  ·  Firebase  ·  Material 3', {
     x: 1.15, y: 6.35, w: 5.0, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
-  // Card 2: Enterprise Client Portal
   addBentoCard(slide, 6.75, 2.05, 5.78, 4.85);
 
   slide.addShape(pres.ShapeType.roundRect, {
@@ -922,7 +938,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 
   slide.addText('TECH STACK: Laravel  ·  Vue.js 3  ·  Vite  ·  MySQL  ·  Tailwind CSS', {
     x: 7.1, y: 6.35, w: 5.0, h: 0.3,
-    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
   });
 
   slide.addNotes('Supplementary archive showcasing JiwaKu mental wellness app and an Enterprise Client Web Portal.');
@@ -972,7 +988,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     const my = 2.05 + (idx * 1.22);
     addBentoCard(slide, 0.8, my, 11.733, 1.1);
 
-    // Badge
     slide.addShape(pres.ShapeType.roundRect, {
       x: 1.1, y: my + 0.2, w: 1.3, h: 0.26,
       rectRadius: 0.13, fill: { color: C.emeraldLight }, line: { color: 'C2E5CD', width: 1 }
@@ -982,19 +997,16 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
       fontSize: 7.5, fontFace: 'Calibri', bold: true, color: C.emerald, align: 'center', valign: 'middle', margin: 0
     });
 
-    // Period
     slide.addText(m.period, {
       x: 2.55, y: my + 0.2, w: 2.2, h: 0.26,
       fontSize: 9, fontFace: 'Calibri', bold: true, color: C.muted, valign: 'middle', margin: 0
     });
 
-    // Role & Org
     slide.addText([
       { text: m.role, options: { bold: true, color: C.ink, fontSize: 13, fontFace: 'Georgia' } },
       { text: '  ·  ' + m.org, options: { color: C.muted, fontSize: 10, fontFace: 'Calibri' } }
     ], { x: 1.1, y: my + 0.52, w: 11.0, h: 0.26, margin: 0 });
 
-    // Description
     slide.addText(m.desc, {
       x: 1.1, y: my + 0.78, w: 11.0, h: 0.25,
       fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, margin: 0
@@ -1012,10 +1024,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   slide.background = { color: C.darkBg };
   addTopNav(slide, '10 · Get In Touch', '11 / 11', true);
 
-  // Background Bento Box
   addBentoCard(slide, 0.8, 1.1, 11.733, 5.7, true);
 
-  // Status Badge
   slide.addShape(pres.ShapeType.roundRect, {
     x: 1.3, y: 1.5, w: 3.5, h: 0.35,
     rectRadius: 0.17, fill: { color: '183426' }, line: { color: '28553E', width: 1 }
@@ -1025,7 +1035,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     fontSize: 8.5, fontFace: 'Calibri', bold: true, color: '6EE7B7', align: 'center', valign: 'middle', margin: 0
   });
 
-  // Main Headline
   slide.addText('Let’s build software that lasts.', {
     x: 1.3, y: 2.05, w: 8.0, h: 0.75,
     fontSize: 34, fontFace: 'Georgia', bold: true, color: C.white, margin: 0
@@ -1040,7 +1049,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     }
   );
 
-  // 4 Bento Action Cards
   const contactBoxes = [
     {
       title: 'DIRECT INQUIRY',
@@ -1096,7 +1104,6 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     });
   });
 
-  // Footer bar
   slide.addText('© 2026 Reiky Aryanando Pratama · Handcrafted with precision & discipline · Yogyakarta, Indonesia', {
     x: 1.3, y: 6.4, w: 10.7, h: 0.25,
     fontSize: 8.5, fontFace: 'Calibri', color: C.darkMuted, margin: 0
