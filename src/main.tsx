@@ -179,6 +179,7 @@ function App() {
   const [spotlightIndex, setSpotlightIndex] = useState(0)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [preview, setPreview] = useState<ProjectShot | null>(null)
+  const [isZoomed, setIsZoomed] = useState(false)
   const [activeChapter, setActiveChapter] = useState(0)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isInProjects, setIsInProjects] = useState(false)
@@ -186,6 +187,11 @@ function App() {
   const [copied, setCopied] = useState(false)
   const chapterLinksRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
+
+  const closePreview = () => {
+    setPreview(null)
+    setIsZoomed(false)
+  }
 
   const handleCopyEmail = () => {
     if (navigator?.clipboard) {
@@ -216,8 +222,18 @@ function App() {
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (preview && !dialog.open) dialog.showModal()
-    if (!preview && dialog.open) dialog.close()
+    if (preview && !dialog.open) {
+      dialog.showModal()
+      document.body.style.overflow = 'hidden'
+    }
+    if (!preview && dialog.open) {
+      dialog.close()
+      document.body.style.overflow = ''
+    }
+  }, [preview])
+
+  useEffect(() => {
+    setIsZoomed(false)
   }, [preview])
 
   useEffect(() => {
@@ -736,8 +752,77 @@ function App() {
         </div>
       </footer>
 
-      <dialog className="image-dialog" ref={dialogRef} onClose={() => setPreview(null)} onClick={event => { if (event.target === event.currentTarget) setPreview(null) }}>
-        {preview && <div className="dialog-panel"><div className="dialog-bar"><p>{preview.caption}</p><button type="button" onClick={() => setPreview(null)} aria-label="Close screenshot viewer">Close</button></div><img src={preview.src} width={preview.width} height={preview.height} alt={preview.alt} /></div>}
+      <dialog
+        className="image-dialog"
+        ref={dialogRef}
+        onClose={closePreview}
+        onClick={event => {
+          if (event.target === event.currentTarget) closePreview()
+        }}
+      >
+        {preview && (
+          <div className="lightbox-shell">
+            <header className="lightbox-header">
+              <div className="lightbox-caption">
+                <span className="lightbox-caption__dot" aria-hidden="true" />
+                <strong>{preview.caption}</strong>
+              </div>
+              <div className="lightbox-actions">
+                <button
+                  type="button"
+                  className={`lightbox-btn lightbox-btn--zoom${isZoomed ? ' is-active' : ''}`}
+                  onClick={() => setIsZoomed(!isZoomed)}
+                  aria-label={isZoomed ? 'Fit to screen' : 'Zoom in on image'}
+                  title={isZoomed ? 'Fit to screen' : 'Zoom in'}
+                >
+                  <span aria-hidden="true">{isZoomed ? '🔍−' : '🔍+'}</span>
+                  <span>{isZoomed ? 'Fit' : 'Zoom'}</span>
+                </button>
+                <a
+                  className="lightbox-btn lightbox-btn--link"
+                  href={preview.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open original image in new tab"
+                  title="Open original high-res image"
+                >
+                  <span>HD</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+                <button
+                  type="button"
+                  className="lightbox-btn lightbox-btn--close"
+                  onClick={closePreview}
+                  aria-label="Close screenshot viewer"
+                >
+                  <span aria-hidden="true">✕</span>
+                  <span>Close</span>
+                </button>
+              </div>
+            </header>
+
+            <div
+              className={`lightbox-canvas${isZoomed ? ' is-zoomed' : ''}`}
+              onClick={event => {
+                if (event.target === event.currentTarget) closePreview()
+              }}
+            >
+              <div
+                className="lightbox-frame"
+                onClick={() => setIsZoomed(!isZoomed)}
+                title={isZoomed ? 'Tap to fit screen' : 'Tap to zoom in'}
+              >
+                <img
+                  src={preview.src}
+                  width={preview.width}
+                  height={preview.height}
+                  alt={preview.alt}
+                  className="lightbox-image"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </dialog>
     </>
   )
