@@ -63,7 +63,7 @@ export const projects: Project[] = [
     shots: [
       { src: '/images/park-masjid-availability.webp', width: 947, height: 2023, alt: 'Park Masjid Android screen showing motorcycle and car parking availability.', caption: 'Parking availability' },
       { src: '/images/park-masjid-prayer.webp', width: 943, height: 2023, alt: 'Park Masjid Android screen showing prayer times.', caption: 'Prayer schedule' },
-      { src: '/images/park-masjid-admin-screens.png', width: 2668, height: 2309, alt: 'Park Masjid administrator dashboard and capacity editor from the project repository.', caption: 'Administrator view' },
+      { src: '/images/park-masjid-admin.webp', width: 915, height: 2035, alt: 'Park Masjid administrator dashboard and capacity editor modal with complete navigation.', caption: 'Administrator editor' },
     ],
   },
   {

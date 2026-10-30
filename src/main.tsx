@@ -15,36 +15,6 @@ function Arrow({ diagonal = false }: { diagonal?: boolean }) {
   return <span className="arrow" aria-hidden="true">{diagonal ? '↗' : '→'}</span>
 }
 
-function MoneyTrackGallery({ compact = false, isActive = true, onPreview }: { compact?: boolean; isActive?: boolean; onPreview: (shot: ProjectShot) => void }) {
-  const project = projects.find(item => item.slug === 'moneytrack')!
-  const headlines = [
-    'A clearer view of every balance.',
-    'Smart & minimalist financial freedom.',
-    'Track every transaction & category.',
-  ]
-  const notes = [
-    'Net balance · Wallets · Expenses',
-    '100% Offline · Private · Fast',
-    'History · Transfer · Filters',
-  ]
-
-  return (
-    <div className={`money-gallery${compact ? ' money-gallery--compact' : ''}`} aria-label="MoneyTrack mobile application gallery" aria-hidden={!isActive}>
-      {project.shots.map((shot, index) => (
-        <figure className={`money-screen money-screen--${index + 1}`} key={shot.src}>
-          <button className="money-screen__card" type="button" tabIndex={isActive ? 0 : -1} onClick={() => { if (isActive) onPreview(shot) }} aria-label={`Open MoneyTrack: ${shot.caption}`}>
-            <span className="money-screen__index">0{index + 1} / MoneyTrack</span>
-            <strong>{headlines[index] || shot.caption}</strong>
-            <span className="money-screen__capture"><img src={shot.src} width={shot.width} height={shot.height} alt="" loading="lazy" /></span>
-            <span className="money-screen__note">{notes[index] || ''}</span>
-          </button>
-          {!compact && <figcaption>{shot.caption}<span aria-hidden="true">↗</span></figcaption>}
-        </figure>
-      ))}
-    </div>
-  )
-}
-
 function DeckGallery({ project, isActive, onPreview }: { project: Project; isActive: boolean; onPreview: (shot: ProjectShot) => void }) {
   return (
     <div className={`deck-sheet__media deck-sheet__media--gallery deck-gallery deck-gallery--${project.slug}`} aria-label={`Three ${project.name} application screens`} aria-hidden={!isActive}>
@@ -91,8 +61,6 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
               <div className="deck-sheet__head"><span>{String(index + 1).padStart(2, '0')} / {String(projects.length).padStart(2, '0')}</span><strong>{project.name}</strong></div>
               {project.shots.length === 3 ? (
                 <DeckGallery project={project} isActive={isActive} onPreview={shot => { if (!swipeJustFinished.current) onPreview(shot) }} />
-              ) : project.slug === 'moneytrack' ? (
-                <div className="deck-sheet__media deck-sheet__media--moneytrack"><MoneyTrackGallery compact isActive={isActive} onPreview={shot => { if (!swipeJustFinished.current) onPreview(shot) }} /></div>
               ) : shot ? (
                 <button className="deck-sheet__media" type="button" tabIndex={isActive ? 0 : -1} aria-hidden={!isActive} onClick={() => { if (isActive && !swipeJustFinished.current) onPreview(shot) }} aria-label={`Open ${project.name}: ${shot.caption}`}>
                   <img src={shot.src} width={shot.width} height={shot.height} alt={shot.alt} fetchPriority={index === 0 ? 'high' : undefined} />
@@ -161,19 +129,15 @@ function ProjectSection({
         </div>
 
         <div className={`project-media project-media--${project.slug}`} data-reveal>
-          {project.slug === 'moneytrack' ? (
-            <MoneyTrackGallery onPreview={onPreview} />
-          ) : (
-            project.shots.map((shot, shotIndex) => (
-              <figure className={`project-shot project-shot--${shotIndex + 1}`} key={shot.src}>
-                <button type="button" onClick={() => onPreview(shot)} aria-label={`Open ${project.name}: ${shot.caption}`}>
-                  <img src={shot.src} width={shot.width} height={shot.height} alt={shot.alt} loading="lazy" />
-                  <span className="project-shot__zoom" aria-hidden="true">View image ↗</span>
-                </button>
-                <figcaption>{shot.caption}<span aria-hidden="true">↗</span></figcaption>
-              </figure>
-            ))
-          )}
+          {project.shots.map((shot, shotIndex) => (
+            <figure className={`project-shot project-shot--${shotIndex + 1}`} key={shot.src}>
+              <button type="button" onClick={() => onPreview(shot)} aria-label={`Open ${project.name}: ${shot.caption}`}>
+                <img src={shot.src} width={shot.width} height={shot.height} alt={shot.alt} loading="lazy" />
+                <span className="project-shot__zoom" aria-hidden="true">View image ↗</span>
+              </button>
+              <figcaption>{shot.caption}<span aria-hidden="true">↗</span></figcaption>
+            </figure>
+          ))}
         </div>
 
         <div className="project-copy" data-reveal>

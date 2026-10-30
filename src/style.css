@@ -342,21 +342,17 @@ a:hover .arrow { transform: translate(3px, -2px); }
 .deck-slot:not(.deck-slot--center) .deck-sheet__media:not(.deck-gallery) > span { opacity: 0; }
 .deck-sheet--park-masjid .deck-sheet__media { background: var(--park); }
 .deck-sheet--kizen .deck-sheet__media, .deck-sheet--jiwaku .deck-sheet__media { background: var(--kizen); }
+.deck-sheet--moneytrack .deck-sheet__media { background: var(--money); }
 .deck-gallery { display: flex; align-items: center; justify-content: center; gap: clamp(.5rem, 1.2vw, 1rem); padding: .6rem 1rem; cursor: default; }
-.deck-gallery__screen { position: relative; flex: 0 0 auto; width: auto; height: 92%; aspect-ratio: .47; padding: 0; overflow: clip; border: 0; border-radius: .65rem; background: var(--white); box-shadow: 0 10px 24px var(--shadow); cursor: zoom-in; transition: transform 360ms var(--ease-out), box-shadow 360ms var(--ease-out); }
+.deck-gallery__screen { position: relative; flex: 0 0 auto; width: auto; height: 92%; aspect-ratio: .47; padding: 0; overflow: clip; border: 1px solid rgba(26, 26, 26, 0.08); border-radius: 8px; background: var(--white); box-shadow: 0 10px 24px var(--shadow); cursor: zoom-in; transition: transform 360ms var(--ease-out), box-shadow 360ms var(--ease-out); }
 .deck-gallery__screen--1 { transform: translateY(9px) rotate(-5deg); }
 .deck-gallery__screen--2 { height: 100%; transform: translateY(-4px); }
 .deck-gallery__screen--3 { height: 88%; transform: translateY(10px) rotate(5deg); }
 .deck-gallery__screen:hover { z-index: 2; box-shadow: 0 18px 36px var(--shadow-lift); transform: translateY(-8px) rotate(0); }
 .deck-gallery__screen:focus-visible { z-index: 2; transform: translateY(-8px) rotate(0); }
-.deck-gallery__screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
-.deck-gallery--jiwaku .deck-gallery__screen--3 img, .deck-gallery--park-masjid .deck-gallery__screen--3 img { position: absolute; height: auto; max-width: none; object-fit: initial; }
-.deck-gallery--jiwaku .deck-gallery__screen--3 img { top: -18%; left: -156%; width: 535%; }
-.deck-gallery--park-masjid .deck-gallery__screen--3 img { top: -7%; left: -40%; width: 293%; }
-.deck-gallery--kizen .deck-gallery__screen--3 img { position: relative; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.deck-gallery__screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 8px; }
 .deck-gallery__hint { position: absolute; right: .6rem; bottom: .4rem; display: flex; align-items: center; gap: .35rem; color: var(--ink-soft); font-size: .69rem; opacity: 0; transition: opacity 250ms ease; }
 .deck-slot--center .deck-gallery:hover .deck-gallery__hint { opacity: 1; }
-.deck-sheet__media--moneytrack { background: var(--money); }
 .deck-sheet__foot { min-height: 43px; padding: .5rem .35rem 0; color: var(--ink-soft); font-size: .82rem; }
 .deck-sheet__foot span:last-child { text-align: right; }
 .project-deck__controls { position: relative; z-index: 9; display: flex; align-items: center; justify-content: center; gap: .65rem; width: max-content; max-width: 100%; padding: .35rem; margin: 0 auto; border: 1px solid var(--glass-edge); border-radius: 999px; background: var(--paper); box-shadow: 0 12px 28px var(--glass-shadow), var(--glass-highlight); }
@@ -375,7 +371,7 @@ a:hover .arrow { transform: translate(3px, -2px); }
 .deck-tab.is-active { border-color: var(--ink); background: var(--ink); color: var(--cream); }
 .deck-tab__image { display: none; place-items: center; height: 46px; overflow: hidden; border-radius: .45rem; background: var(--paper-alt); color: var(--ink); font: 700 1.2rem/1 var(--font-display); }
 .deck-tab__image img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
-.deck-tab--park-masjid .deck-tab__image img, .deck-tab--kizen .deck-tab__image img, .deck-tab--jiwaku .deck-tab__image img { object-fit: contain; }
+.deck-tab--park-masjid .deck-tab__image img, .deck-tab--kizen .deck-tab__image img, .deck-tab--moneytrack .deck-tab__image img { object-fit: contain; }
 .deck-tab__label { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
 .deck-tab__label small { flex: 0 0 auto; color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
 .deck-tab.is-active .deck-tab__label small { color: var(--sage-deep); }
@@ -511,11 +507,11 @@ a:hover .arrow { transform: translate(3px, -2px); }
 .work-intro__preview--orderforge .work-intro__preview-media { background: var(--order); }
 .work-intro__preview--park-masjid .work-intro__preview-media { background: var(--park); }
 .work-intro__preview--kizen .work-intro__preview-media, .work-intro__preview--jiwaku .work-intro__preview-media { background: var(--kizen); }
-.work-intro__preview--moneytrack .work-intro__preview-media { background: var(--money-screen); }
-.work-intro__preview--park-masjid .work-intro__preview-media img, .work-intro__preview--kizen .work-intro__preview-media img, .work-intro__preview--jiwaku .work-intro__preview-media img { top: 5%; bottom: auto; width: auto; height: 96%; object-fit: contain; }
-.work-intro__preview--park-masjid .work-intro__preview-media img:first-child, .work-intro__preview--kizen .work-intro__preview-media img:first-child, .work-intro__preview--jiwaku .work-intro__preview-media img:first-child { left: 21%; transform: rotate(-6deg); }
-.work-intro__preview--park-masjid .work-intro__preview-media img:last-child, .work-intro__preview--kizen .work-intro__preview-media img:last-child, .work-intro__preview--jiwaku .work-intro__preview-media img:last-child { right: 21%; transform: rotate(6deg); }
-.work-intro__preview--park-masjid:hover .work-intro__preview-media img:first-child, .work-intro__preview--kizen:hover .work-intro__preview-media img:first-child, .work-intro__preview--jiwaku:hover .work-intro__preview-media img:first-child { transform: translateY(-6px) rotate(-6deg); }
+.work-intro__preview--moneytrack .work-intro__preview-media { background: var(--money); }
+.work-intro__preview--park-masjid .work-intro__preview-media img, .work-intro__preview--kizen .work-intro__preview-media img, .work-intro__preview--moneytrack .work-intro__preview-media img { top: 5%; bottom: auto; width: auto; height: 96%; object-fit: contain; }
+.work-intro__preview--park-masjid .work-intro__preview-media img:first-child, .work-intro__preview--kizen .work-intro__preview-media img:first-child, .work-intro__preview--moneytrack .work-intro__preview-media img:first-child { left: 21%; transform: rotate(-6deg); }
+.work-intro__preview--park-masjid .work-intro__preview-media img:last-child, .work-intro__preview--kizen .work-intro__preview-media img:last-child, .work-intro__preview--moneytrack .work-intro__preview-media img:last-child { right: 21%; transform: rotate(6deg); }
+.work-intro__preview--park-masjid:hover .work-intro__preview-media img:first-child, .work-intro__preview--kizen:hover .work-intro__preview-media img:first-child, .work-intro__preview--moneytrack:hover .work-intro__preview-media img:first-child { transform: translateY(-6px) rotate(-6deg); }
 
 /* Floating Bottom Control Bar */
 .work-intro__preview-foot { 
@@ -1163,12 +1159,14 @@ a:hover .arrow { transform: translate(3px, -2px); }
 }
 
 .project--park-masjid .project-heading,
-.project--kizen .project-heading {
+.project--kizen .project-heading,
+.project--moneytrack .project-heading {
   grid-template-columns: minmax(0, 1fr) minmax(0, .8fr);
 }
 
 .project-media--park-masjid,
-.project-media--kizen {
+.project-media--kizen,
+.project-media--moneytrack {
   position: relative;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   justify-items: center;
@@ -1177,181 +1175,39 @@ a:hover .arrow { transform: translate(3px, -2px); }
   background: transparent;
 }
 .project-media--park-masjid .project-shot,
-.project-media--kizen .project-shot {
+.project-media--kizen .project-shot,
+.project-media--moneytrack .project-shot {
   grid-column: auto;
   width: min(100%, 300px);
   margin-top: 0;
 }
 .project-media--park-masjid .project-shot--2,
-.project-media--kizen .project-shot--2 {
+.project-media--kizen .project-shot--2,
+.project-media--moneytrack .project-shot--2 {
   padding-top: clamp(2rem, 7vw, 7rem);
 }
 .project-media--park-masjid .project-shot--3,
-.project-media--kizen .project-shot--3 {
+.project-media--kizen .project-shot--3,
+.project-media--moneytrack .project-shot--3 {
   padding-top: clamp(1rem, 3.5vw, 3.5rem);
 }
 .project-media--park-masjid .project-shot button,
-.project-media--kizen .project-shot button {
-  border: 0;
-  border-radius: 1.25rem;
-}
-.project-media--park-masjid .project-shot img,
-.project-media--kizen .project-shot img {
-  border-radius: 1.25rem;
-}
-.project-media--park-masjid .project-shot--3 button {
-  aspect-ratio: .47;
-}
-.project-media--park-masjid .project-shot--3 img {
-  position: absolute;
-  height: auto;
-  max-width: none;
-  border-radius: 0;
-  top: -7%;
-  left: -40%;
-  width: 293%;
-}
-.project-media--park-masjid .project-shot figcaption,
-.project-media--kizen .project-shot figcaption {
-  color: var(--ink-soft);
-}
-
-.project-media--moneytrack {
-  display: block;
-}
-.money-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
-  justify-items: center;
-  gap: clamp(1rem, 3vw, 3.5rem);
-  width: 100%;
-  padding-inline: clamp(1rem, 4vw, 4rem);
-}
-.money-screen {
-  width: min(100%, 300px);
-  min-width: 0;
-  margin: 0;
-}
-.money-screen--2 {
-  margin-top: clamp(2rem, 7vw, 7rem);
-}
-.money-screen--3,
-.money-screen--pending {
-  margin-top: clamp(1rem, 3.5vw, 3.5rem);
-}
-.money-screen__card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  aspect-ratio: .47;
-  padding: 1.15rem;
-  overflow: clip;
-  border: 0;
-  border-radius: 1.25rem;
-  background: var(--money-screen);
-  color: var(--night-text);
-  text-align: left;
+.project-media--kizen .project-shot button,
+.project-media--moneytrack .project-shot button {
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  border-radius: 10px;
+  background: var(--paper);
   box-shadow: 0 16px 48px var(--shadow);
 }
-button.money-screen__card {
-  cursor: zoom-in;
-  transition: transform 320ms var(--ease-out);
+.project-media--park-masjid .project-shot img,
+.project-media--kizen .project-shot img,
+.project-media--moneytrack .project-shot img {
+  border-radius: 10px;
 }
-button.money-screen__card:hover {
-  transform: translateY(-8px);
-}
-.money-screen__index {
-  color: var(--money-muted);
-  font-size: .72rem;
-}
-.money-screen__card strong {
-  max-width: 11ch;
-  font: 700 clamp(1.45rem, 2.4vw, 2.4rem)/1.03 var(--font-display);
-  letter-spacing: -.06em;
-}
-.money-screen__capture {
-  display: block;
-  height: 47%;
-  overflow: clip;
-  border: 1px solid var(--money-capture-line);
-  border-radius: .75rem;
-  background: var(--money-capture);
-}
-.money-screen__capture img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-}
-.money-screen__note {
-  color: var(--money-soft);
-  font-size: .79rem;
-  line-height: 1.4;
-}
-.money-screen--pending .money-screen__card {
-  border: 1px dashed var(--money-mark-line);
-  background: var(--money-screen-raised);
-  color: var(--night-text);
-  box-shadow: none;
-}
-.money-screen__pending-mark {
-  display: grid;
-  place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  border: 1px solid var(--money-mark-line);
-  border-radius: 50%;
-  color: var(--money-mark);
-  font: 300 2.4rem/1 var(--font-display);
-}
-.money-screen figcaption {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: .8rem;
+.project-media--park-masjid .project-shot figcaption,
+.project-media--kizen .project-shot figcaption,
+.project-media--moneytrack .project-shot figcaption {
   color: var(--ink-soft);
-  font-size: .78rem;
-}
-.money-gallery--compact {
-  align-items: center;
-  height: 100%;
-  gap: .5rem;
-  padding: .25rem .6rem;
-}
-.money-gallery--compact .money-screen {
-  width: min(100%, 96px);
-  height: 94%;
-  margin-top: 0;
-}
-.money-gallery--compact .money-screen__card {
-  height: 100%;
-  aspect-ratio: auto;
-  gap: .35rem;
-  padding: .45rem;
-  border-radius: .7rem;
-  box-shadow: 0 8px 18px var(--shadow);
-}
-.money-gallery--compact .money-screen__index {
-  font-size: .46rem;
-}
-.money-gallery--compact .money-screen__card strong {
-  font-size: .72rem;
-  letter-spacing: -.04em;
-}
-.money-gallery--compact .money-screen__capture {
-  height: 54%;
-  border-radius: .35rem;
-}
-.money-gallery--compact .money-screen__note {
-  display: none;
-}
-.money-gallery--compact .money-screen__pending-mark {
-  width: 2rem;
-  height: 2rem;
-  font-size: 1.4rem;
 }
 
 /* ==========================================================================
@@ -2214,9 +2070,6 @@ a.profile-pill--action:hover .profile-pill__val {
   .deck-gallery__screen--2 { height: 95%; }
   .deck-gallery__screen--3 { height: 82%; }
   .deck-gallery__hint { display: none; }
-  .money-gallery--compact { gap: .25rem; padding-inline: .3rem; }
-  .money-gallery--compact .money-screen { width: min(100%, 82px); }
-  .money-gallery--compact .money-screen__card strong { font-size: .62rem; }
   .project-deck__controls { margin: 0; }
   .project-deck__controls p { gap: .4rem; }
   .project-deck__controls p strong { font-size: .84rem; }
@@ -2245,15 +2098,15 @@ a.profile-pill--action:hover .profile-pill__val {
 
   /* Project Case Studies Mobile */
   .project { padding-block: 5rem; }
-  .project-heading, .project--park-masjid .project-heading, .project--kizen .project-heading { grid-template-columns: 1fr; gap: 1.5rem; }
+  .project-heading, .project--park-masjid .project-heading, .project--kizen .project-heading, .project--moneytrack .project-heading { grid-template-columns: 1fr; gap: 1.5rem; }
   .project h3 { font-size: clamp(3.7rem, 14vw, 5rem); }
   .project-summary { max-width: 26ch; font-size: 1.75rem; }
   .project-media { gap: 1rem; }
   .project-shot--1, .project-shot--2, .project-media--orderforge .project-shot--1, .project-media--orderforge .project-shot--2 { grid-column: 1 / -1; grid-row: auto; margin-top: 0; }
-  .project-media--park-masjid, .project-media--kizen { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; padding: 0; }
-  .project-media--park-masjid .project-shot, .project-media--kizen .project-shot { grid-column: auto; }
-  .project-media--park-masjid .project-shot--2, .project-media--kizen .project-shot--2 { padding-top: 1.5rem; }
-  .project-media--park-masjid .project-shot--3, .project-media--kizen .project-shot--3 { padding-top: .75rem; }
+  .project-media--park-masjid, .project-media--kizen, .project-media--moneytrack { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; padding: 0; }
+  .project-media--park-masjid .project-shot, .project-media--kizen .project-shot, .project-media--moneytrack .project-shot { grid-column: auto; }
+  .project-media--park-masjid .project-shot--2, .project-media--kizen .project-shot--2, .project-media--moneytrack .project-shot--2 { padding-top: 1.5rem; }
+  .project-media--park-masjid .project-shot--3, .project-media--kizen .project-shot--3, .project-media--moneytrack .project-shot--3 { padding-top: .75rem; }
   .project-copy { grid-template-columns: 1fr; gap: .75rem; margin-top: 3rem; }
   .project-copy__label { border-top-color: var(--line); }
   .project-detail { margin-bottom: 1.6rem; }
@@ -2262,15 +2115,6 @@ a.profile-pill--action:hover .profile-pill__val {
   .project-next { min-height: 110px; margin-top: 4rem; }
   .project-shot__zoom { display: none; }
   .project-shot figcaption { font-size: .73rem; }
-  .money-gallery:not(.money-gallery--compact) { gap: .5rem; padding: 0; }
-  .money-gallery:not(.money-gallery--compact) .money-screen--2 { margin-top: 1.5rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen--3,
-  .money-gallery:not(.money-gallery--compact) .money-screen--pending { margin-top: .75rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen__card { gap: .35rem; padding: .5rem; border-radius: .8rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen__index { font-size: .48rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen__card strong { font-size: .85rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen__capture { height: 53%; border-radius: .4rem; }
-  .money-gallery:not(.money-gallery--compact) .money-screen__note { font-size: .55rem; }
 
   /* Additional & Profile Mobile */
   .additional, .profile, .capabilities { padding-block: 4.5rem; }
