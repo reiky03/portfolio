@@ -31,7 +31,15 @@ function DeckGallery({ project, isActive, onPreview }: { project: Project; isAct
 function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProject, onPreview }: { activeIndex: number; hoveredIndex: number | null; onHoverProject: (index: number | null) => void; onSelectProject: (index: number) => void; onPreview: (shot: ProjectShot) => void }) {
   const touchStartX = useRef<number | null>(null)
   const swipeJustFinished = useRef(false)
+  const railRef = useRef<HTMLDivElement | null>(null)
   const changeProject = (direction: number) => { onHoverProject(null); onSelectProject((activeIndex + direction + projects.length) % projects.length) }
+
+  useEffect(() => {
+    const activeTab = railRef.current?.querySelector<HTMLButtonElement>('.deck-tab.is-active')
+    if (activeTab) {
+      activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    }
+  }, [activeIndex])
 
   return (
     <div className="project-deck" role="region" aria-roledescription="carousel" aria-label="Featured project sheets" tabIndex={0} onKeyDown={event => {
@@ -80,9 +88,8 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
         <button type="button" onClick={() => changeProject(1)} aria-label="Next project"><span>Next</span><span aria-hidden="true">→</span></button>
       </div>
       </div>
-      <div className="project-deck__rail" aria-label="Choose a project slide">
+      <div className="project-deck__rail" ref={railRef} aria-label="Choose a project slide">
         {projects.map((project, index) => {
-          const shot = project.shots[0]
           return (
             <button
               className={`deck-tab deck-tab--${project.slug}${index === activeIndex ? ' is-active' : ''}`}
@@ -95,7 +102,6 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
               onClick={() => { onHoverProject(null); onSelectProject(index) }}
               key={project.slug}
             >
-              <span className="deck-tab__image">{shot ? <img src={shot.src} alt="" loading="lazy" /> : <span aria-hidden="true">MT</span>}</span>
               <span className="deck-tab__label"><small>{String(index + 1).padStart(2, '0')}</small><strong>{project.name}</strong></span>
             </button>
           )
@@ -669,10 +675,6 @@ function App() {
           <div className="contact-bento ios-glass-dark">
             <div className="contact-bento__grid">
               <div className="contact-bento__left">
-                <div className="contact-badge">
-                  <span className="contact-pulse" aria-hidden="true" />
-                  <span>OPEN FOR JUNIOR ROLES & OPPORTUNITIES · 2026</span>
-                </div>
                 <h2 id="contact-title">Let’s connect &<br />build together.</h2>
                 <p className="contact-subtitle">
                   Looking for a junior backend or full-stack developer? I’m eager to learn, contribute, and join a collaborative engineering team.

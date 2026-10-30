@@ -1026,17 +1026,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 
   addBentoCard(slide, 0.8, 1.1, 11.733, 5.7, true);
 
-  slide.addShape(pres.ShapeType.roundRect, {
-    x: 1.3, y: 1.5, w: 3.5, h: 0.35,
-    rectRadius: 0.17, fill: { color: '183426' }, line: { color: '28553E', width: 1 }
-  });
-  slide.addText('AVAILABLE FOR ROLES & CONTRACTS · 2026', {
-    x: 1.3, y: 1.5, w: 3.5, h: 0.35,
-    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: '6EE7B7', align: 'center', valign: 'middle', margin: 0
-  });
-
-  slide.addText('Let’s build software that lasts.', {
-    x: 1.3, y: 2.05, w: 8.0, h: 0.75,
+  slide.addText('Let’s connect & build together.', {
+    x: 1.3, y: 1.6, w: 8.0, h: 0.75,
     fontSize: 34, fontFace: 'Georgia', bold: true, color: C.white, margin: 0
   });
 
@@ -1044,7 +1035,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     'Looking for a junior backend or full-stack developer? ' +
     'I’m eager to learn, contribute, and join a collaborative engineering team.',
     {
-      x: 1.3, y: 2.85, w: 7.5, h: 0.8,
+      x: 1.3, y: 2.45, w: 7.5, h: 0.8,
       fontSize: 12.5, fontFace: 'Calibri', color: C.darkTextSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
