@@ -8,6 +8,7 @@ const links = {
   github: 'https://github.com/reiky03',
   linkedin: 'https://www.linkedin.com/in/reiky-aryanando-pratama-24a1a2296',
   cv: '/cv-reiky-aryanando-pratama.pdf',
+  pptx: '/reiky-portfolio-presentation.pptx',
   gdocCv: 'https://docs.google.com/document/d/1a--QOVLKR8OdL_Tns12raDwgbL9PWdlVkTjrnXW8tNQ/edit?pli=1&tab=t.0#heading=h.abw9vt5zphl8',
 }
 
@@ -518,6 +519,10 @@ function App() {
                   <span className="profile-pill__key">OFFICIAL RESUME</span>
                   <span className="profile-pill__val">Download CV (PDF) <Arrow diagonal /></span>
                 </a>
+                <a className="profile-pill profile-pill--action" href={links.pptx} download="reiky-portfolio-presentation.pptx" title="Download Presentation Deck (PPTX)">
+                  <span className="profile-pill__key">EXECUTIVE DECK</span>
+                  <span className="profile-pill__val">Download PPTX <Arrow diagonal /></span>
+                </a>
               </div>
             </div>
 
@@ -709,6 +714,9 @@ function App() {
                 <div className="contact-social-row">
                   <a className="contact-social-pill contact-social-pill--cv" href={links.cv} target="_blank" rel="noopener noreferrer" title="Download PDF Resume">
                     <span>Download CV (PDF)</span> <Arrow diagonal />
+                  </a>
+                  <a className="contact-social-pill contact-social-pill--cv" href={links.pptx} download="reiky-portfolio-presentation.pptx" title="Download Presentation Deck (PPTX)">
+                    <span>Download Deck (PPTX)</span> <Arrow diagonal />
                   </a>
                   <a className="contact-social-pill" href={links.linkedin} target="_blank" rel="noopener noreferrer">
                     <span>LinkedIn</span> <Arrow diagonal />
