@@ -521,7 +521,7 @@ function App() {
               </div>
               <h2 id="profile-title">Beyond the code.</h2>
               <p className="profile-lead">
-                I’m an Informatics graduate (GPA 3.81/4.00) and Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. I focus on learning and building clean APIs, understanding relational database design, and developing practical web & mobile software.
+                Informatics graduate (GPA 3.81/4.00) with ~11 months of internship experience as a Backend Developer at Badan Sistem Informasi Universitas Islam Indonesia (since Dec 2025). Passionate about developing reliable, well-structured, and maintainable systems that solve real user needs.
               </p>
               <div className="profile-meta-pills">
                 <div className="profile-pill">
@@ -546,19 +546,20 @@ function App() {
             <div className="profile-bento">
               <div className="profile-bento__card profile-bento__card--featured">
                 <div className="profile-card__head">
-                  <span className="profile-card__badge">CURRENT ROLE · SINCE DEC 2025</span>
+                  <span className="profile-card__badge">CURRENT ROLE · ~11 MOS (SINCE DEC 2025)</span>
                   <span className="profile-card__org">Badan Sistem Informasi · Universitas Islam Indonesia</span>
                 </div>
                 <h3 className="profile-card__role">Backend Developer Intern</h3>
                 <p className="profile-card__summary">
-                  Assisting in developing and maintaining REST APIs with Laravel and Lumen, organizing normalized MySQL database schemas, running automated API test suites, and exploring Model Context Protocol (MCP) integrations to support campus services.
+                  Directly involved in developing internal university systems. Responsible for developing RESTful APIs using PHP, Laravel, and Lumen, database schema and ERD design, API testing with Postman, backend-to-frontend integration, and team collaboration via Git & GitLab. Contributed to frontend tasks using Angular, as well as implementing Model Context Protocol (MCP) and AI services for automated data summaries and AI-powered chat based on application data.
                 </p>
                 <div className="profile-card__tags">
-                  <span>Laravel / Lumen</span>
-                  <span>REST APIs</span>
-                  <span>MySQL Queries</span>
-                  <span>MCP AI Integration</span>
-                  <span>Auth & RBAC</span>
+                  <span>PHP / Laravel / Lumen</span>
+                  <span>RESTful APIs & Postman</span>
+                  <span>Database & ERD Design</span>
+                  <span>Angular Frontend</span>
+                  <span>MCP & AI Data Summary</span>
+                  <span>Git & GitLab</span>
                 </div>
               </div>
 
@@ -625,8 +626,9 @@ function App() {
                 <span className="cap-chip">Laravel</span>
                 <span className="cap-chip">Lumen</span>
                 <span className="cap-chip">RESTful APIs</span>
+                <span className="cap-chip">Postman Testing</span>
                 <span className="cap-chip">Model Context Protocol (MCP)</span>
-                <span className="cap-chip">RBAC Security</span>
+                <span className="cap-chip">ERD & Schema Design</span>
               </div>
             </div>
 
@@ -638,11 +640,11 @@ function App() {
               <p className="cap-card__desc">Responsive web interfaces with clean component structures, standard accessibility, and smooth user interactions.</p>
               <div className="cap-card__chips">
                 <span className="cap-chip">TypeScript</span>
+                <span className="cap-chip">Angular</span>
                 <span className="cap-chip">React</span>
                 <span className="cap-chip">Next.js</span>
                 <span className="cap-chip">Vue.js</span>
                 <span className="cap-chip">Tailwind CSS</span>
-                <span className="cap-chip">GSAP Motion</span>
               </div>
             </div>
 
@@ -671,10 +673,10 @@ function App() {
               <div className="cap-card__chips">
                 <span className="cap-chip">PostgreSQL</span>
                 <span className="cap-chip">MySQL</span>
+                <span className="cap-chip">Git & GitLab</span>
                 <span className="cap-chip">Firebase Realtime / Firestore</span>
                 <span className="cap-chip">Docker</span>
                 <span className="cap-chip">AWS Cloud</span>
-                <span className="cap-chip">Git Workflows</span>
               </div>
             </div>
           </div>
@@ -693,7 +695,7 @@ function App() {
               <div className="contact-bento__left">
                 <h2 id="contact-title">Let’s connect &<br />build together.</h2>
                 <p className="contact-subtitle">
-                  Looking for a junior backend or full-stack developer? I’m eager to learn, contribute, and join a collaborative engineering team.
+                  Looking for a backend or software developer? I focus on building reliable, well-structured, and maintainable systems that solve real user needs—eager to learn, contribute, and collaborate with an engineering team.
                 </p>
                 <div className="contact-location-info">
                   <span className="contact-location-dot" aria-hidden="true" />

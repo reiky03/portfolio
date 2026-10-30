@@ -120,8 +120,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText(
-    'Informatics graduate (GPA 3.81 / 4.00) & Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. ' +
-    'Building clean REST APIs, understanding relational database design, and developing practical web & mobile applications across Laravel, Go, Flutter, and React.',
+    'Informatics graduate (GPA 3.81 / 4.00) with ~11 months internship experience as a Backend Developer at Badan Sistem Informasi Universitas Islam Indonesia. ' +
+    'Focused on developing reliable, structured REST APIs with PHP, Laravel, and Lumen, database schema & ERD design, Postman testing, and AI-powered MCP services.',
     {
       x: 1.3, y: 3.25, w: 6.8, h: 1.2,
       fontSize: 13, fontFace: 'Calibri',
@@ -254,12 +254,13 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     fontSize: 10.5, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
   slide.addText(
-    '• Assisting in developing and maintaining REST APIs using Laravel and Lumen.\n' +
-    '• Profiling and tuning MySQL queries for enterprise catalog services.\n' +
-    '• Exploring Model Context Protocol (MCP) AI integrations for campus automation.',
+    '• Developing RESTful APIs with PHP, Laravel, & Lumen for university internal systems.\n' +
+    '• Designing database schemas, ERDs, and running API test suites via Postman.\n' +
+    '• Integrating backend with frontend (Angular) and collaborating via Git & GitLab.\n' +
+    '• Implementing Model Context Protocol (MCP) & AI for automated summaries & chat.',
     {
-      x: 7.05, y: 3.18, w: 5.2, h: 1.0,
-      fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
+      x: 7.05, y: 3.18, w: 5.2, h: 1.05,
+      fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
     }
   );
 
@@ -955,10 +956,10 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 
   const milestones = [
     {
-      period: 'DEC 2025 – PRESENT',
+      period: 'DEC 2025 – PRESENT (~11 MOS)',
       role: 'Backend Developer Intern',
       org: 'Badan Sistem Informasi · Universitas Islam Indonesia',
-      desc: 'Assisting in developing REST APIs with Laravel and Lumen, organizing normalized MySQL databases, and exploring Model Context Protocol (MCP) AI integrations.',
+      desc: 'Developing RESTful APIs with PHP, Laravel, Lumen, designing database ERDs, API testing with Postman, Angular frontend integration, and MCP AI automated summaries.',
       badge: 'PRODUCTION'
     },
     {
@@ -1032,8 +1033,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText(
-    'Looking for a junior backend or full-stack developer? ' +
-    'I’m eager to learn, contribute, and join a collaborative engineering team.',
+    'Looking for a backend or software developer? ' +
+    'I focus on building reliable, well-structured, and maintainable systems that solve real user needs—eager to learn, contribute, and collaborate with an engineering team.',
     {
       x: 1.3, y: 2.45, w: 7.5, h: 0.8,
       fontSize: 12.5, fontFace: 'Calibri', color: C.darkTextSoft, lineSpacingMultiple: 1.25, margin: 0
