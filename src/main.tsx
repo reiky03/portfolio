@@ -77,7 +77,7 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
       <div className="project-deck__controls">
         <button type="button" onClick={() => changeProject(-1)} aria-label="Previous project">←</button>
         <p aria-live="polite"><span>{String(activeIndex + 1).padStart(2, '0')} / {String(projects.length).padStart(2, '0')}</span><strong>{projects[activeIndex].name}</strong></p>
-        <button type="button" onClick={() => changeProject(1)} aria-label="Lift next project"><span>Lift next</span><span aria-hidden="true">↗</span></button>
+        <button type="button" onClick={() => changeProject(1)} aria-label="Next project"><span>Next</span><span aria-hidden="true">→</span></button>
       </div>
       </div>
       <div className="project-deck__rail" aria-label="Choose a project slide">
