@@ -165,7 +165,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   const metrics = [
     { num: '3.81', unit: '/ 4.00', label: 'Bachelor of Informatics GPA', sub: 'Universitas Islam Indonesia' },
     { num: '05+', unit: 'Systems', label: 'Production & Thesis Deliveries', sub: 'Backend, Mobile & IoT Architectures' },
-    { num: 'AWS & Cisco', unit: '', label: 'Industry Certifications', sub: 'Cloud re/Start & Cyber Threat Mgmt' }
+    { num: '06 Certs', unit: '', label: 'Professional Certifications', sub: 'AWS, Dicoding ML & Backend, Cisco, RevoU' }
   ];
 
   metrics.forEach((m, idx) => {
@@ -280,7 +280,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   slide.addText(
     '• Published Researcher: Park Masjid thesis published in Technologia: Jurnal Ilmiah (2026).\n' +
     '• Award Winner: Best Team Award at Informatics Expo Design Thinking (2022).\n' +
-    '• Certified: AWS re/Start Cloud Architecture & Cisco Cyber Threat Management.',
+    '• Certified: AWS re/Start, Dicoding Machine Learning & Clean Architecture, Cisco Cyber Threat.',
     {
       x: 7.05, y: 5.7, w: 5.2, h: 1.0,
       fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0

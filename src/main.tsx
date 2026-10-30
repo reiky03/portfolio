@@ -592,12 +592,16 @@ function App() {
                     <span>Clean Architecture, Dependency Injection & Testing</span>
                   </div>
                   <div className="profile-cert-item">
-                    <strong>RevoU Software Engineering</strong>
-                    <span>Full-stack web fundamentals & agile teamwork</span>
+                    <strong>Dicoding Machine Learning</strong>
+                    <span>Supervised/Unsupervised Learning & Model Tuning</span>
                   </div>
                   <div className="profile-cert-item">
                     <strong>IBM SkillsBuild & Hacktiv8</strong>
                     <span>Generative AI Code Generation & Optimization</span>
+                  </div>
+                  <div className="profile-cert-item">
+                    <strong>RevoU Software Engineering</strong>
+                    <span>Full-stack web fundamentals & agile teamwork</span>
                   </div>
                 </div>
               </div>
