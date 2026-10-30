@@ -77,9 +77,9 @@ export const projects: Project[] = [
     stack: ['Flutter', 'Dart', 'Riverpod', 'Firebase', 'Cloud Firestore'],
     github: 'https://github.com/reiky03/Aplikasi_Comic',
     shots: [
-      { src: '/images/kizen-library.png', width: 1080, height: 2340, alt: 'Kizen library screen showing reading list and collections with dark AMOLED UI.', caption: 'Library and collections' },
-      { src: '/images/kizen-welcome.png', width: 780, height: 1688, alt: 'Kizen onboarding and cloud synchronization screen.', caption: 'Cloud sync & onboarding' },
-      { src: '/images/kizen-showcase.png', width: 1800, height: 1800, alt: 'Kizen reader architecture and branding showcase.', caption: 'Application overview' },
+      { src: '/images/kizen-library.webp', width: 761, height: 1600, alt: 'Kizen library screen showing reading list and collections with dark AMOLED UI.', caption: 'Library and collections' },
+      { src: '/images/kizen-welcome.webp', width: 766, height: 1600, alt: 'Kizen welcome and onboarding screen with cloud sync.', caption: 'Cloud sync & onboarding' },
+      { src: '/images/kizen-updates.webp', width: 767, height: 1600, alt: 'Kizen live chapter update feed with cover art and release history.', caption: 'Live chapter updates' },
     ],
   },
   {
@@ -93,8 +93,9 @@ export const projects: Project[] = [
     stack: ['React Native', 'Expo', 'TypeScript', 'AsyncStorage'],
     github: 'https://github.com/reiky03/MoneyTrack',
     shots: [
-      { src: '/images/moneytrack-dashboard.png', width: 1024, height: 861, alt: 'MoneyTrack repository screenshot of the net balance and cash-flow card.', caption: 'Balance and cash flow' },
-      { src: '/images/moneytrack-categories.png', width: 896, height: 814, alt: 'MoneyTrack repository screenshot of expense categories and their totals.', caption: 'Category breakdown' },
+      { src: '/images/moneytrack-dashboard.webp', width: 768, height: 1600, alt: 'MoneyTrack main dashboard showing total net balance, wallets, and expense distribution.', caption: 'Balance & wallet breakdown' },
+      { src: '/images/moneytrack-welcome.webp', width: 768, height: 1600, alt: 'MoneyTrack welcome screen highlighting offline security and speed.', caption: 'Minimalist offline design' },
+      { src: '/images/moneytrack-transactions.webp', width: 767, height: 1600, alt: 'MoneyTrack transaction history with income, expenses, and category filters.', caption: 'Transaction history' },
     ],
   },
 ]

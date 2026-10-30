@@ -17,28 +17,30 @@ function Arrow({ diagonal = false }: { diagonal?: boolean }) {
 
 function MoneyTrackGallery({ compact = false, isActive = true, onPreview }: { compact?: boolean; isActive?: boolean; onPreview: (shot: ProjectShot) => void }) {
   const project = projects.find(item => item.slug === 'moneytrack')!
+  const headlines = [
+    'A clearer view of every balance.',
+    'Smart & minimalist financial freedom.',
+    'Track every transaction & category.',
+  ]
+  const notes = [
+    'Net balance · Wallets · Expenses',
+    '100% Offline · Private · Fast',
+    'History · Transfer · Filters',
+  ]
+
   return (
     <div className={`money-gallery${compact ? ' money-gallery--compact' : ''}`} aria-label="MoneyTrack mobile application gallery" aria-hidden={!isActive}>
       {project.shots.map((shot, index) => (
         <figure className={`money-screen money-screen--${index + 1}`} key={shot.src}>
           <button className="money-screen__card" type="button" tabIndex={isActive ? 0 : -1} onClick={() => { if (isActive) onPreview(shot) }} aria-label={`Open MoneyTrack: ${shot.caption}`}>
             <span className="money-screen__index">0{index + 1} / MoneyTrack</span>
-            <strong>{index === 0 ? 'A clearer view of every balance.' : 'Know where spending goes.'}</strong>
+            <strong>{headlines[index] || shot.caption}</strong>
             <span className="money-screen__capture"><img src={shot.src} width={shot.width} height={shot.height} alt="" loading="lazy" /></span>
-            <span className="money-screen__note">{index === 0 ? 'Net balance · Income · Expenses' : 'Categories · Amounts · Proportions'}</span>
+            <span className="money-screen__note">{notes[index] || ''}</span>
           </button>
           {!compact && <figcaption>{shot.caption}<span aria-hidden="true">↗</span></figcaption>}
         </figure>
       ))}
-      <figure className="money-screen money-screen--pending">
-        <div className="money-screen__card">
-          <span className="money-screen__index">03 / MoneyTrack</span>
-          <strong>More of the app, soon.</strong>
-          <span className="money-screen__pending-mark" aria-hidden="true">+</span>
-          <span className="money-screen__note">Wallets and transactions<br />Screenshot coming soon</span>
-        </div>
-        {!compact && <figcaption>More screens coming soon</figcaption>}
-      </figure>
     </div>
   )
 }
@@ -97,7 +99,7 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
                   <span>Open image <span aria-hidden="true">↗</span></span>
                 </button>
               ) : null}
-              <div className="deck-sheet__foot"><span>{project.category}</span><span>{project.slug === 'moneytrack' ? 'Two source screens · more soon' : project.shots.length === 3 ? 'Three app screens' : shot?.caption}</span></div>
+              <div className="deck-sheet__foot"><span>{project.category}</span><span>{project.shots.length === 3 ? 'Three app screens' : shot?.caption}</span></div>
               {!isActive && <button className="deck-sheet__pick" type="button" aria-label={`Show ${project.name} project`} onClick={() => { if (!swipeJustFinished.current) { onHoverProject(null); onSelectProject(index) } }} />}
             </article>
             </div>
@@ -533,16 +535,16 @@ function App() {
               </div>
               <h2 id="profile-title">Beyond the code.</h2>
               <p className="profile-lead">
-                I’m an Informatics graduate (GPA 3.81/4.00) and Backend Developer Intern at Badan Sistem Informasi (BSI) UII. I specialize in resilient API systems, data architecture, and clear product engineering.
+                I’m an Informatics graduate (GPA 3.81/4.00) and Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. I specialize in resilient API systems, data architecture, and clear product engineering.
               </p>
               <div className="profile-meta-pills">
                 <div className="profile-pill">
                   <span className="profile-pill__key">CURRENT STATUS</span>
-                  <span className="profile-pill__val">Backend Developer Intern @ BSI UII</span>
+                  <span className="profile-pill__val">Backend Developer Intern @ Badan Sistem Informasi Universitas Islam Indonesia</span>
                 </div>
                 <div className="profile-pill">
                   <span className="profile-pill__key">EDUCATION</span>
-                  <span className="profile-pill__val">B.Inf, UII · GPA 3.81 / 4.00</span>
+                  <span className="profile-pill__val">Bachelor of Informatics, Universitas Islam Indonesia · GPA 3.81 / 4.00</span>
                 </div>
                 <div className="profile-pill">
                   <span className="profile-pill__key">BASE LOCATION</span>
