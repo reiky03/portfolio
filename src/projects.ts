@@ -71,7 +71,7 @@ export const projects: Project[] = [
     name: 'Kizen',
     category: 'Comic reader / Flutter',
     summary: 'A cross-platform manga & comic reader with multi-source integration and cloud sync.',
-    detail: 'A high-performance personal comic and manga reader app built with Flutter and Riverpod. Features multi-source extension scraping, Tachiyomi-inspired library and collection management, offline reading progress tracking, and Firebase cloud sync.',
+    detail: 'A personal comic and manga reader app built with Flutter and Riverpod. Features multi-source extension scraping, Tachiyomi-inspired library and collection management, offline reading progress tracking, and Firebase cloud sync.',
     contribution: 'Personal project · Open source on GitHub',
     highlights: ['Multi-source extensions', 'Cloud sync & progress', 'Smooth scroll reader engine'],
     stack: ['Flutter', 'Dart', 'Riverpod', 'Firebase', 'Cloud Firestore'],

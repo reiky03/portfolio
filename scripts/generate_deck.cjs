@@ -113,7 +113,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     color: C.white, valign: 'middle', margin: 0
   });
 
-  slide.addText('Backend & Full-Stack Developer · Distributed Systems · High-Load APIs', {
+  slide.addText('Junior Backend & Full-Stack Developer · REST APIs · Web & Mobile', {
     x: 1.3, y: 2.65, w: 7.2, h: 0.45,
     fontSize: 16, fontFace: 'Calibri', bold: true,
     color: C.mint, valign: 'top', margin: 0
@@ -121,7 +121,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 
   slide.addText(
     'Informatics graduate (GPA 3.81 / 4.00) & Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. ' +
-    'Architecting resilient REST APIs, normalized relational databases, and high-performance digital products across Laravel, Go, Flutter, and React.',
+    'Building clean REST APIs, understanding relational database design, and developing practical web & mobile applications across Laravel, Go, Flutter, and React.',
     {
       x: 1.3, y: 3.25, w: 6.8, h: 1.2,
       fontSize: 13, fontFace: 'Calibri',
@@ -212,15 +212,15 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     fontSize: 8, fontFace: 'Calibri', bold: true, color: C.emerald, align: 'center', valign: 'middle', margin: 0
   });
 
-  slide.addText('Architecting Resilient Digital Products', {
+  slide.addText('Building Practical & Reliable Software', {
     x: 1.15, y: 2.7, w: 5.0, h: 0.45,
     fontSize: 18, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
   });
 
   slide.addText(
-    'I believe that great software is measured by how reliably it behaves under pressure and how cleanly it can evolve. ' +
-    'My work spans full-lifecycle engineering: from designing normalized database schemas and thread-safe APIs to delivering responsive cross-platform client interfaces.\n\n' +
-    'Whether structuring enterprise workflows at Badan Sistem Informasi UII or authoring research for peer-reviewed journals, I maintain relentless attention to data integrity, code readability, and developer experience.',
+    'I believe that good software starts with clear fundamentals, solid data integrity, and thoughtful design. ' +
+    'My journey spans foundational engineering: from organizing normalized database schemas and clean REST APIs to building responsive client interfaces.\n\n' +
+    'Through my internship at Badan Sistem Informasi UII and academic research, I stay curious, open to feedback, and dedicated to writing maintainable code that helps real users.',
     {
       x: 1.15, y: 3.25, w: 5.0, h: 1.9,
       fontSize: 11.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
@@ -254,9 +254,9 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     fontSize: 10.5, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
   });
   slide.addText(
-    '• Developing and hardening high-throughput REST APIs using Laravel and Lumen.\n' +
-    '• Profiling and tuning MySQL query execution plans for enterprise catalog services.\n' +
-    '• Pioneering Model Context Protocol (MCP) AI integrations for campus automation.',
+    '• Assisting in developing and maintaining REST APIs using Laravel and Lumen.\n' +
+    '• Profiling and tuning MySQL queries for enterprise catalog services.\n' +
+    '• Exploring Model Context Protocol (MCP) AI integrations for campus automation.',
     {
       x: 7.05, y: 3.18, w: 5.2, h: 1.0,
       fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
@@ -302,7 +302,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
     {
       num: '01',
       title: 'Backend & Systems',
-      summary: 'Reliable server architectures, high-concurrency API endpoints, and structured protocol communications.',
+      summary: 'Backend services, RESTful API endpoints, and clean server-side application logic.',
       chips: ['PHP & Laravel', 'Lumen Microservices', 'Go (Golang)', 'RESTful APIs', 'gRPC & Protobuf', 'MCP AI Protocol', 'RBAC Security']
     },
     {
@@ -469,7 +469,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
   addTopNav(slide, '04 · Case Study 02 / Mobile & Cloud', '05 / 11');
-  addSlideHeading(slide, 'Kizen: Manga & Comic Reader with Cloud Sync', 'A high-performance personal comic reader built with Flutter, Riverpod, and multi-source cloud sync.');
+  addSlideHeading(slide, 'Kizen: Manga & Comic Reader with Cloud Sync', 'A personal comic reader app built with Flutter, Riverpod, and multi-source cloud sync.');
 
   addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
 
@@ -488,7 +488,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText(
-    'A cross-platform manga and comic reader application delivering an ad-free, high-speed reading experience. ' +
+    'A cross-platform manga and comic reader application delivering a clean and lightweight reading experience. ' +
     'Engineered with Riverpod reactive state management, Tachiyomi-inspired library organization, and multi-source scraping architecture.',
     {
       x: 1.1, y: 3.25, w: 4.2, h: 1.1,
@@ -645,7 +645,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
   addTopNav(slide, '06 · Case Study 04 / Reliability & Architecture', '07 / 11');
-  addSlideHeading(slide, 'OrderForge & Native Android Architecture', 'Architectural explorations in high-concurrency checkout and clean native mobile architecture.');
+  addSlideHeading(slide, 'OrderForge & Native Android Architecture', 'Explorations in e-commerce checkout consistency and clean native mobile architecture.');
 
   // Left Bento Card: OrderForge
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
@@ -665,7 +665,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText(
-    'An e-commerce order engine designed to guarantee data consistency during high-volume flash sales with atomic Redis locks and idempotent payment processing.',
+    'An e-commerce order engine designed to explore data consistency during checkout surges with atomic Redis locks and idempotent payment processing.',
     {
       x: 1.15, y: 3.18, w: 5.0, h: 0.72,
       fontSize: 10, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.2, margin: 0
@@ -958,7 +958,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
       period: 'DEC 2025 – PRESENT',
       role: 'Backend Developer Intern',
       org: 'Badan Sistem Informasi · Universitas Islam Indonesia',
-      desc: 'Architecting high-throughput REST APIs with Laravel and Lumen, optimizing normalized MySQL databases, and integrating Model Context Protocol (MCP) AI agents.',
+      desc: 'Assisting in developing REST APIs with Laravel and Lumen, organizing normalized MySQL databases, and exploring Model Context Protocol (MCP) AI integrations.',
       badge: 'PRODUCTION'
     },
     {
@@ -1041,8 +1041,8 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
   });
 
   slide.addText(
-    'Have a project in mind or looking for a backend / full-stack engineer? ' +
-    'I’m open to full-time engineering roles, distributed team collaborations, and high-impact software contracts.',
+    'Looking for a junior backend or full-stack developer? ' +
+    'I’m eager to learn, contribute, and join a collaborative engineering team.',
     {
       x: 1.3, y: 2.85, w: 7.5, h: 0.8,
       fontSize: 12.5, fontFace: 'Calibri', color: C.darkTextSoft, lineSpacingMultiple: 1.25, margin: 0

@@ -332,8 +332,8 @@ function App() {
                 <h2 id="work-title">Selected work.</h2>
               </div>
               <div className="work-intro__mast-desc">
-                <p>Five engineered systems spanning service desk operations, idempotent commerce, public IoT infrastructure, and high-performance mobile reading.</p>
-                <span className="work-intro__mast-sub">Select any chapter to inspect the architectural decisions, tech stack, and verified screens.</span>
+                <p>Five software projects spanning service desk workflows, e-commerce ordering, IoT parking integration, and mobile reader applications.</p>
+                <span className="work-intro__mast-sub">Select any chapter to explore the project implementation, tech stack, and application screens.</span>
               </div>
             </div>
 
@@ -499,7 +499,7 @@ function App() {
               </div>
               <h2 id="profile-title">Beyond the code.</h2>
               <p className="profile-lead">
-                I’m an Informatics graduate (GPA 3.81/4.00) and Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. I specialize in resilient API systems, data architecture, and clear product engineering.
+                I’m an Informatics graduate (GPA 3.81/4.00) and Backend Developer Intern at Badan Sistem Informasi Universitas Islam Indonesia. I focus on learning and building clean APIs, understanding relational database design, and developing practical web & mobile software.
               </p>
               <div className="profile-meta-pills">
                 <div className="profile-pill">
@@ -529,14 +529,14 @@ function App() {
                 </div>
                 <h3 className="profile-card__role">Backend Developer Intern</h3>
                 <p className="profile-card__summary">
-                  Architecting and maintaining high-performance REST APIs with Laravel and Lumen, structuring normalized MySQL schemas, executing automated API regression suites, and pioneering Model Context Protocol (MCP) AI integrations for automated campus intelligence.
+                  Assisting in developing and maintaining REST APIs with Laravel and Lumen, organizing normalized MySQL database schemas, running automated API test suites, and exploring Model Context Protocol (MCP) integrations to support campus services.
                 </p>
                 <div className="profile-card__tags">
                   <span>Laravel / Lumen</span>
                   <span>REST APIs</span>
-                  <span>MySQL Tuning</span>
-                  <span>MCP AI Agent Integration</span>
-                  <span>Security Hardening</span>
+                  <span>MySQL Queries</span>
+                  <span>MCP AI Integration</span>
+                  <span>Auth & RBAC</span>
                 </div>
               </div>
 
@@ -589,7 +589,7 @@ function App() {
               <span>ENGINEERING TOOLKIT & COMPETENCIES</span>
             </div>
             <h2 id="capabilities-title">What I build with.</h2>
-            <p>A focused technology stack refined through production backend internships, academic research, and full-stack software delivery.</p>
+            <p>Technologies and tools I practice and work with across backend internship tasks, academic projects, and software development.</p>
           </div>
           <div className="capabilities-matrix">
             <div className="cap-card">
@@ -597,7 +597,7 @@ function App() {
                 <span className="cap-card__num">01</span>
                 <h3 className="cap-card__title">Backend & Systems</h3>
               </div>
-              <p className="cap-card__desc">Reliable server architectures, high-concurrency API endpoints, and structured protocol communications.</p>
+              <p className="cap-card__desc">Backend services, RESTful API endpoints, and clean server-side application logic.</p>
               <div className="cap-card__chips">
                 <span className="cap-chip">PHP</span>
                 <span className="cap-chip">Laravel</span>
@@ -613,7 +613,7 @@ function App() {
                 <span className="cap-card__num">02</span>
                 <h3 className="cap-card__title">Web & Interfaces</h3>
               </div>
-              <p className="cap-card__desc">Interactive, accessible, and fast web applications with crisp design systems and zero layout thrash.</p>
+              <p className="cap-card__desc">Responsive web interfaces with clean component structures, standard accessibility, and smooth user interactions.</p>
               <div className="cap-card__chips">
                 <span className="cap-chip">TypeScript</span>
                 <span className="cap-chip">React</span>
@@ -629,7 +629,7 @@ function App() {
                 <span className="cap-card__num">03</span>
                 <h3 className="cap-card__title">Mobile Engineering</h3>
               </div>
-              <p className="cap-card__desc">Native and cross-platform mobile apps with fluid animations, offline caches, and hardware integrations.</p>
+              <p className="cap-card__desc">Cross-platform and native mobile apps with local offline storage and practical hardware integrations.</p>
               <div className="cap-card__chips">
                 <span className="cap-chip">Flutter & Dart</span>
                 <span className="cap-chip">Riverpod State</span>
@@ -645,7 +645,7 @@ function App() {
                 <span className="cap-card__num">04</span>
                 <h3 className="cap-card__title">Data & Infrastructure</h3>
               </div>
-              <p className="cap-card__desc">Normalized data models, real-time database synchronizations, and containerized deployment pipelines.</p>
+              <p className="cap-card__desc">Relational database schemas, real-time database syncing, and foundational container setups with Docker.</p>
               <div className="cap-card__chips">
                 <span className="cap-chip">PostgreSQL</span>
                 <span className="cap-chip">MySQL</span>
@@ -671,15 +671,15 @@ function App() {
               <div className="contact-bento__left">
                 <div className="contact-badge">
                   <span className="contact-pulse" aria-hidden="true" />
-                  <span>AVAILABLE FOR ROLES & CONTRACTS · 2026</span>
+                  <span>OPEN FOR JUNIOR ROLES & OPPORTUNITIES · 2026</span>
                 </div>
-                <h2 id="contact-title">Let’s build software<br />that lasts.</h2>
+                <h2 id="contact-title">Let’s connect &<br />build together.</h2>
                 <p className="contact-subtitle">
-                  Have a project in mind or looking for a backend / full-stack engineer? I’m open to full-time opportunities, high-impact collaborations, and ambitious builds.
+                  Looking for a junior backend or full-stack developer? I’m eager to learn, contribute, and join a collaborative engineering team.
                 </p>
                 <div className="contact-location-info">
                   <span className="contact-location-dot" aria-hidden="true" />
-                  <span>Based in Yogyakarta, Indonesia · Open to remote worldwide</span>
+                  <span>Based in Yogyakarta, Indonesia · Open to remote & hybrid</span>
                 </div>
               </div>
 
