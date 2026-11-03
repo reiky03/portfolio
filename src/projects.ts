@@ -51,6 +51,21 @@ export const projects: Project[] = [
     ],
   },
   {
+    slug: 'smartroom',
+    name: 'SmartRoom',
+    category: 'Campus space desk / .NET 8',
+    summary: 'Room booking and schedule collision prevention for campus civitas.',
+    detail: 'A campus space reservation platform built with ASP.NET Core 8 and Vue 3. Features dual role-based workflows for civitas room requests and facility admin approval, automated schedule collision checks, and a daily occupancy matrix timeline.',
+    contribution: 'Personal project · Open source on GitHub',
+    highlights: ['Schedule collision check', 'Civitas catalog & E-Pass', 'Daily occupancy matrix'],
+    stack: ['.NET 8', 'C#', 'ASP.NET Core', 'EF Core', 'Vue 3', 'Tailwind CSS'],
+    github: 'https://github.com/reiky03/SmartRoom',
+    shots: [
+      { src: '/images/smartroom-admin-dashboard.webp', width: 2876, height: 1792, alt: 'SmartRoom facility operations desk showing active rooms, daily agenda counters, and daily occupancy timeline matrix.', caption: 'Facility operations desk & daily occupancy matrix' },
+      { src: '/images/smartroom-civitas-catalog.webp', width: 2834, height: 1786, alt: 'SmartRoom civitas room catalog showing available spaces, capacity filters, and reservation booking details.', caption: 'Civitas room catalog & booking portal' },
+    ],
+  },
+  {
     slug: 'park-masjid',
     name: 'Park Masjid',
     category: 'Android / IoT',

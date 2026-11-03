@@ -199,7 +199,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '01 · Professional Profile', '02 / 11');
+  addTopNav(slide, '01 · Professional Profile', '02 / 12');
   addSlideHeading(slide, 'Beyond the Code: Systems, Craft & Precision', 'A blend of strong academic grounding, rigorous software engineering, and active production delivery.');
 
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
@@ -296,7 +296,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '02 · Technical Toolkit', '03 / 11');
+  addTopNav(slide, '02 · Technical Toolkit', '03 / 12');
   addSlideHeading(slide, 'What I Build With: A Focused Engineering Stack', 'Refined through production backend internships, academic research, and full-stack software delivery.');
 
   const categories = [
@@ -304,7 +304,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
       num: '01',
       title: 'Backend & Systems',
       summary: 'Backend services, RESTful API endpoints, and clean server-side application logic.',
-      chips: ['PHP & Laravel', 'Lumen Microservices', 'Go (Golang)', 'RESTful APIs', 'gRPC & Protobuf', 'MCP AI Protocol', 'RBAC Security']
+      chips: ['PHP & Laravel', 'C# / .NET 8', 'Lumen Microservices', 'RESTful APIs', 'gRPC & Protobuf', 'MCP AI Protocol', 'RBAC Security']
     },
     {
       num: '02',
@@ -382,7 +382,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '03 · Case Study 01 / Platform', '04 / 11');
+  addTopNav(slide, '03 · Case Study 01 / Platform', '04 / 12');
   addSlideHeading(slide, 'OpsFlow: Enterprise Service Desk & Asset Control', 'Make internal IT work visible, assignable, and auditable from initial request to resolution.');
 
   addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
@@ -469,7 +469,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '04 · Case Study 02 / Mobile & Cloud', '05 / 11');
+  addTopNav(slide, '04 · Case Study 02 / Mobile & Cloud', '05 / 12');
   addSlideHeading(slide, 'Kizen: Manga & Comic Reader with Cloud Sync', 'A personal comic reader app built with Flutter, Riverpod, and multi-source cloud sync.');
 
   addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
@@ -555,7 +555,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '05 · Case Study 03 / Thesis & IoT', '06 / 11');
+  addTopNav(slide, '05 · Case Study 03 / Thesis & IoT', '06 / 12');
   addSlideHeading(slide, 'Park Masjid: IoT-Integrated Smart Mosque Parking', 'Hardware-integrated vehicle counter with realtime Firebase sync and prayer schedule automation.');
 
   addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
@@ -645,7 +645,7 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '06 · Case Study 04 / Reliability & Architecture', '07 / 11');
+  addTopNav(slide, '06 · Case Study 04 / Reliability & Architecture', '07 / 12');
   addSlideHeading(slide, 'OrderForge & Native Android Architecture', 'Explorations in e-commerce checkout consistency and clean native mobile architecture.');
 
   // Left Bento Card: OrderForge
@@ -752,12 +752,101 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 }
 
 // ==========================================
-// SLIDE 8: CASE STUDY 05 — MONEYTRACK
+// SLIDE 8: CASE STUDY 05 — SMARTROOM
 // ==========================================
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '07 · Case Study 05 / Personal Finance', '08 / 11');
+  addTopNav(slide, '07 · Case Study 05 / .NET 8 Architecture', '08 / 12');
+  addSlideHeading(slide, 'SmartRoom: Campus Space Desk & Booking Platform', 'A campus space reservation platform with collision prevention and daily occupancy timeline.');
+
+  // Left Bento Card: Project Info
+  addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
+
+  slide.addShape(pres.ShapeType.roundRect, {
+    x: 1.1, y: 2.3, w: 2.5, h: 0.28,
+    rectRadius: 0.14, fill: { color: C.emeraldLight }, line: { color: 'C2E5CD', width: 1 }
+  });
+  slide.addText('CAMPUS SPACE DESK / .NET 8', {
+    x: 1.1, y: 2.3, w: 2.5, h: 0.28,
+    fontSize: 8, fontFace: 'Calibri', bold: true, color: C.emerald, align: 'center', valign: 'middle', margin: 0
+  });
+
+  slide.addText('SmartRoom Platform', {
+    x: 1.1, y: 2.7, w: 4.2, h: 0.45,
+    fontSize: 20, fontFace: 'Georgia', bold: true, color: C.ink, margin: 0
+  });
+
+  slide.addText(
+    'A full-stack campus space reservation platform built with ASP.NET Core 8 and Vue 3. ' +
+    'Designed to eliminate manual booking friction, prevent schedule overlap conflicts, and provide clear room occupancy visibility.',
+    {
+      x: 1.1, y: 3.25, w: 4.2, h: 1.0,
+      fontSize: 11, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.25, margin: 0
+    }
+  );
+
+  slide.addText('CORE CAPABILITIES & ENGINEERING', {
+    x: 1.1, y: 4.35, w: 4.2, h: 0.25,
+    fontSize: 9, fontFace: 'Calibri', bold: true, color: C.muted, margin: 0
+  });
+
+  const smartRoomPoints = [
+    '• Automatic schedule collision validation preventing double bookings.',
+    '• Dual role workflows for campus civitas requests and facility admin approvals.',
+    '• Daily room occupancy matrix timeline from 08:00 to 18:00 WIB.',
+    '• Digital E-Pass with unique booking code and QR verification on approval.'
+  ];
+  smartRoomPoints.forEach((p, idx) => {
+    slide.addText(p, {
+      x: 1.1, y: 4.65 + (idx * 0.38), w: 4.2, h: 0.34,
+      fontSize: 9.5, fontFace: 'Calibri', color: C.inkSoft, lineSpacingMultiple: 1.15, margin: 0
+    });
+  });
+
+  slide.addText('TECH STACK: .NET 8  ·  C#  ·  ASP.NET Core  ·  EF Core  ·  Vue 3  ·  Tailwind CSS', {
+    x: 1.1, y: 6.35, w: 4.2, h: 0.3,
+    fontSize: 8.5, fontFace: 'Calibri', bold: true, color: C.emerald, margin: 0
+  });
+
+  // Right Side Visuals
+  const imgX = 5.85;
+  addBentoCard(slide, imgX, 2.05, 6.68, 4.85);
+
+  slide.addShape(pres.ShapeType.rect, {
+    x: imgX + 0.35, y: 2.25, w: 5.98, h: 3.0,
+    fill: { color: 'F1F5F9' },
+    line: { color: C.cardBorder, width: 1 }
+  });
+  slide.addImage({
+    path: imgPath('smartroom.png'),
+    x: imgX + 0.35, y: 2.25, w: 5.98, h: 3.0
+  });
+  slide.addText('Facility Operations Desk: Active room status, daily agenda counters & occupancy timeline matrix', {
+    x: imgX + 0.35, y: 5.32, w: 5.98, h: 0.22,
+    fontSize: 8.5, fontFace: 'Calibri', color: C.muted, italic: true, margin: 0
+  });
+
+  slide.addShape(pres.ShapeType.rect, {
+    x: imgX + 0.35, y: 5.62, w: 5.98, h: 1.05,
+    fill: { color: 'F1F5F9' },
+    line: { color: C.cardBorder, width: 1 }
+  });
+  slide.addImage({
+    path: imgPath('smartroom-detail.png'),
+    x: imgX + 0.35, y: 5.62, w: 5.98, h: 1.05
+  });
+
+  slide.addNotes('Case study on SmartRoom: full-stack campus space reservation system with ASP.NET Core 8, EF Core, and Vue 3.');
+}
+
+// ==========================================
+// SLIDE 9: CASE STUDY 06 — MONEYTRACK
+// ==========================================
+{
+  const slide = pres.addSlide();
+  slide.background = { color: C.paperBg };
+  addTopNav(slide, '08 · Case Study 06 / Personal Finance', '09 / 12');
   addSlideHeading(slide, 'MoneyTrack: Offline-First Expense & Cash Flow Analytics', 'Know where every rupiah moves — zero cloud latency, multi-wallet accounts, and complete privacy.');
 
   addBentoCard(slide, 0.8, 2.05, 4.8, 4.85);
@@ -841,12 +930,12 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 }
 
 // ==========================================
-// SLIDE 9: SUPPLEMENTARY ARCHIVE
+// SLIDE 10: SUPPLEMENTARY ARCHIVE
 // ==========================================
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '08 · Supplementary Archive', '09 / 11');
+  addTopNav(slide, '09 · Supplementary Archive', '10 / 12');
   addSlideHeading(slide, 'Also in the Making: Health Tech & Enterprise Deliveries', 'Additional explorations and production client deliverables from research and freelance projects.');
 
   addBentoCard(slide, 0.8, 2.05, 5.7, 4.85);
@@ -946,12 +1035,12 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 }
 
 // ==========================================
-// SLIDE 10: CAREER JOURNEY & MILESTONES
+// SLIDE 11: CAREER JOURNEY & MILESTONES
 // ==========================================
 {
   const slide = pres.addSlide();
   slide.background = { color: C.paperBg };
-  addTopNav(slide, '09 · Career Journey', '10 / 11');
+  addTopNav(slide, '10 · Career Journey', '11 / 12');
   addSlideHeading(slide, 'Track Record of Impact & Milestones', 'Consistent trajectory across enterprise software engineering, academic excellence, and continuous growth.');
 
   const milestones = [
@@ -1018,12 +1107,12 @@ function addBentoCard(slide, x, y, w, h, isDark = false) {
 }
 
 // ==========================================
-// SLIDE 11: CLOSING & CONTACT (DARK THEME)
+// SLIDE 12: CLOSING & CONTACT (DARK THEME)
 // ==========================================
 {
   const slide = pres.addSlide();
   slide.background = { color: C.darkBg };
-  addTopNav(slide, '10 · Get In Touch', '11 / 11', true);
+  addTopNav(slide, '11 · Get In Touch', '12 / 12', true);
 
   addBentoCard(slide, 0.8, 1.1, 11.733, 5.7, true);
 

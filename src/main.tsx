@@ -61,7 +61,7 @@ function ProjectDeck({ activeIndex, hoveredIndex, onHoverProject, onSelectProjec
           const depth = (index - activeIndex + projects.length) % projects.length
           const isActive = depth === 0
           const isHovered = hoveredIndex === index
-          const position = depth === 0 ? 'center' : depth === 1 ? 'right-1' : depth === 2 ? 'right-2' : depth === 3 ? 'left-2' : 'left-1'
+          const position = depth === 0 ? 'center' : depth === 1 ? 'right-1' : depth === 2 ? 'right-2' : depth === projects.length - 1 ? 'left-1' : depth === projects.length - 2 ? 'left-2' : 'back'
           const shot = project.shots[0]
           return (
             <div className={`deck-slot deck-slot--${position}${isHovered ? ' is-hovered' : ''}`} key={project.slug} onPointerEnter={() => onHoverProject(index)} onPointerLeave={() => onHoverProject(null)} onFocusCapture={() => onHoverProject(index)} onBlurCapture={() => onHoverProject(null)}>
@@ -349,12 +349,12 @@ function App() {
               <div className="work-intro__heading-group">
                 <div className="work-intro__tag">
                   <span className="work-intro__tag-dot" aria-hidden="true" />
-                  <span>INDEX [01 — 05] // REPERTORY</span>
+                  <span>INDEX [01 — 06] // REPERTORY</span>
                 </div>
                 <h2 id="work-title">Selected work.</h2>
               </div>
               <div className="work-intro__mast-desc">
-                <p>Five software projects spanning service desk workflows, e-commerce ordering, IoT parking integration, and mobile reader applications.</p>
+                <p>Six software projects spanning service desk workflows, e-commerce ordering, campus space booking in .NET 8, IoT parking integration, and mobile reader applications.</p>
                 <span className="work-intro__mast-sub">Select any chapter to explore the project implementation, tech stack, and application screens.</span>
               </div>
             </div>
@@ -629,6 +629,7 @@ function App() {
                 <span className="cap-chip">PHP</span>
                 <span className="cap-chip">Laravel</span>
                 <span className="cap-chip">Lumen</span>
+                <span className="cap-chip">.NET 8 / C#</span>
                 <span className="cap-chip">RESTful APIs</span>
                 <span className="cap-chip">Postman Testing</span>
                 <span className="cap-chip">Model Context Protocol (MCP)</span>
