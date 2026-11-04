@@ -7,7 +7,7 @@ const links = {
   email: 'mailto:reikyranp@gmail.com',
   github: 'https://github.com/reiky03',
   linkedin: 'https://www.linkedin.com/in/reiky-aryanando-pratama-24a1a2296',
-  cv: '/cv-reiky-aryanando-pratama.pdf',
+  cv: '/cv-reiky-aryanando-pratama.pdf?v=20261104',
   gdocCv: 'https://docs.google.com/document/d/1a--QOVLKR8OdL_Tns12raDwgbL9PWdlVkTjrnXW8tNQ/edit?pli=1&tab=t.0#heading=h.abw9vt5zphl8',
 }
 
