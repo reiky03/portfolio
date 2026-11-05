@@ -605,9 +605,9 @@ function setupShortSlideGestures(slide, data) {
   shareBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     triggerHaptic('medium');
-    const txt = `Tonton video seru "${data.title}" di TeleShorts!`;
+    const txt = `Tonton video seru "${data.title}" di appVideo!`;
     if (navigator.share) {
-      navigator.share({ title: 'TeleShorts', text: txt, url: window.location.href }).catch(() => {});
+      navigator.share({ title: 'appVideo', text: txt, url: window.location.href }).catch(() => {});
     } else if (tg?.openTelegramLink) {
       tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(txt)}`);
     } else {
