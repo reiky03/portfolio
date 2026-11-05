@@ -60,12 +60,12 @@
       overflow: hidden;
     }
 
-    /* For shorts view with bottom nav */
+    /* Shorts full bleed like real TikTok / Douyin */
     #feed-container .snap-slide {
-      height: calc(100dvh - 56px);
+      height: 100dvh;
     }
     #feed-container {
-      padding-bottom: 56px;
+      padding-bottom: 0px;
     }
 
     .video-player {
@@ -194,6 +194,22 @@
     .pt-safe {
       padding-top: max(env(safe-area-inset-top), 10px);
     }
+
+    /* TikTok Interactive Scrubber Bar */
+    .short-scrubber {
+      touch-action: none;
+    }
+    .short-scrubber:active .scrub-track,
+    .short-scrubber:hover .scrub-track {
+      height: 4.5px;
+    }
+    .short-scrubber:active .scrub-knob,
+    .short-scrubber:hover .scrub-knob {
+      transform: translate(50%, -50%) scale(1);
+    }
+    .short-scrubber:active .scrub-bubble {
+      display: block !important;
+    }
   </style>
 </head>
 <body class="bg-black text-white select-none">
@@ -225,6 +241,17 @@
     <main id="feed-container" class="snap-reel-container">
       <!-- Slides dynamically generated in app.js -->
     </main>
+
+    <!-- BOTTOM SEARCH BAR PILL (PERSIS GAMBAR 2 TIKTOK) -->
+    <div id="bottom-search-pill" class="fixed bottom-[58px] inset-x-0 max-w-[480px] mx-auto z-30 px-3 pointer-events-auto">
+      <button id="search-pill-btn" class="w-full h-8 px-3.5 rounded-full bg-zinc-900/80 backdrop-blur-md border border-white/10 flex items-center justify-between text-xs text-zinc-300 active:scale-[0.98] transition-all shadow-lg">
+        <div class="flex items-center gap-2">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-400"></i>
+          <span class="text-[11px] text-zinc-300 font-medium">Pencarian · Pilih topik video</span>
+        </div>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-500"></i>
+      </button>
+    </div>
 
   </div>
 
@@ -342,7 +369,7 @@
   <!-- ============================================================ -->
   <!-- 4. BOTTOM NAVIGATION BAR -->
   <!-- ============================================================ -->
-  <nav class="fixed bottom-0 inset-x-0 max-w-[480px] mx-auto h-[56px] bg-black/95 backdrop-blur-xl border-t border-zinc-900/80 z-40 flex items-center justify-around px-1 pb-safe pointer-events-auto">
+  <nav class="fixed bottom-0 inset-x-0 max-w-[480px] mx-auto h-[54px] bg-black/80 backdrop-blur-xl border-t border-white/10 z-40 flex items-center justify-around px-1 pb-safe pointer-events-auto">
     <button id="nav-btn-shorts" class="flex flex-col items-center gap-1 py-1 px-2.5 text-white transition-all">
       <i data-lucide="flame" class="w-5 h-5 text-rose-500"></i>
       <span class="text-[10px] font-bold">Shorts</span>

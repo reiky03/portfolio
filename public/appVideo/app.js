@@ -1,6 +1,7 @@
 // ============================================================
 // STATE & LOCAL STORAGE PERSISTENCE
 // ============================================================
+const STREAM_PROXY_BASE = 'https://test-worker.tattered-mongoose.workers.dev';
 let allVideos = [];
 let allTopics = [];
 let allDramas = [];
@@ -620,7 +621,7 @@ function createShortSlide(data, index) {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const streamSrc = (isLocal && data.gdrive_file_id) 
     ? `/stream?id=${data.gdrive_file_id}`
-    : data.video_url;
+    : (data.gdrive_file_id ? `${STREAM_PROXY_BASE}?id=${data.gdrive_file_id}` : data.video_url);
 
   slide.innerHTML = `
     <!-- VIDEO MEDIA WRAPPER -->
@@ -629,125 +630,145 @@ function createShortSlide(data, index) {
       ${data.gdrive_file_id ? `
         <img 
           src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" 
-          class="video-poster-img absolute inset-0 w-full h-full object-cover transition-opacity duration-300" 
+          class="video-poster-img absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0" 
           alt="${data.title}" 
           loading="${index < 3 ? 'eager' : 'lazy'}"
         />
       ` : ''}
 
-      ${isLocal ? `
-        <!-- Native HTML5 Video Player with Autoplay & Loop (Localhost Streaming Proxy) -->
-        <video 
-          class="video-player w-full h-full object-cover absolute inset-0 z-10"
-          src="${streamSrc}"
-          ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
-          loop
-          playsinline
-          webkit-playsinline
-          preload="${index <= 1 ? 'auto' : 'metadata'}"
-          ${isMuted ? 'muted' : ''}
-        ></video>
-      ` : `
-        <!-- Official Google Drive Video Preview Player (GitHub Pages / Telegram Web) -->
-        <iframe 
-          class="video-player w-full h-full border-0 absolute inset-0 z-10"
-          src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview"
-          allow="autoplay; fullscreen; encrypted-media"
-          loading="${index < 2 ? 'eager' : 'lazy'}"
-        ></iframe>
-      `}
+      <!-- Native HTML5 Video Player with Autoplay, Loop & Inline Streaming -->
+      <video 
+        class="video-player w-full h-full object-cover absolute inset-0 z-10"
+        src="${streamSrc}"
+        ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
+        loop
+        playsinline
+        webkit-playsinline
+        preload="${index <= 1 ? 'auto' : 'metadata'}"
+        muted
+      ></video>
     </div>
 
-    <!-- TOUCH DETECTOR GESTURE LAYER -->
-    <!-- On Localhost, pointer-events-auto captures double tap like & single tap play/pause.
-         On Production (iframe), pointer-events-none lets user tap iframe controls directly without obstruction! -->
-    <div class="touch-gesture-layer absolute inset-0 ${isLocal ? 'z-20 pointer-events-auto' : 'z-10 pointer-events-none'}"></div>
+    <!-- TOUCH DETECTOR GESTURE LAYER (Z-20: CAPTURES TAP / DOUBLE TAP / LONG PRESS) -->
+    <div class="touch-gesture-layer absolute inset-0 z-20 pointer-events-auto"></div>
 
-    <!-- GRADIENTS OVERLAY -->
-    <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none z-20"></div>
-    <div class="absolute inset-x-0 bottom-0 h-48 bottom-gradient pointer-events-none z-20"></div>
+    <!-- GRADIENTS OVERLAY (Sleek Vignette ala TikTok) -->
+    <div class="absolute inset-x-0 top-0 h-28 top-gradient pointer-events-none z-20"></div>
+    <div class="absolute inset-x-0 bottom-0 h-64 bottom-gradient pointer-events-none z-20"></div>
 
     <!-- PLAY/PAUSE FLASH INDICATOR -->
-    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-40">
-      <div class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white/90 shadow-2xl">
-        <i data-lucide="play" class="w-8 h-8 fill-white ml-1"></i>
+    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-all duration-200 z-30">
+      <div class="w-16 h-16 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white/95 shadow-2xl scale-95 transition-transform">
+        <svg class="w-8 h-8 fill-white ml-1" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       </div>
     </div>
 
-    <!-- RIGHT ACTION SIDEBAR (Z-30: HIGH PRIORITY INTERACTION) -->
-    <div class="absolute right-3 bottom-8 flex flex-col items-center gap-4 z-30 pointer-events-auto">
-      <div class="relative cursor-pointer active:scale-90 transition-transform">
-        <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300">
-          <div class="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-bold text-xs text-white">
+    <!-- 2X SPEED FLOATING BADGE (Tampil saat layar ditekan tahan) -->
+    <div class="speed-badge-2x hidden absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-black/80 backdrop-blur-md border border-amber-400/50 text-amber-300 px-4 py-1.5 rounded-full font-black text-xs shadow-2xl flex items-center gap-2 pointer-events-none speed-badge">
+      <svg class="w-4 h-4 fill-amber-400" viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+      <span class="tracking-widest">2X KECEPATAN</span>
+    </div>
+
+    <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK / DOUYIN ASLI GAMBAR 2) -->
+    <div class="absolute right-2.5 bottom-24 flex flex-col items-center gap-4 z-30 pointer-events-auto">
+      <!-- Avatar with (+) follow button -->
+      <div class="relative mb-1 cursor-pointer active:scale-90 transition-transform">
+        <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300 shadow-md">
+          <div class="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-black text-xs text-white">
             ${data.author.charAt(1).toUpperCase()}
           </div>
+        </div>
+        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-black shadow-md border-2 border-black">
+          +
         </div>
       </div>
 
       <!-- Like (❤️) with Inline SVG for instant, flawless toggle -->
       <div class="flex flex-col items-center gap-1">
-        <button class="like-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <svg class="heart-svg w-6 h-6 transition-all duration-200 ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isLiked ? '#f43f5e' : 'none'}" stroke="${isLiked ? '#f43f5e' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button class="like-btn w-12 h-12 flex items-center justify-center active:scale-75 transition-all" aria-label="Suka">
+          <svg class="heart-svg w-8 h-8 transition-all duration-200 ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_12px_rgba(244,63,94,0.9)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isLiked ? '#f43f5e' : 'none'}" stroke="${isLiked ? '#f43f5e' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
           </svg>
         </button>
-        <span class="like-count text-[11px] font-semibold text-zinc-200">${formatCount(data.likes + (isLiked ? 1 : 0))}</span>
+        <span class="like-count text-[11px] font-bold text-white drop-shadow">${formatCount(data.likes + (isLiked ? 1 : 0))}</span>
       </div>
 
-      <!-- Bookmark Shorts (🔖) with Inline SVG for instant, flawless toggle & Collection Picker -->
+      <!-- Comment (💬) -->
       <div class="flex flex-col items-center gap-1">
-        <button class="save-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <svg class="save-svg w-5 h-5 transition-all duration-200 ${isSaved ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isSaved ? '#fbbf24' : 'none'}" stroke="${isSaved ? '#fbbf24' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button class="comment-btn w-12 h-12 flex items-center justify-center active:scale-75 transition-all" aria-label="Komentar">
+          <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <span class="text-[11px] font-bold text-white drop-shadow">${formatCount(Math.round(data.likes * 0.42))}</span>
+      </div>
+
+      <!-- Bookmark (🔖) -->
+      <div class="flex flex-col items-center gap-1">
+        <button class="save-btn w-12 h-12 flex items-center justify-center active:scale-75 transition-all" aria-label="Simpan">
+          <svg class="save-svg w-7 h-7 transition-all duration-200 ${isSaved ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isSaved ? '#fbbf24' : 'none'}" stroke="${isSaved ? '#fbbf24' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
           </svg>
         </button>
-        <span class="save-count text-[10px] font-semibold ${isSaved ? 'text-amber-400' : 'text-zinc-300'}">${isSaved ? 'Tersimpan' : 'Simpan'}</span>
+        <span class="save-count text-[11px] font-bold ${isSaved ? 'text-amber-400' : 'text-white'} drop-shadow">${isSaved ? 'Tersimpan' : formatCount(Math.round(data.likes * 0.28))}</span>
       </div>
 
-      <!-- Share -->
+      <!-- Share (↗️) -->
       <div class="flex flex-col items-center gap-1">
-        <button class="share-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white active:scale-75 transition-all">
-          <i data-lucide="share-2" class="w-5 h-5 text-white"></i>
+        <button class="share-btn w-12 h-12 flex items-center justify-center text-white active:scale-75 transition-all" aria-label="Bagikan">
+          <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
         </button>
-        <span class="text-[11px] font-semibold text-zinc-200">${formatCount(data.shares)}</span>
+        <span class="text-[11px] font-bold text-white drop-shadow">${formatCount(data.shares)}</span>
       </div>
 
-      <!-- Chat Bot -->
-      <div class="flex flex-col items-center gap-1">
-        <button class="bot-view-btn w-12 h-12 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg shadow-rose-600/30 active:scale-75 transition-all">
-          <i data-lucide="send" class="w-4 h-4 text-white -mr-0.5"></i>
-        </button>
-        <span class="text-[9px] font-bold tracking-tight text-rose-300 uppercase">Chat</span>
-      </div>
-
-      <!-- Music Disc -->
-      <div class="music-disc w-10 h-10 rounded-full bg-gradient-to-tr from-zinc-800 to-zinc-950 border border-white/20 p-2 flex items-center justify-center shadow-lg spin-disc">
-        <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+      <!-- Spinning Music Vinyl Disc -->
+      <div class="music-disc w-10 h-10 rounded-full bg-gradient-to-tr from-zinc-800 via-zinc-950 to-zinc-900 border-2 border-zinc-700/70 p-1.5 flex items-center justify-center shadow-xl spin-disc mt-1">
+        <div class="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-400 border border-white/50"></div>
       </div>
     </div>
 
-    <!-- BOTTOM METADATA -->
-    <div class="absolute left-4 right-20 bottom-8 z-30 space-y-2 pointer-events-auto">
+    <!-- BOTTOM METADATA (LEFT STACK) -->
+    <div class="absolute left-4 right-20 bottom-24 z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
-        <span class="text-[11px] font-semibold bg-rose-500/80 text-white px-2 py-0.5 rounded-md backdrop-blur-sm">
-          ${data.topic_name}
-        </span>
-        <span class="text-xs font-bold text-white drop-shadow">
+        <span class="text-xs font-black text-white drop-shadow flex items-center gap-1">
           ${data.author}
+          <svg class="w-3.5 h-3.5 text-sky-400 fill-sky-400 inline" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </span>
+        <span class="text-[10px] font-semibold bg-rose-500/80 text-white px-2 py-0.5 rounded-full backdrop-blur-md">
+          ${data.topic_name}
         </span>
       </div>
 
-      <p class="text-xs text-zinc-100 font-normal leading-relaxed line-clamp-2 drop-shadow">
+      <p class="text-xs text-white font-normal leading-relaxed line-clamp-2 drop-shadow">
         ${data.title}
       </p>
 
-      <div class="flex items-center gap-1.5 text-zinc-300 text-[11px] overflow-hidden max-w-[200px]">
-        <i data-lucide="music" class="w-3.5 h-3.5 text-rose-400 shrink-0"></i>
+      <div class="flex items-center gap-1.5 text-zinc-300 text-[11px] overflow-hidden max-w-[220px]">
+        <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         <div class="overflow-hidden whitespace-nowrap">
           <div class="ticker-track">
-            <span class="mr-4">Original Audio - ${data.topic_name} #${data.message_id} • </span>
-            <span class="mr-4">Original Audio - ${data.topic_name} #${data.message_id} • </span>
+            <span class="mr-4">Original Audio - ${data.topic_name} • ${data.author} • </span>
+            <span class="mr-4">Original Audio - ${data.topic_name} • ${data.author} • </span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIKTOK DURATION SCRUBBER BAR (PERSIS GAMBAR 2: BISA DITEKAN & DIGESER) -->
+    <div class="short-scrubber absolute inset-x-0 bottom-[98px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
+      <!-- Floating Time Bubble while dragging -->
+      <div class="scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] px-2.5 py-0.5 rounded-full shadow-2xl pointer-events-none">
+        <span class="scrub-time-now">00:00</span> / <span class="scrub-time-total">00:00</span>
+      </div>
+      
+      <!-- Progress Bar Track -->
+      <div class="scrub-track w-full h-[2.5px] group-hover:h-[4.5px] bg-white/25 transition-all relative">
+        <div class="scrub-fill bg-white h-full w-0 relative">
+          <!-- Knob Handle (Visible on active/hover/drag) -->
+          <div class="scrub-knob absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform"></div>
         </div>
       </div>
     </div>
@@ -758,151 +779,286 @@ function createShortSlide(data, index) {
 }
 
 function setupShortSlideGestures(slide, data) {
-  const touchLayer = slide.querySelector('.touch-gesture-layer');
   const video = slide.querySelector('video');
+  const posterImg = slide.querySelector('.video-poster-img');
   const playIndicator = slide.querySelector('.play-indicator');
+  const speedBadge = slide.querySelector('.speed-badge-2x');
+  const disc = slide.querySelector('.music-disc');
   const likeBtn = slide.querySelector('.like-btn');
   const likeCount = slide.querySelector('.like-count');
   const saveBtn = slide.querySelector('.save-btn');
   const shareBtn = slide.querySelector('.share-btn');
-  const botViewBtn = slide.querySelector('.bot-view-btn');
+  const commentBtn = slide.querySelector('.comment-btn');
+  const touchLayer = slide.querySelector('.touch-gesture-layer');
 
+  // Scrubber elements
+  const scrubber = slide.querySelector('.short-scrubber');
+  const scrubTrack = slide.querySelector('.scrub-track');
+  const scrubFill = slide.querySelector('.scrub-fill');
+  const scrubKnob = slide.querySelector('.scrub-knob');
+  const scrubBubble = slide.querySelector('.scrub-bubble');
+  const scrubTimeNow = slide.querySelector('.scrub-time-now');
+  const scrubTimeTotal = slide.querySelector('.scrub-time-total');
+
+  let isScrubbing = false;
+  let is2xSpeed = false;
+  let longPressTimer = null;
+  let startX = 0;
+  let startY = 0;
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // Single Tap Jeda/Pause, Double Tap Love pada Layer Layar Video (Localhost)
-  if (touchLayer) {
-    touchLayer.addEventListener('click', (e) => {
-      // Unmute on first user touch automatically
+  // 1. Video playback events
+  if (video) {
+    video.addEventListener('timeupdate', () => {
+      if (isScrubbing) return;
+      const cur = video.currentTime;
+      const dur = video.duration || 1;
+      if (scrubFill) scrubFill.style.width = ((cur / dur) * 100) + '%';
+    });
+
+    video.addEventListener('playing', () => {
+      if (posterImg) posterImg.style.opacity = '0';
+      if (playIndicator) playIndicator.style.opacity = '0';
+      if (disc) disc.classList.remove('spin-paused');
+    });
+
+    video.addEventListener('pause', () => {
+      if (!isScrubbing && playIndicator) {
+        playIndicator.style.opacity = '1';
+      }
+      if (disc) disc.classList.add('spin-paused');
+    });
+
+    video.addEventListener('ended', () => {
+      video.currentTime = 0;
+      video.play().catch(() => {});
+    });
+  }
+
+  // 2. Interactive Scrubber (Drag/Seek Duration - Persis Gambar 2)
+  if (scrubber && video) {
+    function seekToPosition(clientX) {
+      const rect = scrubTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (scrubFill) scrubFill.style.width = (pct * 100) + '%';
+      const dur = video.duration || 1;
+      const seekTime = pct * dur;
+      if (scrubTimeNow) scrubTimeNow.textContent = formatTime(seekTime);
+      if (scrubTimeTotal) scrubTimeTotal.textContent = formatTime(dur);
+      if (scrubBubble) {
+        scrubBubble.style.left = `${pct * 100}%`;
+      }
+      return seekTime;
+    }
+
+    scrubber.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isScrubbing = true;
+      if (scrubBubble) scrubBubble.classList.remove('hidden');
+      if (scrubKnob) scrubKnob.classList.remove('scale-0');
+      seekToPosition(e.clientX);
+    });
+
+    const onPointerMove = (e) => {
+      if (!isScrubbing) return;
+      e.preventDefault();
+      seekToPosition(e.clientX);
+    };
+
+    const onPointerUp = (e) => {
+      if (!isScrubbing) return;
+      const seekTime = seekToPosition(e.clientX);
+      video.currentTime = seekTime;
+      isScrubbing = false;
+      if (scrubBubble) scrubBubble.classList.add('hidden');
+      if (scrubKnob) scrubKnob.classList.add('scale-0');
+      video.play().catch(() => {});
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }
+
+  // 3. Touch Gesture Layer: Single Tap (Pause/Play), Double Tap (Love), Long Press (2X Speed)
+  if (touchLayer && video) {
+    touchLayer.addEventListener('pointerdown', (e) => {
+      startX = e.clientX;
+      startY = e.clientY;
+
+      longPressTimer = setTimeout(() => {
+        is2xSpeed = true;
+        video.playbackRate = 2.0;
+        if (speedBadge) speedBadge.classList.remove('hidden');
+        triggerHaptic('medium');
+      }, 260);
+    });
+
+    touchLayer.addEventListener('pointermove', (e) => {
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimer);
+      }
+    });
+
+    touchLayer.addEventListener('pointerup', (e) => {
+      clearTimeout(longPressTimer);
+
+      if (is2xSpeed) {
+        is2xSpeed = false;
+        video.playbackRate = 1.0;
+        if (speedBadge) speedBadge.classList.add('hidden');
+        return; // Jangan picu tap biasa
+      }
+
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 12 || dy > 12) return; // User sedang swipe ganti video
+
+      // Unmute otomatis pada sentuhan pertama pengguna
       if (isMuted) {
         isMuted = false;
         document.querySelectorAll('video').forEach(v => v.muted = false);
       }
 
-      const currentTime = new Date().getTime();
-      const tapLength = currentTime - lastTapTime;
+      const currentTime = Date.now();
+      const tapInterval = currentTime - lastTapTime;
 
-      if (tapLength < 320 && tapLength > 0) {
+      if (tapInterval < 300 && tapInterval > 0) {
+        // DOUBLE TAP -> LOVE ❤️
         clearTimeout(singleTapTimer);
-        // Double Tap Like!
         triggerDoubleTapLike(slide, e.clientX, e.clientY);
         if (!likedVideoIds.has(data.id)) {
           likedVideoIds.add(data.id);
           updateLikeButtonUI(slide, true);
-          likeBtn.classList.remove('animate-heart-pop');
-          void likeBtn.offsetWidth;
-          likeBtn.classList.add('animate-heart-pop');
-          likeCount.textContent = formatCount(data.likes + 1);
+          if (likeBtn) {
+            likeBtn.classList.remove('animate-heart-pop');
+            void likeBtn.offsetWidth;
+            likeBtn.classList.add('animate-heart-pop');
+          }
+          if (likeCount) likeCount.textContent = formatCount(data.likes + 1);
           persistStorage();
           showToast('Disukai ❤️', 'heart', 'rose');
           triggerHaptic('success');
         }
       } else {
+        // SINGLE TAP -> JEDA / PUTAR (Persis TikTok)
         singleTapTimer = setTimeout(() => {
-          if (video) togglePlayback(video, playIndicator);
-        }, 320);
+          if (video.paused) {
+            video.play().catch(() => {});
+            if (playIndicator) playIndicator.style.opacity = '0';
+            if (disc) disc.classList.remove('spin-paused');
+          } else {
+            video.pause();
+            if (playIndicator) playIndicator.style.opacity = '1';
+            if (disc) disc.classList.add('spin-paused');
+          }
+          triggerHaptic('light');
+        }, 250);
       }
       lastTapTime = currentTime;
     });
+
+    touchLayer.addEventListener('pointercancel', () => {
+      clearTimeout(longPressTimer);
+      if (is2xSpeed) {
+        is2xSpeed = false;
+        video.playbackRate = 1.0;
+        if (speedBadge) speedBadge.classList.add('hidden');
+      }
+    });
   }
 
-  likeBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    likeBtn.classList.remove('animate-heart-pop');
-    void likeBtn.offsetWidth;
+  // 4. Action buttons
+  if (likeBtn) {
+    likeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      likeBtn.classList.remove('animate-heart-pop');
+      void likeBtn.offsetWidth;
 
-    if (likedVideoIds.has(data.id)) {
-      likedVideoIds.delete(data.id);
-      updateLikeButtonUI(slide, false);
-      likeCount.textContent = formatCount(data.likes);
-      showToast('Batal menyukai 🤍', 'heart', 'zinc');
-      triggerHaptic('light');
-    } else {
-      likedVideoIds.add(data.id);
-      updateLikeButtonUI(slide, true);
-      likeBtn.classList.add('animate-heart-pop');
-      likeCount.textContent = formatCount(data.likes + 1);
-      showToast('Disukai ❤️', 'heart', 'rose');
-      triggerHaptic('success');
-    }
-    persistStorage();
-  });
-
-  saveBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    saveBtn.classList.remove('animate-bookmark-pop');
-    void saveBtn.offsetWidth;
-
-    if (savedShortIds.has(data.id)) {
-      savedShortIds.delete(data.id);
-      customCollections.forEach(col => {
-        col.videoIds = col.videoIds.filter(vid => vid !== data.id);
-      });
-      persistCollections();
-      updateSaveButtonUI(slide, false);
-      showToast('Dihapus dari Koleksi 🗑️', 'bookmark', 'zinc');
-      triggerHaptic('light');
-    } else {
-      savedShortIds.add(data.id);
-      const def = customCollections.find(c => c.id === 'col_default');
-      if (def && !def.videoIds.includes(data.id)) {
-        def.videoIds.push(data.id);
+      if (likedVideoIds.has(data.id)) {
+        likedVideoIds.delete(data.id);
+        updateLikeButtonUI(slide, false);
+        if (likeCount) likeCount.textContent = formatCount(data.likes);
+        showToast('Batal menyukai 🤍', 'heart', 'zinc');
+        triggerHaptic('light');
+      } else {
+        likedVideoIds.add(data.id);
+        updateLikeButtonUI(slide, true);
+        likeBtn.classList.add('animate-heart-pop');
+        if (likeCount) likeCount.textContent = formatCount(data.likes + 1);
+        showToast('Disukai ❤️', 'heart', 'rose');
+        triggerHaptic('success');
       }
-      persistCollections();
-      updateSaveButtonUI(slide, true);
-      saveBtn.classList.add('animate-bookmark-pop');
-      showToastWithAction(
-        'Tersimpan di Koleksi 🔖', 
-        'Kelola', 
-        () => openManageCollectionsModal(data.id)
-      );
-      triggerHaptic('success');
-    }
-  });
+      persistStorage();
+    });
+  }
 
-  // Long press on save button opens collection picker modal
-  let savePressTimer = null;
-  saveBtn.addEventListener('pointerdown', () => {
-    savePressTimer = setTimeout(() => {
-      openManageCollectionsModal(data.id);
-    }, 450);
-  });
-  saveBtn.addEventListener('pointerup', () => clearTimeout(savePressTimer));
-  saveBtn.addEventListener('pointercancel', () => clearTimeout(savePressTimer));
+  if (saveBtn) {
+    saveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      saveBtn.classList.remove('animate-bookmark-pop');
+      void saveBtn.offsetWidth;
 
-  shareBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    triggerHaptic('medium');
-    const txt = `Tonton video seru "${data.title}" di appVideo!`;
-    if (navigator.share) {
-      navigator.share({ title: 'appVideo', text: txt, url: window.location.href }).catch(() => {});
-    } else if (tg?.openTelegramLink) {
-      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(txt)}`);
-    } else {
-      showToast('Tautan berhasil disalin! 📋', 'check', 'emerald');
-    }
-  });
+      if (savedShortIds.has(data.id)) {
+        savedShortIds.delete(data.id);
+        customCollections.forEach(col => {
+          col.videoIds = col.videoIds.filter(vid => vid !== data.id);
+        });
+        persistCollections();
+        updateSaveButtonUI(slide, false);
+        showToast('Dihapus dari Koleksi 🗑️', 'bookmark', 'zinc');
+        triggerHaptic('light');
+      } else {
+        savedShortIds.add(data.id);
+        const def = customCollections.find(c => c.id === 'col_default');
+        if (def && !def.videoIds.includes(data.id)) {
+          def.videoIds.push(data.id);
+        }
+        persistCollections();
+        updateSaveButtonUI(slide, true);
+        saveBtn.classList.add('animate-bookmark-pop');
+        showToastWithAction(
+          'Tersimpan di Koleksi 🔖', 
+          'Kelola', 
+          () => openManageCollectionsModal(data.id)
+        );
+        triggerHaptic('success');
+      }
+    });
 
-  botViewBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    triggerHaptic('medium');
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(data.id)}`);
-    } else {
-      showToast(`Membuka pesan #${data.message_id} dari bot`, 'send', 'rose');
-    }
-  });
-}
+    let savePressTimer = null;
+    saveBtn.addEventListener('pointerdown', () => {
+      savePressTimer = setTimeout(() => {
+        openManageCollectionsModal(data.id);
+      }, 450);
+    });
+    saveBtn.addEventListener('pointerup', () => clearTimeout(savePressTimer));
+    saveBtn.addEventListener('pointercancel', () => clearTimeout(savePressTimer));
+  }
 
-function togglePlayback(video, indicator) {
-  triggerHaptic('light');
-  if (video.paused) {
-    video.play().catch(() => {});
-    indicator.style.opacity = '0';
-  } else {
-    video.pause();
-    indicator.style.opacity = '1';
-    setTimeout(() => { indicator.style.opacity = '0'; }, 800);
+  if (commentBtn) {
+    commentBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      showToast('Komentar segera hadir! 💬', 'message-circle', 'zinc');
+    });
+  }
+
+  if (shareBtn) {
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic('medium');
+      const txt = `Tonton video seru "${data.title}" di appVideo!`;
+      if (navigator.share) {
+        navigator.share({ title: 'appVideo', text: txt, url: window.location.href }).catch(() => {});
+      } else if (tg?.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(txt)}`);
+      } else {
+        showToast('Tautan berhasil disalin! 📋', 'check', 'emerald');
+      }
+    });
   }
 }
 
@@ -924,38 +1080,44 @@ function triggerDoubleTapLike(slide, clientX, clientY) {
 
 function setupShortsObserver() {
   if (shortsObserver) shortsObserver.disconnect();
+
   shortsObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const slide = entry.target;
       const video = slide.querySelector('video');
       const disc = slide.querySelector('.music-disc');
+      const playIndicator = slide.querySelector('.play-indicator');
 
       if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
+        // BERHENTIKAN SEMUA VIDEO LAIN AGAR SUARA TIDAK TABRAKAN!
+        document.querySelectorAll('video').forEach(v => {
+          if (v !== video && !v.paused) {
+            v.pause();
+          }
+        });
+
         currentPlayingShortVideo = video;
         if (video) {
-          video.currentTime = 0;
           video.muted = isMuted;
           const p = video.play();
           if (p) {
-            p.catch(() => {
-              // Jika browser blokir unmuted autoplay, paksa muted agar video TETAP mulai otomatis!
+            p.then(() => {
+              if (playIndicator) playIndicator.style.opacity = '0';
+            }).catch(() => {
+              // Jika autoplay diblokir browser tanpa gesture, mulai muted dulu
               video.muted = true;
-              video.play().catch(() => {});
+              video.play().then(() => {
+                if (playIndicator) playIndicator.style.opacity = '0';
+              }).catch(() => {});
             });
           }
-          // Pastikan terus berulang (looping) jika tidak discroll
-          video.loop = true;
-          video.onended = () => {
-            video.currentTime = 0;
-            video.play().catch(() => {});
-          };
+          if (disc) disc.classList.remove('spin-paused');
         }
-        if (disc) disc.classList.remove('spin-paused');
       } else {
-        // Begitu discroll pergi: BERHENTIKAN VIDEO SEBELUMNYA SEGERA!
+        // BEGITU DISCROLL PERGI: BERHENTIKAN SEGERA & RESET SPEED!
         if (video) {
           video.pause();
-          video.currentTime = 0;
+          video.playbackRate = 1.0;
         }
         if (disc) disc.classList.add('spin-paused');
       }
@@ -963,6 +1125,25 @@ function setupShortsObserver() {
   }, { root: feedContainer, threshold: 0.6 });
 
   document.querySelectorAll('#feed-container .snap-slide').forEach(slide => shortsObserver.observe(slide));
+
+  // Putar otomatis video pertama langsung tanpa harus discroll dulu!
+  setTimeout(() => {
+    const firstSlide = feedContainer.querySelector('.snap-slide');
+    if (firstSlide) {
+      const firstVideo = firstSlide.querySelector('video');
+      if (firstVideo && firstVideo.paused) {
+        currentPlayingShortVideo = firstVideo;
+        firstVideo.muted = isMuted;
+        const p = firstVideo.play();
+        if (p) {
+          p.catch(() => {
+            firstVideo.muted = true;
+            firstVideo.play().catch(() => {});
+          });
+        }
+      }
+    }
+  }, 100);
 }
 
 // ============================================================
