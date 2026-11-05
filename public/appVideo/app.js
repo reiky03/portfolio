@@ -678,7 +678,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK / DOUYIN ASLI GAMBAR 2) -->
-    <div class="absolute right-2.5 bottom-[68px] flex flex-col items-center gap-4 z-30 pointer-events-auto">
+    <div class="absolute right-2.5 bottom-[92px] flex flex-col items-center gap-4 z-30 pointer-events-auto">
       <!-- Avatar with (+) follow button -->
       <div class="relative mb-1 cursor-pointer active:scale-90 transition-transform">
         <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300 shadow-md">
@@ -729,7 +729,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- BOTTOM METADATA (LEFT STACK) -->
-    <div class="absolute left-4 right-20 bottom-[68px] z-30 space-y-2 pointer-events-auto">
+    <div class="absolute left-4 right-20 bottom-[92px] z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
         <span class="text-xs font-black text-white drop-shadow flex items-center gap-1">
           ${data.author}
@@ -756,7 +756,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- TIKTOK DURATION SCRUBBER BAR (PERSIS GAMBAR 2: BISA DITEKAN & DIGESER) -->
-    <div class="short-scrubber absolute inset-x-0 bottom-[53px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
+    <div class="short-scrubber absolute inset-x-0 bottom-[74px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
       <!-- Floating Time Bubble while dragging -->
       <div class="scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] px-2.5 py-0.5 rounded-full shadow-2xl pointer-events-none">
         <span class="scrub-time-now">00:00</span> / <span class="scrub-time-total">00:00</span>
