@@ -424,20 +424,37 @@ function createShortSlide(data, index) {
   const isSaved = savedShortIds.has(data.id);
 
   slide.innerHTML = `
-    <video 
-      class="video-player"
-      src="${data.video_url}"
-      loop
-      playsinline
-      webkit-playsinline
-      preload="${index === 0 ? 'auto' : 'metadata'}"
-      ${isMuted ? 'muted' : ''}
-    ></video>
+    <div class="video-media-wrapper absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+      ${data.gdrive_file_id ? `
+        <img 
+          src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" 
+          class="video-poster-img absolute inset-0 w-full h-full object-cover transition-opacity duration-300" 
+          alt="${data.title}" 
+          loading="${index < 3 ? 'eager' : 'lazy'}"
+        />
+        <iframe 
+          class="video-player w-full h-full border-0 absolute inset-0 z-10"
+          src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview"
+          allow="autoplay; encrypted-media; fullscreen"
+          loading="${index < 3 ? 'eager' : 'lazy'}"
+        ></iframe>
+      ` : `
+        <video 
+          class="video-player w-full h-full object-cover"
+          src="${data.video_url}"
+          loop
+          playsinline
+          webkit-playsinline
+          preload="${index === 0 ? 'auto' : 'metadata'}"
+          ${isMuted ? 'muted' : ''}
+        ></video>
+      `}
+    </div>
 
-    <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none"></div>
-    <div class="absolute inset-x-0 bottom-0 h-48 bottom-gradient pointer-events-none"></div>
+    <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none z-20"></div>
+    <div class="absolute inset-x-0 bottom-0 h-48 bottom-gradient pointer-events-none z-20"></div>
 
-    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-20">
+    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-30">
       <div class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white/90 shadow-2xl">
         <i data-lucide="play" class="w-8 h-8 fill-white ml-1"></i>
       </div>
@@ -556,7 +573,7 @@ function setupShortSlideGestures(slide, data) {
       }
     } else {
       singleTapTimer = setTimeout(() => {
-        togglePlayback(video, playIndicator);
+        if (video) togglePlayback(video, playIndicator);
       }, 300);
     }
     lastTapTime = currentTime;
@@ -661,16 +678,23 @@ function setupShortsObserver() {
       const video = entry.target.querySelector('video');
       const disc = entry.target.querySelector('.music-disc');
 
-      if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
-        currentPlayingShortVideo = video;
-        video.muted = isMuted;
-        const p = video.play();
-        if (p) p.catch(() => {});
-        if (disc) disc.classList.remove('spin-paused');
+      if (video) {
+        if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
+          currentPlayingShortVideo = video;
+          video.muted = isMuted;
+          const p = video.play();
+          if (p) p.catch(() => {});
+          if (disc) disc.classList.remove('spin-paused');
+        } else {
+          video.pause();
+          video.currentTime = 0;
+          if (disc) disc.classList.add('spin-paused');
+        }
       } else {
-        video.pause();
-        video.currentTime = 0;
-        if (disc) disc.classList.add('spin-paused');
+        if (disc) {
+          if (entry.isIntersecting) disc.classList.remove('spin-paused');
+          else disc.classList.add('spin-paused');
+        }
       }
     });
   }, { root: feedContainer, threshold: 0.65 });
@@ -1126,7 +1150,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     } else {
       // SINGLE TAP: Jeda / Pause! (Persis seperti yang diminta!)
       singleTapTimer = setTimeout(() => {
-        togglePlayback(video, playIndicator);
+        if (video) togglePlayback(video, playIndicator);
       }, 300);
     }
     lastTapTime = currentTime;
