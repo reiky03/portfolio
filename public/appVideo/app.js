@@ -367,6 +367,26 @@ function shuffleArray(array) {
   return arr;
 }
 
+// Toast notification helper ala TikTok
+function showToast(message, iconName = 'sparkles', color = 'rose') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed top-14 inset-x-0 z-50 flex flex-col items-center pointer-events-none gap-2 px-4';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'tiktok-toast flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900/95 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-2xl';
+  toast.innerHTML = `
+    <i data-lucide="${iconName}" class="w-4 h-4 text-${color}-400 shrink-0"></i>
+    <span>${message}</span>
+  `;
+  container.appendChild(toast);
+  lucide.createIcons();
+  setTimeout(() => toast.remove(), 1800);
+}
+
 // ============================================================
 // 1. SHORTS FEED & PLAYER (BERANDA)
 // ============================================================
@@ -424,7 +444,9 @@ function createShortSlide(data, index) {
   const isSaved = savedShortIds.has(data.id);
 
   slide.innerHTML = `
+    <!-- VIDEO MEDIA WRAPPER -->
     <div class="video-media-wrapper absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+      <!-- High-res Poster Thumbnail from Google Drive (Loaded Instantly) -->
       ${data.gdrive_file_id ? `
         <img 
           src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" 
@@ -432,36 +454,37 @@ function createShortSlide(data, index) {
           alt="${data.title}" 
           loading="${index < 3 ? 'eager' : 'lazy'}"
         />
-        <iframe 
-          class="video-player w-full h-full border-0 absolute inset-0 z-10"
-          src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview"
-          allow="autoplay; encrypted-media; fullscreen"
-          loading="${index < 3 ? 'eager' : 'lazy'}"
-        ></iframe>
-      ` : `
-        <video 
-          class="video-player w-full h-full object-cover"
-          src="${data.video_url}"
-          loop
-          playsinline
-          webkit-playsinline
-          preload="${index === 0 ? 'auto' : 'metadata'}"
-          ${isMuted ? 'muted' : ''}
-        ></video>
-      `}
+      ` : ''}
+
+      <!-- Native HTML5 Video Player with Autoplay & Loop -->
+      <video 
+        class="video-player w-full h-full object-cover absolute inset-0 z-10"
+        src="${data.video_url}"
+        ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
+        loop
+        playsinline
+        webkit-playsinline
+        preload="${index <= 1 ? 'auto' : 'metadata'}"
+        ${isMuted ? 'muted' : ''}
+      ></video>
     </div>
 
+    <!-- TOUCH DETECTOR GESTURE LAYER (Z-20: TIKTOK DOUBLE-TAP LIKE & SINGLE-TAP PLAY/PAUSE) -->
+    <div class="touch-gesture-layer absolute inset-0 z-20 pointer-events-auto"></div>
+
+    <!-- GRADIENTS OVERLAY -->
     <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none z-20"></div>
     <div class="absolute inset-x-0 bottom-0 h-48 bottom-gradient pointer-events-none z-20"></div>
 
-    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-30">
+    <!-- PLAY/PAUSE FLASH INDICATOR -->
+    <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-40">
       <div class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white/90 shadow-2xl">
         <i data-lucide="play" class="w-8 h-8 fill-white ml-1"></i>
       </div>
     </div>
 
-    <!-- RIGHT ACTION SIDEBAR -->
-    <div class="absolute right-3 bottom-8 flex flex-col items-center gap-4 z-20">
+    <!-- RIGHT ACTION SIDEBAR (Z-30: HIGH PRIORITY INTERACTION) -->
+    <div class="absolute right-3 bottom-8 flex flex-col items-center gap-4 z-30 pointer-events-auto">
       <div class="relative cursor-pointer active:scale-90 transition-transform">
         <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300">
           <div class="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-bold text-xs text-white">
@@ -472,23 +495,23 @@ function createShortSlide(data, index) {
 
       <!-- Like (❤️) -->
       <div class="flex flex-col items-center gap-1">
-        <button class="like-btn w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <i data-lucide="heart" class="heart-icon w-6 h-6 transition-colors ${isLiked ? 'text-rose-500 fill-rose-500' : 'text-white'}"></i>
+        <button class="like-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
+          <i data-lucide="heart" class="heart-icon w-6 h-6 transition-transform ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}"></i>
         </button>
         <span class="like-count text-[11px] font-semibold text-zinc-200">${formatCount(data.likes + (isLiked ? 1 : 0))}</span>
       </div>
 
       <!-- Bookmark Shorts (🔖) -->
       <div class="flex flex-col items-center gap-1">
-        <button class="save-btn w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <i data-lucide="bookmark" class="save-icon w-5 h-5 transition-colors ${isSaved ? 'text-amber-400 fill-amber-400' : 'text-white'}"></i>
+        <button class="save-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
+          <i data-lucide="bookmark" class="save-icon w-5 h-5 transition-transform ${isSaved ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-white'}"></i>
         </button>
         <span class="save-count text-[10px] font-semibold text-zinc-300">${isSaved ? 'Tersimpan' : 'Simpan'}</span>
       </div>
 
       <!-- Share -->
       <div class="flex flex-col items-center gap-1">
-        <button class="share-btn w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white active:scale-75 transition-all">
+        <button class="share-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white active:scale-75 transition-all">
           <i data-lucide="share-2" class="w-5 h-5 text-white"></i>
         </button>
         <span class="text-[11px] font-semibold text-zinc-200">${formatCount(data.shares)}</span>
@@ -496,7 +519,7 @@ function createShortSlide(data, index) {
 
       <!-- Chat Bot -->
       <div class="flex flex-col items-center gap-1">
-        <button class="bot-view-btn w-11 h-11 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg shadow-rose-600/30 active:scale-75 transition-all">
+        <button class="bot-view-btn w-12 h-12 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg shadow-rose-600/30 active:scale-75 transition-all">
           <i data-lucide="send" class="w-4 h-4 text-white -mr-0.5"></i>
         </button>
         <span class="text-[9px] font-bold tracking-tight text-rose-300 uppercase">Chat</span>
@@ -509,7 +532,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- BOTTOM METADATA -->
-    <div class="absolute left-4 right-20 bottom-8 z-20 space-y-2 pointer-events-auto">
+    <div class="absolute left-4 right-20 bottom-8 z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
         <span class="text-[11px] font-semibold bg-rose-500/80 text-white px-2 py-0.5 rounded-md backdrop-blur-sm">
           ${data.topic_name}
@@ -540,6 +563,7 @@ function createShortSlide(data, index) {
 }
 
 function setupShortSlideGestures(slide, data) {
+  const touchLayer = slide.querySelector('.touch-gesture-layer');
   const video = slide.querySelector('video');
   const playIndicator = slide.querySelector('.play-indicator');
   const likeBtn = slide.querySelector('.like-btn');
@@ -551,49 +575,77 @@ function setupShortSlideGestures(slide, data) {
   const shareBtn = slide.querySelector('.share-btn');
   const botViewBtn = slide.querySelector('.bot-view-btn');
 
+  // Fallback seamlessly to Google Drive preview iframe if direct streaming is blocked by browser CORS/CORP
+  if (video && data.gdrive_file_id) {
+    video.onerror = () => {
+      console.warn("Direct video stream blocked, falling back to embedded preview for:", data.id);
+      const mediaWrapper = slide.querySelector('.video-media-wrapper');
+      if (mediaWrapper && !mediaWrapper.querySelector('iframe')) {
+        mediaWrapper.innerHTML = `
+          <img src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" class="video-poster-img absolute inset-0 w-full h-full object-cover" />
+          <iframe class="video-player w-full h-full border-0 absolute inset-0 z-10" src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview" allow="autoplay; fullscreen"></iframe>
+        `;
+      }
+    };
+  }
+
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // Single Tap Jeda/Pause, Double Tap Love
-  slide.addEventListener('click', (e) => {
-    if (e.target.closest('.z-20')) return;
+  // Single Tap Jeda/Pause, Double Tap Love pada Layer Layar Video
+  touchLayer.addEventListener('click', (e) => {
+    // Unmute on first user touch automatically
+    if (isMuted) {
+      isMuted = false;
+      document.querySelectorAll('video').forEach(v => v.muted = false);
+    }
 
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTapTime;
 
-    if (tapLength < 300 && tapLength > 0) {
+    if (tapLength < 320 && tapLength > 0) {
       clearTimeout(singleTapTimer);
+      // Double Tap Like!
       triggerDoubleTapLike(slide, e.clientX, e.clientY);
       if (!likedVideoIds.has(data.id)) {
         likedVideoIds.add(data.id);
-        heartIcon.classList.add('text-rose-500', 'fill-rose-500');
+        heartIcon.classList.add('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
         heartIcon.classList.remove('text-white');
+        likeBtn.classList.remove('animate-heart-pop');
+        void likeBtn.offsetWidth;
+        likeBtn.classList.add('animate-heart-pop');
         likeCount.textContent = formatCount(data.likes + 1);
         persistStorage();
+        showToast('Disukai ❤️', 'heart', 'rose');
+        triggerHaptic('success');
       }
     } else {
       singleTapTimer = setTimeout(() => {
         if (video) togglePlayback(video, playIndicator);
-      }, 300);
+      }, 320);
     }
     lastTapTime = currentTime;
   });
 
   likeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    likeBtn.classList.remove('animate-heart-pop');
+    void likeBtn.offsetWidth;
+
     if (likedVideoIds.has(data.id)) {
       likedVideoIds.delete(data.id);
-      heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
+      heartIcon.classList.remove('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
       heartIcon.classList.add('text-white');
       likeCount.textContent = formatCount(data.likes);
+      showToast('Batal menyukai 🤍', 'heart', 'zinc');
       triggerHaptic('light');
     } else {
       likedVideoIds.add(data.id);
-      heartIcon.classList.add('text-rose-500', 'fill-rose-500');
+      heartIcon.classList.add('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
       heartIcon.classList.remove('text-white');
+      likeBtn.classList.add('animate-heart-pop');
       likeCount.textContent = formatCount(data.likes + 1);
-      likeBtn.classList.add('scale-125');
-      setTimeout(() => likeBtn.classList.remove('scale-125'), 200);
+      showToast('Disukai ❤️', 'heart', 'rose');
       triggerHaptic('success');
     }
     persistStorage();
@@ -601,19 +653,23 @@ function setupShortSlideGestures(slide, data) {
 
   saveBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    saveBtn.classList.remove('animate-bookmark-pop');
+    void saveBtn.offsetWidth;
+
     if (savedShortIds.has(data.id)) {
       savedShortIds.delete(data.id);
-      saveIcon.classList.remove('text-amber-400', 'fill-amber-400');
+      saveIcon.classList.remove('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
       saveIcon.classList.add('text-white');
       saveCount.textContent = 'Simpan';
+      showToast('Dihapus dari Koleksi 🗑️', 'bookmark', 'zinc');
       triggerHaptic('light');
     } else {
       savedShortIds.add(data.id);
-      saveIcon.classList.add('text-amber-400', 'fill-amber-400');
+      saveIcon.classList.add('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
       saveIcon.classList.remove('text-white');
+      saveBtn.classList.add('animate-bookmark-pop');
       saveCount.textContent = 'Tersimpan';
-      saveBtn.classList.add('scale-125');
-      setTimeout(() => saveBtn.classList.remove('scale-125'), 200);
+      showToast('Tersimpan di Koleksi Shorts 🔖', 'bookmark', 'amber');
       triggerHaptic('success');
     }
     persistStorage();
@@ -628,7 +684,7 @@ function setupShortSlideGestures(slide, data) {
     } else if (tg?.openTelegramLink) {
       tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(txt)}`);
     } else {
-      alert('Tautan disalin!');
+      showToast('Tautan berhasil disalin! 📋', 'check', 'emerald');
     }
   });
 
@@ -638,7 +694,7 @@ function setupShortSlideGestures(slide, data) {
     if (tg?.openTelegramLink) {
       tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(data.id)}`);
     } else {
-      alert(`Membuka pesan #${data.message_id} dari bot Telegram`);
+      showToast(`Membuka pesan #${data.message_id} dari bot`, 'send', 'rose');
     }
   });
 }
@@ -646,7 +702,7 @@ function setupShortSlideGestures(slide, data) {
 function togglePlayback(video, indicator) {
   triggerHaptic('light');
   if (video.paused) {
-    video.play();
+    video.play().catch(() => {});
     indicator.style.opacity = '0';
   } else {
     video.pause();
@@ -658,12 +714,12 @@ function togglePlayback(video, indicator) {
 function triggerDoubleTapLike(slide, clientX, clientY) {
   triggerHaptic('medium');
   const heart = document.createElement('div');
-  heart.className = 'burst-heart z-30';
+  heart.className = 'burst-heart z-40';
   const rect = slide.getBoundingClientRect();
   heart.style.left = `${clientX - rect.left}px`;
   heart.style.top = `${clientY - rect.top}px`;
   heart.innerHTML = `
-    <svg class="w-20 h-20 text-rose-500 fill-rose-500" viewBox="0 0 24 24">
+    <svg class="w-24 h-24 text-rose-500 fill-rose-500 drop-shadow-[0_0_20px_rgba(244,63,94,0.9)]" viewBox="0 0 24 24">
       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
     </svg>
   `;
@@ -675,29 +731,41 @@ function setupShortsObserver() {
   if (shortsObserver) shortsObserver.disconnect();
   shortsObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      const disc = entry.target.querySelector('.music-disc');
+      const slide = entry.target;
+      const video = slide.querySelector('video');
+      const disc = slide.querySelector('.music-disc');
 
-      if (video) {
-        if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
-          currentPlayingShortVideo = video;
+      if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
+        currentPlayingShortVideo = video;
+        if (video) {
+          video.currentTime = 0;
           video.muted = isMuted;
           const p = video.play();
-          if (p) p.catch(() => {});
-          if (disc) disc.classList.remove('spin-paused');
-        } else {
+          if (p) {
+            p.catch(() => {
+              // Jika browser blokir unmuted autoplay, paksa muted agar video TETAP mulai otomatis!
+              video.muted = true;
+              video.play().catch(() => {});
+            });
+          }
+          // Pastikan terus berulang (looping) jika tidak discroll
+          video.loop = true;
+          video.onended = () => {
+            video.currentTime = 0;
+            video.play().catch(() => {});
+          };
+        }
+        if (disc) disc.classList.remove('spin-paused');
+      } else {
+        // Begitu discroll pergi: BERHENTIKAN VIDEO SEBELUMNYA SEGERA!
+        if (video) {
           video.pause();
           video.currentTime = 0;
-          if (disc) disc.classList.add('spin-paused');
         }
-      } else {
-        if (disc) {
-          if (entry.isIntersecting) disc.classList.remove('spin-paused');
-          else disc.classList.add('spin-paused');
-        }
+        if (disc) disc.classList.add('spin-paused');
       }
     });
-  }, { root: feedContainer, threshold: 0.65 });
+  }, { root: feedContainer, threshold: 0.6 });
 
   document.querySelectorAll('#feed-container .snap-slide').forEach(slide => shortsObserver.observe(slide));
 }
@@ -1531,13 +1599,15 @@ function setupEvents() {
   drawerBackdrop.onclick = closeDrawer;
 
   // Mute audio
-  globalMuteBtn.onclick = () => {
-    triggerHaptic('light');
-    isMuted = !isMuted;
-    document.querySelectorAll('video').forEach(v => v.muted = isMuted);
-    muteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
-    lucide.createIcons();
-  };
+  if (globalMuteBtn) {
+    globalMuteBtn.onclick = () => {
+      triggerHaptic('light');
+      isMuted = !isMuted;
+      document.querySelectorAll('video').forEach(v => v.muted = isMuted);
+      if (muteIcon) muteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
+      lucide.createIcons();
+    };
+  }
 
   // Tombol "Untuk Anda" (Klik untuk Mengacak Ulang Feed Video)
   const titleUntukAndaBtn = document.getElementById('title-untuk-anda-btn');
