@@ -1,7 +1,7 @@
 // ============================================================
 // STATE & LOCAL STORAGE PERSISTENCE
 // ============================================================
-const STREAM_PROXY_BASE = 'https://test-worker.tattered-mongoose.workers.dev';
+const STREAM_PROXY_BASE = 'https://test-worker.big-marigold.workers.dev';
 let allVideos = [];
 let allTopics = [];
 let allDramas = [];
@@ -648,10 +648,9 @@ function createShortSlide(data, index) {
   const isLiked = likedVideoIds.has(data.id);
   const isSaved = savedShortIds.has(data.id);
 
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const streamSrc = (isLocal && data.gdrive_file_id) 
-    ? `/stream?id=${data.gdrive_file_id}`
-    : (data.gdrive_file_id ? `${STREAM_PROXY_BASE}?id=${data.gdrive_file_id}` : data.video_url);
+  const streamSrc = data.gdrive_file_id 
+    ? `${STREAM_PROXY_BASE}?id=${data.gdrive_file_id}` 
+    : data.video_url;
 
   slide.innerHTML = `
     <!-- VIDEO MEDIA WRAPPER -->
