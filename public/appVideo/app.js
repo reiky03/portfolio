@@ -443,6 +443,11 @@ function createShortSlide(data, index) {
   const isLiked = likedVideoIds.has(data.id);
   const isSaved = savedShortIds.has(data.id);
 
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const streamSrc = (isLocal && data.gdrive_file_id) 
+    ? `/stream?id=${data.gdrive_file_id}`
+    : data.video_url;
+
   slide.innerHTML = `
     <!-- VIDEO MEDIA WRAPPER -->
     <div class="video-media-wrapper absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
@@ -459,7 +464,7 @@ function createShortSlide(data, index) {
       <!-- Native HTML5 Video Player with Autoplay & Loop -->
       <video 
         class="video-player w-full h-full object-cover absolute inset-0 z-10"
-        src="${data.video_url}"
+        src="${streamSrc}"
         ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
         loop
         playsinline
