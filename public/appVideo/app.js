@@ -488,7 +488,7 @@ function showToast(message, iconName = 'sparkles', color = 'rose') {
   setTimeout(() => toast.remove(), 1800);
 }
 
-function showToastWithAction(message, actionText, actionCallback) {
+function showToastWithAction(message, actionText, actionCallback, durationMs = 6500) {
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
@@ -497,31 +497,39 @@ function showToastWithAction(message, actionText, actionCallback) {
     document.body.appendChild(container);
   }
   const toast = document.createElement('div');
-  toast.className = 'tiktok-toast flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-900/95 backdrop-blur-md border border-amber-400/40 text-xs font-semibold text-white shadow-2xl pointer-events-auto cursor-pointer';
+  toast.className = 'tiktok-toast flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-900/95 backdrop-blur-md border border-amber-400/50 text-xs font-semibold text-white shadow-2xl pointer-events-auto cursor-pointer transition-all duration-200';
   toast.innerHTML = `
     <span class="flex items-center gap-1.5">
       <i data-lucide="bookmark" class="w-4 h-4 text-amber-400 fill-amber-400 shrink-0"></i>
       <span>${message}</span>
     </span>
-    <button class="toast-action-btn ml-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-black font-bold text-[10px] active:scale-95 transition-all">
+    <button class="toast-action-btn ml-1 px-3 py-1 rounded-full bg-amber-500 text-black font-bold text-[11px] active:scale-95 hover:bg-amber-400 transition-all shadow-md">
       ${actionText}
     </button>
   `;
+
+  let dismissTimer = null;
+  const dismiss = () => {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    toast.classList.add('opacity-0', 'scale-95');
+    setTimeout(() => toast.remove(), 220);
+  };
+
   const btn = toast.querySelector('.toast-action-btn');
   if (btn) {
     btn.onclick = (e) => {
       e.stopPropagation();
-      toast.remove();
+      dismiss();
       if (actionCallback) actionCallback();
     };
   }
   toast.onclick = () => {
-    toast.remove();
+    dismiss();
     if (actionCallback) actionCallback();
   };
   container.appendChild(toast);
   lucide.createIcons();
-  setTimeout(() => toast.remove(), 3200);
+  dismissTimer = setTimeout(() => dismiss(), durationMs);
 }
 
 // ============================================================
@@ -670,7 +678,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK / DOUYIN ASLI GAMBAR 2) -->
-    <div class="absolute right-2.5 bottom-24 flex flex-col items-center gap-4 z-30 pointer-events-auto">
+    <div class="absolute right-2.5 bottom-[68px] flex flex-col items-center gap-4 z-30 pointer-events-auto">
       <!-- Avatar with (+) follow button -->
       <div class="relative mb-1 cursor-pointer active:scale-90 transition-transform">
         <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300 shadow-md">
@@ -691,16 +699,6 @@ function createShortSlide(data, index) {
           </svg>
         </button>
         <span class="like-count text-[11px] font-bold text-white drop-shadow">${formatCount(data.likes + (isLiked ? 1 : 0))}</span>
-      </div>
-
-      <!-- Comment (💬) -->
-      <div class="flex flex-col items-center gap-1">
-        <button class="comment-btn w-12 h-12 flex items-center justify-center active:scale-75 transition-all" aria-label="Komentar">
-          <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
-        <span class="text-[11px] font-bold text-white drop-shadow">${formatCount(Math.round(data.likes * 0.42))}</span>
       </div>
 
       <!-- Bookmark (🔖) -->
@@ -731,7 +729,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- BOTTOM METADATA (LEFT STACK) -->
-    <div class="absolute left-4 right-20 bottom-24 z-30 space-y-2 pointer-events-auto">
+    <div class="absolute left-4 right-20 bottom-[68px] z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
         <span class="text-xs font-black text-white drop-shadow flex items-center gap-1">
           ${data.author}
@@ -758,7 +756,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- TIKTOK DURATION SCRUBBER BAR (PERSIS GAMBAR 2: BISA DITEKAN & DIGESER) -->
-    <div class="short-scrubber absolute inset-x-0 bottom-[98px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
+    <div class="short-scrubber absolute inset-x-0 bottom-[53px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
       <!-- Floating Time Bubble while dragging -->
       <div class="scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] px-2.5 py-0.5 rounded-full shadow-2xl pointer-events-none">
         <span class="scrub-time-now">00:00</span> / <span class="scrub-time-total">00:00</span>
@@ -788,7 +786,6 @@ function setupShortSlideGestures(slide, data) {
   const likeCount = slide.querySelector('.like-count');
   const saveBtn = slide.querySelector('.save-btn');
   const shareBtn = slide.querySelector('.share-btn');
-  const commentBtn = slide.querySelector('.comment-btn');
   const touchLayer = slide.querySelector('.touch-gesture-layer');
 
   // Scrubber elements
@@ -1036,14 +1033,6 @@ function setupShortSlideGestures(slide, data) {
     });
     saveBtn.addEventListener('pointerup', () => clearTimeout(savePressTimer));
     saveBtn.addEventListener('pointercancel', () => clearTimeout(savePressTimer));
-  }
-
-  if (commentBtn) {
-    commentBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      triggerHaptic('light');
-      showToast('Komentar segera hadir! 💬', 'message-circle', 'zinc');
-    });
   }
 
   if (shareBtn) {
