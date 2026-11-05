@@ -533,10 +533,15 @@ function showToastWithAction(message, actionText, actionCallback, durationMs = 6
 }
 
 // ============================================================
-// 1. SHORTS FEED & PLAYER (BERANDA)
+// 1. SHORTS FEED & PLAYER (BERANDA) - VIRTUAL INFINITE BATCHING
 // ============================================================
+let currentFeedVideos = [];
+let currentRenderedFeedCount = 0;
+const FEED_BATCH_SIZE = 12;
+
 function renderShortsFeed(targetVideoId = null) {
   feedContainer.innerHTML = '';
+  currentRenderedFeedCount = 0;
   
   // Jika "Untuk Anda" (currentTopicId === 0): Benar-benar diacak dari SEMUA topik!
   const filtered = currentTopicId === 0
@@ -562,22 +567,39 @@ function renderShortsFeed(targetVideoId = null) {
     return;
   }
 
-  filtered.forEach((videoData, index) => {
-    const slide = createShortSlide(videoData, index);
-    feedContainer.appendChild(slide);
-  });
+  currentFeedVideos = filtered;
 
-  lucide.createIcons();
-  setupShortsObserver();
-
+  // Jika targetVideoId dipanggil (misal dari Koleksi / Pencarian), posisikan di depan
+  // agar video langsung terbuka dan berputar tanpa jeda / lag!
   if (targetVideoId) {
-    const targetSlide = feedContainer.querySelector(`[data-id="${targetVideoId}"]`);
-    if (targetSlide) {
-      targetSlide.scrollIntoView({ behavior: 'smooth' });
-      return;
+    const targetIdx = currentFeedVideos.findIndex(v => v.id === targetVideoId);
+    if (targetIdx > 0) {
+      const [targetItem] = currentFeedVideos.splice(targetIdx, 1);
+      currentFeedVideos.unshift(targetItem);
     }
   }
+
+  // Muat batch pertama (12 video) saja agar memory super ringan & performa maksimal
+  loadMoreFeedVideos(FEED_BATCH_SIZE);
+  setupShortsObserver();
   feedContainer.scrollTop = 0;
+}
+
+function loadMoreFeedVideos(count = FEED_BATCH_SIZE) {
+  if (currentRenderedFeedCount >= currentFeedVideos.length) return;
+  const nextBatch = currentFeedVideos.slice(currentRenderedFeedCount, currentRenderedFeedCount + count);
+  const frag = document.createDocumentFragment();
+  nextBatch.forEach((videoData, idx) => {
+    const globalIdx = currentRenderedFeedCount + idx;
+    const slide = createShortSlide(videoData, globalIdx);
+    slide.dataset.feedIndex = globalIdx;
+    frag.appendChild(slide);
+    if (shortsObserver) {
+      shortsObserver.observe(slide);
+    }
+  });
+  feedContainer.appendChild(frag);
+  currentRenderedFeedCount += nextBatch.length;
 }
 
 function updateLikeButtonUI(slide, isLiked) {
@@ -652,7 +674,7 @@ function createShortSlide(data, index) {
         loop
         playsinline
         webkit-playsinline
-        preload="${index <= 1 ? 'auto' : 'metadata'}"
+        preload="${index <= 1 ? 'auto' : 'none'}"
         muted
       ></video>
     </div>
@@ -678,7 +700,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK / DOUYIN ASLI GAMBAR 2) -->
-    <div class="absolute right-2.5 bottom-[78px] flex flex-col items-center gap-4 z-30 pointer-events-auto">
+    <div class="absolute right-2.5 bottom-[90px] flex flex-col items-center gap-4 z-30 pointer-events-auto">
       <!-- Avatar with (+) follow button -->
       <div class="relative mb-1 cursor-pointer active:scale-90 transition-transform">
         <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300 shadow-md">
@@ -729,7 +751,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- BOTTOM METADATA (LEFT STACK) -->
-    <div class="absolute left-4 right-20 bottom-[78px] z-30 space-y-2 pointer-events-auto">
+    <div class="absolute left-4 right-20 bottom-[90px] z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
         <span class="text-xs font-black text-white drop-shadow flex items-center gap-1">
           ${data.author}
@@ -756,7 +778,7 @@ function createShortSlide(data, index) {
     </div>
 
     <!-- TIKTOK DURATION SCRUBBER BAR (PERSIS GAMBAR 2: BISA DITEKAN & DIGESER) -->
-    <div class="short-scrubber absolute inset-x-0 bottom-[58px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
+    <div class="short-scrubber absolute inset-x-0 bottom-[68px] z-30 h-6 flex flex-col justify-end pointer-events-auto cursor-pointer group">
       <!-- Floating Time Bubble while dragging -->
       <div class="scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] px-2.5 py-0.5 rounded-full shadow-2xl pointer-events-none">
         <span class="scrub-time-now">00:00</span> / <span class="scrub-time-total">00:00</span>
@@ -855,26 +877,30 @@ function setupShortSlideGestures(slide, data) {
       if (scrubBubble) scrubBubble.classList.remove('hidden');
       if (scrubKnob) scrubKnob.classList.remove('scale-0');
       seekToPosition(e.clientX);
+
+      const onPointerMove = (ev) => {
+        if (!isScrubbing) return;
+        ev.preventDefault();
+        seekToPosition(ev.clientX);
+      };
+
+      const onPointerUp = (ev) => {
+        if (!isScrubbing) return;
+        const seekTime = seekToPosition(ev.clientX);
+        video.currentTime = seekTime;
+        isScrubbing = false;
+        if (scrubBubble) scrubBubble.classList.add('hidden');
+        if (scrubKnob) scrubKnob.classList.add('scale-0');
+        video.play().catch(() => {});
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
     });
-
-    const onPointerMove = (e) => {
-      if (!isScrubbing) return;
-      e.preventDefault();
-      seekToPosition(e.clientX);
-    };
-
-    const onPointerUp = (e) => {
-      if (!isScrubbing) return;
-      const seekTime = seekToPosition(e.clientX);
-      video.currentTime = seekTime;
-      isScrubbing = false;
-      if (scrubBubble) scrubBubble.classList.add('hidden');
-      if (scrubKnob) scrubKnob.classList.add('scale-0');
-      video.play().catch(() => {});
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
   }
 
   // 3. Touch Gesture Layer: Single Tap (Pause/Play), Double Tap (Love), Long Press (2X Speed)
@@ -1078,8 +1104,8 @@ function setupShortsObserver() {
       const playIndicator = slide.querySelector('.play-indicator');
 
       if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
-        // BERHENTIKAN SEMUA VIDEO LAIN AGAR SUARA TIDAK TABRAKAN!
-        document.querySelectorAll('video').forEach(v => {
+        // Hentikan video lain segera agar suara tidak pernah tabrakan
+        feedContainer.querySelectorAll('video').forEach(v => {
           if (v !== video && !v.paused) {
             v.pause();
           }
@@ -1088,6 +1114,7 @@ function setupShortsObserver() {
         currentPlayingShortVideo = video;
         if (video) {
           video.muted = isMuted;
+          video.preload = 'auto';
           const p = video.play();
           if (p) {
             p.then(() => {
@@ -1101,6 +1128,21 @@ function setupShortsObserver() {
             });
           }
           if (disc) disc.classList.remove('spin-paused');
+        }
+
+        // Preload video slide berikutnya agar saat swipe ke bawah langsung putar seketika!
+        const nextSlide = slide.nextElementSibling;
+        if (nextSlide) {
+          const nextVid = nextSlide.querySelector('video');
+          if (nextVid && nextVid.preload !== 'auto') {
+            nextVid.preload = 'auto';
+          }
+        }
+
+        // Infinite Scroll: Muat batch berikutnya secara mulus saat mendekati slide akhir
+        const idx = parseInt(slide.dataset.feedIndex || '0', 10);
+        if (idx >= currentRenderedFeedCount - 4) {
+          loadMoreFeedVideos();
         }
       } else {
         // BEGITU DISCROLL PERGI: BERHENTIKAN SEGERA & RESET SPEED!
@@ -1123,6 +1165,7 @@ function setupShortsObserver() {
       if (firstVideo && firstVideo.paused) {
         currentPlayingShortVideo = firstVideo;
         firstVideo.muted = isMuted;
+        firstVideo.preload = 'auto';
         const p = firstVideo.play();
         if (p) {
           p.catch(() => {
