@@ -34,11 +34,14 @@
     /* Vertical Snap Scroll Reels (Shorts & Drama) */
     .snap-reel-container {
       height: 100dvh;
-      width: 100vw;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
       overflow-y: scroll;
       scroll-snap-type: y mandatory;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      position: relative;
     }
     .snap-reel-container::-webkit-scrollbar {
       display: none;
@@ -46,7 +49,7 @@
 
     .snap-slide {
       position: relative;
-      width: 100vw;
+      width: 100%;
       height: 100dvh;
       scroll-snap-align: start;
       scroll-snap-stop: always;
@@ -200,7 +203,7 @@
   <!-- ============================================================ -->
   <div id="view-shorts" class="w-full h-full relative">
     
-    <header class="fixed top-0 left-0 right-0 z-40 top-gradient pt-safe pb-2 px-3 flex items-center justify-between pointer-events-auto">
+    <header class="fixed top-0 inset-x-0 max-w-[480px] mx-auto z-40 top-gradient pt-safe pb-2 px-3 flex items-center justify-between pointer-events-auto">
       <button id="open-topic-drawer-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-xs text-white active:scale-95 transition-all max-w-[60%]">
         <i data-lucide="compass" class="w-3.5 h-3.5 text-rose-400 shrink-0"></i>
         <span id="active-topic-badge" class="font-medium text-[11px] truncate">Topik: Semua Video</span>
@@ -217,7 +220,7 @@
     </header>
 
     <!-- FLOATING TOAST NOTIFICATION -->
-    <div id="toast-container" class="fixed top-14 inset-x-0 z-50 flex flex-col items-center pointer-events-none gap-2 px-4"></div>
+    <div id="toast-container" class="fixed top-14 inset-x-0 max-w-[480px] mx-auto z-50 flex flex-col items-center pointer-events-none gap-2 px-4"></div>
 
     <main id="feed-container" class="snap-reel-container">
       <!-- Slides dynamically generated in app.js -->
@@ -228,7 +231,7 @@
   <!-- ============================================================ -->
   <!-- 2. VIEW DRAMA HUB (KATALOG PADAT & SEARCH KATA-PER-KATA) -->
   <!-- ============================================================ -->
-  <div id="view-drama" class="hidden w-full h-[100dvh] bg-zinc-950 overflow-y-auto pb-24">
+  <div id="view-drama" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-zinc-950 overflow-y-auto pb-24">
     
     <div class="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-900 pt-safe px-4 pb-3 space-y-2.5">
       <div class="flex items-center justify-between">
@@ -275,7 +278,7 @@
   <!-- ============================================================ -->
   <!-- 3. VIEW PROFIL: DUA JENIS KOLEKSI & EPISODE DISUKAI -->
   <!-- ============================================================ -->
-  <div id="view-profile" class="hidden w-full h-[100dvh] bg-black overflow-y-auto pb-24 select-text">
+  <div id="view-profile" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-black overflow-y-auto pb-24 select-text">
     
     <div class="sticky top-0 z-30 bg-black/90 backdrop-blur-md border-b border-zinc-900 pt-safe px-4 py-3 flex items-center justify-between">
       <div class="w-7"></div>
@@ -339,7 +342,7 @@
   <!-- ============================================================ -->
   <!-- 4. BOTTOM NAVIGATION BAR -->
   <!-- ============================================================ -->
-  <nav class="fixed bottom-0 left-0 right-0 h-[56px] bg-black/95 backdrop-blur-xl border-t border-zinc-900/80 z-40 flex items-center justify-around px-1 pb-safe pointer-events-auto">
+  <nav class="fixed bottom-0 inset-x-0 max-w-[480px] mx-auto h-[56px] bg-black/95 backdrop-blur-xl border-t border-zinc-900/80 z-40 flex items-center justify-around px-1 pb-safe pointer-events-auto">
     <button id="nav-btn-shorts" class="flex flex-col items-center gap-1 py-1 px-2.5 text-white transition-all">
       <i data-lucide="flame" class="w-5 h-5 text-rose-500"></i>
       <span class="text-[10px] font-bold">Shorts</span>
