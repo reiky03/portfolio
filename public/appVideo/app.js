@@ -26,6 +26,99 @@ let savedDramaIds = new Set(JSON.parse(localStorage.getItem('teleshorts_saved_dr
 // Melolo-style per-episode like storage: Set of "dramaId_ep_X" (e.g. "drm_1_ep_1")
 let likedEpisodeKeys = new Set(JSON.parse(localStorage.getItem('teleshorts_liked_episodes') || '[]'));
 
+// TikTok-style Custom Collections storage
+let customCollections = [];
+let currentViewingCollectionId = null;
+let currentManagingVideoId = null;
+
+function loadCollections() {
+  try {
+    const raw = localStorage.getItem('teleshorts_custom_collections');
+    if (raw) customCollections = JSON.parse(raw);
+  } catch (e) {
+    customCollections = [];
+  }
+  let defaultCol = customCollections.find(c => c.id === 'col_default');
+  if (!defaultCol) {
+    defaultCol = {
+      id: 'col_default',
+      name: 'Semua Tersimpan',
+      videoIds: Array.from(savedShortIds),
+      isDefault: true,
+      createdAt: 0
+    };
+    customCollections.unshift(defaultCol);
+  } else {
+    savedShortIds.forEach(id => {
+      if (!defaultCol.videoIds.includes(id)) defaultCol.videoIds.push(id);
+    });
+  }
+  persistCollections();
+}
+
+function persistCollections() {
+  localStorage.setItem('teleshorts_custom_collections', JSON.stringify(customCollections));
+  savedShortIds.clear();
+  customCollections.forEach(col => {
+    col.videoIds.forEach(vid => savedShortIds.add(vid));
+  });
+  localStorage.setItem('teleshorts_saved_shorts', JSON.stringify(Array.from(savedShortIds)));
+  updateStatsDisplay();
+}
+
+function createNewCollection(name, initialVideoId = null) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const colId = 'col_' + Date.now();
+  const newCol = {
+    id: colId,
+    name: trimmed,
+    videoIds: initialVideoId ? [initialVideoId] : [],
+    isDefault: false,
+    createdAt: Date.now()
+  };
+  customCollections.push(newCol);
+  if (initialVideoId) {
+    savedShortIds.add(initialVideoId);
+    const def = customCollections.find(c => c.id === 'col_default');
+    if (def && !def.videoIds.includes(initialVideoId)) {
+      def.videoIds.push(initialVideoId);
+    }
+  }
+  persistCollections();
+  return newCol;
+}
+
+function deleteCollection(colId) {
+  if (colId === 'col_default') return false;
+  customCollections = customCollections.filter(c => c.id !== colId);
+  persistCollections();
+  return true;
+}
+
+function toggleVideoInCollection(colId, videoId) {
+  const col = customCollections.find(c => c.id === colId);
+  if (!col) return false;
+  const idx = col.videoIds.indexOf(videoId);
+  if (idx > -1) {
+    col.videoIds.splice(idx, 1);
+  } else {
+    col.videoIds.push(videoId);
+  }
+
+  const isPresentInAny = customCollections.some(c => c.videoIds.includes(videoId));
+  const def = customCollections.find(c => c.id === 'col_default');
+  if (isPresentInAny) {
+    if (def && !def.videoIds.includes(videoId)) def.videoIds.push(videoId);
+    savedShortIds.add(videoId);
+  } else {
+    if (def) def.videoIds = def.videoIds.filter(id => id !== videoId);
+    savedShortIds.delete(videoId);
+  }
+  persistCollections();
+  return col.videoIds.includes(videoId);
+}
+
 function persistStorage() {
   localStorage.setItem('teleshorts_likes', JSON.stringify([...likedVideoIds]));
   localStorage.setItem('teleshorts_saved_shorts', JSON.stringify([...savedShortIds]));
@@ -53,12 +146,18 @@ function toggleEpisodeLike(dramaId, epNum, heartIconEl = null, labelEl = null) {
   persistStorage();
 
   if (heartIconEl) {
+    if (heartIconEl.tagName && heartIconEl.tagName.toLowerCase() === 'svg') {
+      heartIconEl.setAttribute('fill', isNowLiked ? '#f43f5e' : 'none');
+      heartIconEl.setAttribute('stroke', isNowLiked ? '#f43f5e' : 'currentColor');
+    }
     heartIconEl.classList.toggle('text-rose-500', isNowLiked);
     heartIconEl.classList.toggle('fill-rose-500', isNowLiked);
     heartIconEl.classList.toggle('text-white', !isNowLiked);
   }
   if (labelEl) {
     labelEl.textContent = isNowLiked ? 'Disukai' : 'Suka';
+    labelEl.classList.toggle('text-rose-400', isNowLiked);
+    labelEl.classList.toggle('text-zinc-200', !isNowLiked);
   }
 
   // Refresh badges in modals & sheets if open
@@ -346,6 +445,7 @@ async function initApp() {
   if (likedEpisodeKeys.size === 0 && allDramas.length > 0) {
     likedEpisodeKeys.add(`${allDramas[0].id}_ep_1`);
   }
+  loadCollections();
   persistStorage();
 
   renderDrawerTopics();
@@ -385,6 +485,42 @@ function showToast(message, iconName = 'sparkles', color = 'rose') {
   container.appendChild(toast);
   lucide.createIcons();
   setTimeout(() => toast.remove(), 1800);
+}
+
+function showToastWithAction(message, actionText, actionCallback) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed top-14 inset-x-0 z-50 flex flex-col items-center pointer-events-none gap-2 px-4';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'tiktok-toast flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-900/95 backdrop-blur-md border border-amber-400/40 text-xs font-semibold text-white shadow-2xl pointer-events-auto cursor-pointer';
+  toast.innerHTML = `
+    <span class="flex items-center gap-1.5">
+      <i data-lucide="bookmark" class="w-4 h-4 text-amber-400 fill-amber-400 shrink-0"></i>
+      <span>${message}</span>
+    </span>
+    <button class="toast-action-btn ml-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-black font-bold text-[10px] active:scale-95 transition-all">
+      ${actionText}
+    </button>
+  `;
+  const btn = toast.querySelector('.toast-action-btn');
+  if (btn) {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toast.remove();
+      if (actionCallback) actionCallback();
+    };
+  }
+  toast.onclick = () => {
+    toast.remove();
+    if (actionCallback) actionCallback();
+  };
+  container.appendChild(toast);
+  lucide.createIcons();
+  setTimeout(() => toast.remove(), 3200);
 }
 
 // ============================================================
@@ -435,6 +571,44 @@ function renderShortsFeed(targetVideoId = null) {
   feedContainer.scrollTop = 0;
 }
 
+function updateLikeButtonUI(slide, isLiked) {
+  const heartSvg = slide.querySelector('.heart-svg');
+  if (!heartSvg) return;
+  if (isLiked) {
+    heartSvg.setAttribute('fill', '#f43f5e');
+    heartSvg.setAttribute('stroke', '#f43f5e');
+    heartSvg.classList.add('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
+    heartSvg.classList.remove('text-white');
+  } else {
+    heartSvg.setAttribute('fill', 'none');
+    heartSvg.setAttribute('stroke', 'currentColor');
+    heartSvg.classList.remove('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
+    heartSvg.classList.add('text-white');
+  }
+}
+
+function updateSaveButtonUI(slide, isSaved) {
+  const saveSvg = slide.querySelector('.save-svg');
+  const saveCount = slide.querySelector('.save-count');
+  if (saveSvg) {
+    if (isSaved) {
+      saveSvg.setAttribute('fill', '#fbbf24');
+      saveSvg.setAttribute('stroke', '#fbbf24');
+      saveSvg.classList.add('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
+      saveSvg.classList.remove('text-white');
+    } else {
+      saveSvg.setAttribute('fill', 'none');
+      saveSvg.setAttribute('stroke', 'currentColor');
+      saveSvg.classList.remove('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
+      saveSvg.classList.add('text-white');
+    }
+  }
+  if (saveCount) {
+    saveCount.textContent = isSaved ? 'Tersimpan' : 'Simpan';
+    saveCount.className = `save-count text-[10px] font-semibold ${isSaved ? 'text-amber-400' : 'text-zinc-300'}`;
+  }
+}
+
 function createShortSlide(data, index) {
   const slide = document.createElement('div');
   slide.className = 'snap-slide';
@@ -461,21 +635,33 @@ function createShortSlide(data, index) {
         />
       ` : ''}
 
-      <!-- Native HTML5 Video Player with Autoplay & Loop -->
-      <video 
-        class="video-player w-full h-full object-cover absolute inset-0 z-10"
-        src="${streamSrc}"
-        ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
-        loop
-        playsinline
-        webkit-playsinline
-        preload="${index <= 1 ? 'auto' : 'metadata'}"
-        ${isMuted ? 'muted' : ''}
-      ></video>
+      ${isLocal ? `
+        <!-- Native HTML5 Video Player with Autoplay & Loop (Localhost Streaming Proxy) -->
+        <video 
+          class="video-player w-full h-full object-cover absolute inset-0 z-10"
+          src="${streamSrc}"
+          ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
+          loop
+          playsinline
+          webkit-playsinline
+          preload="${index <= 1 ? 'auto' : 'metadata'}"
+          ${isMuted ? 'muted' : ''}
+        ></video>
+      ` : `
+        <!-- Official Google Drive Video Preview Player (GitHub Pages / Telegram Web) -->
+        <iframe 
+          class="video-player w-full h-full border-0 absolute inset-0 z-10"
+          src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview"
+          allow="autoplay; fullscreen; encrypted-media"
+          loading="${index < 2 ? 'eager' : 'lazy'}"
+        ></iframe>
+      `}
     </div>
 
-    <!-- TOUCH DETECTOR GESTURE LAYER (Z-20: TIKTOK DOUBLE-TAP LIKE & SINGLE-TAP PLAY/PAUSE) -->
-    <div class="touch-gesture-layer absolute inset-0 z-20 pointer-events-auto"></div>
+    <!-- TOUCH DETECTOR GESTURE LAYER -->
+    <!-- On Localhost, pointer-events-auto captures double tap like & single tap play/pause.
+         On Production (iframe), pointer-events-none lets user tap iframe controls directly without obstruction! -->
+    <div class="touch-gesture-layer absolute inset-0 ${isLocal ? 'z-20 pointer-events-auto' : 'z-10 pointer-events-none'}"></div>
 
     <!-- GRADIENTS OVERLAY -->
     <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none z-20"></div>
@@ -498,20 +684,24 @@ function createShortSlide(data, index) {
         </div>
       </div>
 
-      <!-- Like (❤️) -->
+      <!-- Like (❤️) with Inline SVG for instant, flawless toggle -->
       <div class="flex flex-col items-center gap-1">
         <button class="like-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <i data-lucide="heart" class="heart-icon w-6 h-6 transition-transform ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}"></i>
+          <svg class="heart-svg w-6 h-6 transition-all duration-200 ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isLiked ? '#f43f5e' : 'none'}" stroke="${isLiked ? '#f43f5e' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+          </svg>
         </button>
         <span class="like-count text-[11px] font-semibold text-zinc-200">${formatCount(data.likes + (isLiked ? 1 : 0))}</span>
       </div>
 
-      <!-- Bookmark Shorts (🔖) -->
+      <!-- Bookmark Shorts (🔖) with Inline SVG for instant, flawless toggle & Collection Picker -->
       <div class="flex flex-col items-center gap-1">
         <button class="save-btn w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-75 transition-all">
-          <i data-lucide="bookmark" class="save-icon w-5 h-5 transition-transform ${isSaved ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-white'}"></i>
+          <svg class="save-svg w-5 h-5 transition-all duration-200 ${isSaved ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isSaved ? '#fbbf24' : 'none'}" stroke="${isSaved ? '#fbbf24' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+          </svg>
         </button>
-        <span class="save-count text-[10px] font-semibold text-zinc-300">${isSaved ? 'Tersimpan' : 'Simpan'}</span>
+        <span class="save-count text-[10px] font-semibold ${isSaved ? 'text-amber-400' : 'text-zinc-300'}">${isSaved ? 'Tersimpan' : 'Simpan'}</span>
       </div>
 
       <!-- Share -->
@@ -572,65 +762,49 @@ function setupShortSlideGestures(slide, data) {
   const video = slide.querySelector('video');
   const playIndicator = slide.querySelector('.play-indicator');
   const likeBtn = slide.querySelector('.like-btn');
-  const heartIcon = slide.querySelector('.heart-icon');
   const likeCount = slide.querySelector('.like-count');
   const saveBtn = slide.querySelector('.save-btn');
-  const saveIcon = slide.querySelector('.save-icon');
-  const saveCount = slide.querySelector('.save-count');
   const shareBtn = slide.querySelector('.share-btn');
   const botViewBtn = slide.querySelector('.bot-view-btn');
-
-  // Fallback seamlessly to Google Drive preview iframe if direct streaming is blocked by browser CORS/CORP
-  if (video && data.gdrive_file_id) {
-    video.onerror = () => {
-      console.warn("Direct video stream blocked, falling back to embedded preview for:", data.id);
-      const mediaWrapper = slide.querySelector('.video-media-wrapper');
-      if (mediaWrapper && !mediaWrapper.querySelector('iframe')) {
-        mediaWrapper.innerHTML = `
-          <img src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" class="video-poster-img absolute inset-0 w-full h-full object-cover" />
-          <iframe class="video-player w-full h-full border-0 absolute inset-0 z-10" src="https://drive.google.com/file/d/${data.gdrive_file_id}/preview" allow="autoplay; fullscreen"></iframe>
-        `;
-      }
-    };
-  }
 
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // Single Tap Jeda/Pause, Double Tap Love pada Layer Layar Video
-  touchLayer.addEventListener('click', (e) => {
-    // Unmute on first user touch automatically
-    if (isMuted) {
-      isMuted = false;
-      document.querySelectorAll('video').forEach(v => v.muted = false);
-    }
-
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTapTime;
-
-    if (tapLength < 320 && tapLength > 0) {
-      clearTimeout(singleTapTimer);
-      // Double Tap Like!
-      triggerDoubleTapLike(slide, e.clientX, e.clientY);
-      if (!likedVideoIds.has(data.id)) {
-        likedVideoIds.add(data.id);
-        heartIcon.classList.add('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
-        heartIcon.classList.remove('text-white');
-        likeBtn.classList.remove('animate-heart-pop');
-        void likeBtn.offsetWidth;
-        likeBtn.classList.add('animate-heart-pop');
-        likeCount.textContent = formatCount(data.likes + 1);
-        persistStorage();
-        showToast('Disukai ❤️', 'heart', 'rose');
-        triggerHaptic('success');
+  // Single Tap Jeda/Pause, Double Tap Love pada Layer Layar Video (Localhost)
+  if (touchLayer) {
+    touchLayer.addEventListener('click', (e) => {
+      // Unmute on first user touch automatically
+      if (isMuted) {
+        isMuted = false;
+        document.querySelectorAll('video').forEach(v => v.muted = false);
       }
-    } else {
-      singleTapTimer = setTimeout(() => {
-        if (video) togglePlayback(video, playIndicator);
-      }, 320);
-    }
-    lastTapTime = currentTime;
-  });
+
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+
+      if (tapLength < 320 && tapLength > 0) {
+        clearTimeout(singleTapTimer);
+        // Double Tap Like!
+        triggerDoubleTapLike(slide, e.clientX, e.clientY);
+        if (!likedVideoIds.has(data.id)) {
+          likedVideoIds.add(data.id);
+          updateLikeButtonUI(slide, true);
+          likeBtn.classList.remove('animate-heart-pop');
+          void likeBtn.offsetWidth;
+          likeBtn.classList.add('animate-heart-pop');
+          likeCount.textContent = formatCount(data.likes + 1);
+          persistStorage();
+          showToast('Disukai ❤️', 'heart', 'rose');
+          triggerHaptic('success');
+        }
+      } else {
+        singleTapTimer = setTimeout(() => {
+          if (video) togglePlayback(video, playIndicator);
+        }, 320);
+      }
+      lastTapTime = currentTime;
+    });
+  }
 
   likeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -639,15 +813,13 @@ function setupShortSlideGestures(slide, data) {
 
     if (likedVideoIds.has(data.id)) {
       likedVideoIds.delete(data.id);
-      heartIcon.classList.remove('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
-      heartIcon.classList.add('text-white');
+      updateLikeButtonUI(slide, false);
       likeCount.textContent = formatCount(data.likes);
       showToast('Batal menyukai 🤍', 'heart', 'zinc');
       triggerHaptic('light');
     } else {
       likedVideoIds.add(data.id);
-      heartIcon.classList.add('text-rose-500', 'fill-rose-500', 'drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]');
-      heartIcon.classList.remove('text-white');
+      updateLikeButtonUI(slide, true);
       likeBtn.classList.add('animate-heart-pop');
       likeCount.textContent = formatCount(data.likes + 1);
       showToast('Disukai ❤️', 'heart', 'rose');
@@ -663,22 +835,40 @@ function setupShortSlideGestures(slide, data) {
 
     if (savedShortIds.has(data.id)) {
       savedShortIds.delete(data.id);
-      saveIcon.classList.remove('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
-      saveIcon.classList.add('text-white');
-      saveCount.textContent = 'Simpan';
+      customCollections.forEach(col => {
+        col.videoIds = col.videoIds.filter(vid => vid !== data.id);
+      });
+      persistCollections();
+      updateSaveButtonUI(slide, false);
       showToast('Dihapus dari Koleksi 🗑️', 'bookmark', 'zinc');
       triggerHaptic('light');
     } else {
       savedShortIds.add(data.id);
-      saveIcon.classList.add('text-amber-400', 'fill-amber-400', 'drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]');
-      saveIcon.classList.remove('text-white');
+      const def = customCollections.find(c => c.id === 'col_default');
+      if (def && !def.videoIds.includes(data.id)) {
+        def.videoIds.push(data.id);
+      }
+      persistCollections();
+      updateSaveButtonUI(slide, true);
       saveBtn.classList.add('animate-bookmark-pop');
-      saveCount.textContent = 'Tersimpan';
-      showToast('Tersimpan di Koleksi Shorts 🔖', 'bookmark', 'amber');
+      showToastWithAction(
+        'Tersimpan di Koleksi 🔖', 
+        'Kelola', 
+        () => openManageCollectionsModal(data.id)
+      );
       triggerHaptic('success');
     }
-    persistStorage();
   });
+
+  // Long press on save button opens collection picker modal
+  let savePressTimer = null;
+  saveBtn.addEventListener('pointerdown', () => {
+    savePressTimer = setTimeout(() => {
+      openManageCollectionsModal(data.id);
+    }, 450);
+  });
+  saveBtn.addEventListener('pointerup', () => clearTimeout(savePressTimer));
+  saveBtn.addEventListener('pointercancel', () => clearTimeout(savePressTimer));
 
   shareBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1066,9 +1256,11 @@ function renderDramaReelSlides(drama) {
         <!-- Suka Episode Ini (❤️) -->
         <div class="flex flex-col items-center gap-1">
           <button class="reel-like-ep-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all">
-            <i data-lucide="heart" class="ep-heart-icon w-6 h-6 transition-colors ${isLiked ? 'text-rose-500 fill-rose-500' : 'text-white'}"></i>
+            <svg class="ep-heart-svg w-6 h-6 transition-all duration-200 ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isLiked ? '#f43f5e' : 'none'}" stroke="${isLiked ? '#f43f5e' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+            </svg>
           </button>
-          <span class="ep-like-label text-[10px] font-semibold text-zinc-200">${isLiked ? 'Disukai' : 'Suka'}</span>
+          <span class="ep-like-label text-[10px] font-semibold ${isLiked ? 'text-rose-400' : 'text-zinc-200'}">${isLiked ? 'Disukai' : 'Suka'}</span>
         </div>
 
         <!-- Buka Laci Episode Cepat (📑) -->
@@ -1134,7 +1326,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   const video = slide.querySelector('video');
   const playIndicator = slide.querySelector('.play-indicator');
   const likeBtn = slide.querySelector('.reel-like-ep-btn');
-  const heartIcon = slide.querySelector('.ep-heart-icon');
+  const heartIcon = slide.querySelector('.ep-heart-svg');
   const likeLabel = slide.querySelector('.ep-like-label');
   const epListBtn = slide.querySelector('.reel-ep-list-btn');
   const chatBtn = slide.querySelector('.reel-chat-btn');
@@ -1379,15 +1571,17 @@ function renderProfileContent() {
       return;
     }
     const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-3 gap-1';
+    grid.className = 'grid grid-cols-3 gap-1 p-1';
     targetVideos.forEach(v => {
       const card = document.createElement('div');
-      card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity';
+      card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity group';
       card.innerHTML = `
-        <video src="${v.video_url}#t=0.5" class="w-full h-full object-cover" preload="metadata"></video>
-        <div class="absolute inset-0 bg-black/20"></div>
+        <img src="https://lh3.googleusercontent.com/d/${v.gdrive_file_id}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" alt="${v.title}">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
         <div class="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
-          <i data-lucide="heart" class="w-3 h-3 fill-rose-500 text-rose-500"></i>
+          <svg class="w-3.5 h-3.5 text-rose-500 fill-rose-500 drop-shadow" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
           <span>${formatCount(v.likes)}</span>
         </div>
       `;
@@ -1402,33 +1596,179 @@ function renderProfileContent() {
     profileContentArea.appendChild(grid);
 
   } else if (profileTab === 'shorts') {
-    const targetVideos = allVideos.filter(v => savedShortIds.has(v.id));
-    if (targetVideos.length === 0) {
-      renderEmptyState('bookmark-x', 'Koleksi Shorts Masih Kosong', 'Simpan video 10 detik favoritmu dengan tombol Bookmark 🔖 di Shorts!');
-      return;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-3 gap-1';
-    targetVideos.forEach(v => {
-      const card = document.createElement('div');
-      card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity';
-      card.innerHTML = `
-        <video src="${v.video_url}#t=0.5" class="w-full h-full object-cover" preload="metadata"></video>
-        <div class="absolute inset-0 bg-black/20"></div>
-        <div class="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
-          <i data-lucide="bookmark" class="w-3 h-3 fill-amber-400 text-amber-400"></i>
-          <span>${v.topic_name}</span>
+    // ============================================================
+    // TIKTOK-STYLE CUSTOM COLLECTIONS
+    // ============================================================
+    if (currentViewingCollectionId === null) {
+      // 1. DIRECTORY KOLEKSI TIKTOK (LIST SEMUA FOLDER KOLEKSI)
+      const container = document.createElement('div');
+      container.className = 'p-3 space-y-4';
+
+      // Header Buat Koleksi Baru
+      const topBar = document.createElement('div');
+      topBar.className = 'flex items-center justify-between pb-1';
+      topBar.innerHTML = `
+        <div>
+          <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+            <i data-lucide="folder" class="w-4 h-4 text-amber-400"></i>
+            <span>Koleksi Saya (${customCollections.length})</span>
+          </h4>
+          <p class="text-[10px] text-zinc-400">Atur dan kelompokkan video favoritmu</p>
         </div>
+        <button id="btn-create-col-profile" class="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-rose-900/30 active:scale-95 transition-all">
+          <i data-lucide="plus" class="w-3.5 h-3.5 stroke-[3]"></i>
+          <span>Buat Koleksi</span>
+        </button>
       `;
-      card.onclick = () => {
-        triggerHaptic('light');
-        switchView('shorts');
-        currentTopicId = 0;
-        renderShortsFeed(v.id);
+      topBar.querySelector('#btn-create-col-profile').onclick = () => {
+        openCreateCollectionModal();
       };
-      grid.appendChild(card);
-    });
-    profileContentArea.appendChild(grid);
+      container.appendChild(topBar);
+
+      // Grid Folder Koleksi
+      const colGrid = document.createElement('div');
+      colGrid.className = 'grid grid-cols-2 gap-3';
+
+      customCollections.forEach(col => {
+        const card = document.createElement('div');
+        card.className = 'relative bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer active:scale-95 transition-all group flex flex-col';
+
+        // Ambil thumbnail dari video terakhir di koleksi ini
+        let coverUrl = '';
+        if (col.videoIds.length > 0) {
+          const lastVidId = col.videoIds[col.videoIds.length - 1];
+          const foundVid = allVideos.find(v => v.id === lastVidId);
+          if (foundVid && foundVid.gdrive_file_id) {
+            coverUrl = `https://lh3.googleusercontent.com/d/${foundVid.gdrive_file_id}`;
+          }
+        }
+
+        card.innerHTML = `
+          <div class="relative aspect-video w-full bg-zinc-950 overflow-hidden flex items-center justify-center">
+            ${coverUrl ? `
+              <img src="${coverUrl}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="${col.name}">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+            ` : `
+              <div class="w-full h-full bg-zinc-800/80 flex flex-col items-center justify-center text-zinc-600 gap-1">
+                <i data-lucide="folder" class="w-7 h-7 text-zinc-500"></i>
+                <span class="text-[9px] font-semibold text-zinc-500">Kosong</span>
+              </div>
+            `}
+            <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400 flex items-center gap-1">
+              <i data-lucide="${col.isDefault ? 'bookmark' : 'folder'}" class="w-3 h-3 ${col.isDefault ? 'fill-amber-400' : ''}"></i>
+              <span>${col.isDefault ? 'Semua' : 'Koleksi'}</span>
+            </span>
+            ${!col.isDefault ? `
+              <button class="btn-delete-col absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-md text-zinc-400 hover:text-rose-400 flex items-center justify-center active:scale-90 transition-all z-10" title="Hapus Koleksi">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            ` : ''}
+          </div>
+          <div class="p-2.5 flex flex-col justify-between flex-1 bg-zinc-900/90">
+            <h5 class="text-xs font-bold text-white line-clamp-1">${col.name}</h5>
+            <div class="flex items-center justify-between text-[10px] text-zinc-400 mt-1">
+              <span>${col.videoIds.length} video</span>
+              <span class="text-amber-400 font-semibold flex items-center gap-0.5">Buka →</span>
+            </div>
+          </div>
+        `;
+
+        const delBtn = card.querySelector('.btn-delete-col');
+        if (delBtn) {
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm(`Hapus koleksi "${col.name}"? Video di dalamnya tetap tersimpan di koleksi utama.`)) {
+              deleteCollection(col.id);
+              showToast(`Koleksi "${col.name}" dihapus`, 'trash-2', 'zinc');
+              renderProfileContent();
+            }
+          };
+        }
+
+        card.onclick = () => {
+          triggerHaptic('light');
+          currentViewingCollectionId = col.id;
+          renderProfileContent();
+        };
+
+        colGrid.appendChild(card);
+      });
+
+      container.appendChild(colGrid);
+      profileContentArea.appendChild(container);
+
+    } else {
+      // 2. TAMPILAN DALAM FOLDER KOLEKSI (DETAIL ISI VIDEO)
+      const col = customCollections.find(c => c.id === currentViewingCollectionId);
+      if (!col) {
+        currentViewingCollectionId = null;
+        renderProfileContent();
+        return;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'p-3 space-y-3';
+
+      // Navigasi Kembali & Judul Folder
+      const navHeader = document.createElement('div');
+      navHeader.className = 'flex items-center justify-between pb-2 border-b border-zinc-800';
+      navHeader.innerHTML = `
+        <button id="btn-back-collections" class="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 active:scale-95 transition-all">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Kembali ke Koleksi</span>
+        </button>
+        <span class="text-[11px] font-semibold text-zinc-300">
+          ${col.name} (${col.videoIds.length} video)
+        </span>
+      `;
+      navHeader.querySelector('#btn-back-collections').onclick = () => {
+        triggerHaptic('light');
+        currentViewingCollectionId = null;
+        renderProfileContent();
+      };
+      container.appendChild(navHeader);
+
+      const targetVideos = allVideos.filter(v => col.videoIds.includes(v.id));
+      if (targetVideos.length === 0) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'flex flex-col items-center justify-center py-16 text-center px-4';
+        emptyState.innerHTML = `
+          <div class="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
+            <i data-lucide="bookmark-x" class="w-6 h-6"></i>
+          </div>
+          <h5 class="text-xs font-bold text-white mb-1">Folder Koleksi Kosong</h5>
+          <p class="text-[11px] text-zinc-400 max-w-xs">Simpan video dengan tombol Bookmark 🔖 di Shorts lalu masukkan ke folder "${col.name}"!</p>
+        `;
+        container.appendChild(emptyState);
+      } else {
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-3 gap-1';
+        targetVideos.forEach(v => {
+          const card = document.createElement('div');
+          card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity group';
+          card.innerHTML = `
+            <img src="https://lh3.googleusercontent.com/d/${v.gdrive_file_id}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" alt="${v.title}">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+            <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] font-bold text-white drop-shadow">
+              <span class="flex items-center gap-0.5 text-amber-400">
+                <i data-lucide="bookmark" class="w-3 h-3 fill-amber-400"></i>
+              </span>
+              <span class="text-[9px] text-zinc-200 line-clamp-1">${v.topic_name}</span>
+            </div>
+          `;
+          card.onclick = () => {
+            triggerHaptic('light');
+            switchView('shorts');
+            currentTopicId = 0;
+            renderShortsFeed(v.id);
+          };
+          grid.appendChild(card);
+        });
+        container.appendChild(grid);
+      }
+
+      profileContentArea.appendChild(container);
+    }
 
   } else if (profileTab === 'drama') {
     const targetDramas = allDramas.filter(d => savedDramaIds.has(d.id));
@@ -1692,6 +2032,131 @@ function setupEvents() {
     updateProfileTabHeaders();
     renderProfileContent();
   };
+
+  // TikTok Custom Collections Modals
+  const backdropCreateCol = document.getElementById('backdrop-create-collection');
+  const closeModalCreateCol = document.getElementById('close-modal-create-collection');
+  const cancelCreateCol = document.getElementById('cancel-create-collection');
+  const submitCreateCol = document.getElementById('submit-create-collection');
+  const inputColName = document.getElementById('input-collection-name');
+  const colCharCount = document.getElementById('collection-char-count');
+
+  inputColName?.addEventListener('input', () => {
+    if (colCharCount) colCharCount.textContent = `${inputColName.value.length}/30`;
+  });
+
+  submitCreateCol?.addEventListener('click', () => {
+    const name = inputColName?.value.trim();
+    if (!name) {
+      showToast('Beri nama koleksi dulu ya beb! ✨', 'alert-circle', 'rose');
+      return;
+    }
+    const created = createNewCollection(name, pendingVideoIdForNewCol);
+    closeCreateCollectionModal();
+    showToast(`Koleksi "${created.name}" berhasil dibuat! 📁`, 'check', 'amber');
+    triggerHaptic('success');
+
+    if (currentManagingVideoId) {
+      renderManageCollectionsList(currentManagingVideoId);
+    }
+    if (activeView === 'profile' && profileTab === 'shorts') {
+      renderProfileContent();
+    }
+    if (pendingVideoIdForNewCol) {
+      const slide = document.querySelector(`.snap-slide[data-id="${pendingVideoIdForNewCol}"]`);
+      if (slide) updateSaveButtonUI(slide, true);
+    }
+  });
+
+  [backdropCreateCol, closeModalCreateCol, cancelCreateCol].forEach(btn => {
+    btn?.addEventListener('click', closeCreateCollectionModal);
+  });
+
+  const backdropManageCol = document.getElementById('backdrop-manage-collections');
+  const btnDoneManageCol = document.getElementById('btn-done-manage-collections');
+  const btnQuickNewCol = document.getElementById('btn-quick-new-collection');
+
+  btnQuickNewCol?.addEventListener('click', () => {
+    openCreateCollectionModal(currentManagingVideoId);
+  });
+  btnDoneManageCol?.addEventListener('click', closeManageCollectionsModal);
+  backdropManageCol?.addEventListener('click', closeManageCollectionsModal);
+}
+
+// ============================================================
+// KOLEKSI BARU & MANAGE KOLEKSI MODALS (TIKTOK STYLE)
+// ============================================================
+let pendingVideoIdForNewCol = null;
+
+function openCreateCollectionModal(initialVideoId = null) {
+  pendingVideoIdForNewCol = initialVideoId;
+  const modal = document.getElementById('modal-create-collection');
+  const input = document.getElementById('input-collection-name');
+  const charCount = document.getElementById('collection-char-count');
+  if (!modal || !input) return;
+  input.value = '';
+  if (charCount) charCount.textContent = '0/30';
+  modal.classList.remove('hidden');
+  input.focus();
+  triggerHaptic('light');
+}
+
+function closeCreateCollectionModal() {
+  const modal = document.getElementById('modal-create-collection');
+  if (modal) modal.classList.add('hidden');
+  pendingVideoIdForNewCol = null;
+}
+
+function openManageCollectionsModal(videoId) {
+  currentManagingVideoId = videoId;
+  renderManageCollectionsList(videoId);
+  const modal = document.getElementById('modal-manage-collections');
+  if (modal) modal.classList.remove('hidden');
+  triggerHaptic('medium');
+}
+
+function closeManageCollectionsModal() {
+  const modal = document.getElementById('modal-manage-collections');
+  if (modal) modal.classList.add('hidden');
+  currentManagingVideoId = null;
+}
+
+function renderManageCollectionsList(videoId) {
+  const list = document.getElementById('collection-checkbox-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  customCollections.forEach(col => {
+    const isChecked = col.videoIds.includes(videoId);
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800 cursor-pointer active:scale-98 transition-all';
+    row.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-amber-400">
+          <i data-lucide="${col.isDefault ? 'bookmark' : 'folder'}" class="w-4 h-4 ${col.isDefault ? 'fill-amber-400' : ''}"></i>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-white">${col.name}</div>
+          <div class="text-[10px] text-zinc-400">${col.videoIds.length} video</div>
+        </div>
+      </div>
+      <div class="w-6 h-6 rounded-full border ${isChecked ? 'bg-amber-500 border-amber-500 text-black' : 'border-zinc-600 bg-transparent'} flex items-center justify-center transition-all">
+        ${isChecked ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ''}
+      </div>
+    `;
+    row.onclick = () => {
+      triggerHaptic('light');
+      toggleVideoInCollection(col.id, videoId);
+      renderManageCollectionsList(videoId);
+
+      const slide = document.querySelector(`.snap-slide[data-id="${videoId}"]`);
+      if (slide) {
+        updateSaveButtonUI(slide, savedShortIds.has(videoId));
+      }
+    };
+    list.appendChild(row);
+  });
+  lucide.createIcons();
 }
 
 function updateProfileTabHeaders() {
