@@ -468,32 +468,44 @@ function shuffleArray(array) {
   return arr;
 }
 
-// Toast notification helper ala TikTok (Posisi di bawah, di atas navbar)
-function showToast(message, iconName = 'sparkles', color = 'rose') {
+// Toast notification helper ala TikTok (Posisi di bawah di atas navbar, z-[100] interaktif)
+function showToast(message, iconName = 'sparkles', color = 'rose', durationMs = 2400) {
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
-    container.className = 'fixed bottom-[74px] inset-x-0 z-50 flex flex-col items-center pointer-events-none gap-2 px-4';
+    container.className = 'fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300';
     document.body.appendChild(container);
   }
+  // Hapus toast lama agar tidak menumpuk
+  container.querySelectorAll('.tiktok-toast').forEach(t => t.remove());
+
   const toast = document.createElement('div');
-  toast.className = 'tiktok-toast flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900/95 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-2xl animate-slide-up';
+  const isAmber = color === 'amber';
+  toast.className = `tiktok-toast flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-zinc-900/95 backdrop-blur-md border ${isAmber ? 'border-amber-400/50 shadow-[0_4px_20px_rgba(251,191,36,0.25)]' : 'border-white/20 shadow-2xl'} text-xs font-semibold text-white pointer-events-auto`;
   toast.innerHTML = `
-    <i data-lucide="${iconName}" class="w-4 h-4 text-${color}-400 shrink-0"></i>
-    <span>${message}</span>
+    <div class="w-6 h-6 rounded-full bg-${color}-500/20 flex items-center justify-center text-${color}-400 shrink-0">
+      <i data-lucide="${iconName}" class="w-3.5 h-3.5 ${iconName === 'bookmark' ? 'fill-current' : ''}"></i>
+    </div>
+    <span class="leading-snug">${message}</span>
   `;
   container.appendChild(toast);
   lucide.createIcons();
-  setTimeout(() => toast.remove(), 2000);
+
+  const dismiss = () => {
+    toast.classList.add('toast-exit');
+    setTimeout(() => toast.remove(), 200);
+  };
+
+  setTimeout(dismiss, durationMs);
 }
 
-function showToastWithAction(message, actionText, actionCallback, durationMs = 7000) {
+function showToastWithAction(message, actionText, actionCallback, durationMs = 4500) {
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
-    container.className = 'fixed bottom-[74px] inset-x-0 z-50 flex flex-col items-center pointer-events-none gap-2 px-4';
+    container.className = 'fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300';
     document.body.appendChild(container);
   }
   
@@ -501,23 +513,27 @@ function showToastWithAction(message, actionText, actionCallback, durationMs = 7
   container.querySelectorAll('.tiktok-action-toast').forEach(t => t.remove());
 
   const toast = document.createElement('div');
-  toast.className = 'tiktok-toast tiktok-action-toast flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-zinc-900/95 backdrop-blur-md border border-amber-400/50 text-xs font-semibold text-white shadow-2xl pointer-events-auto cursor-pointer transition-all duration-200 animate-slide-up w-full max-w-[340px]';
+  toast.className = 'tiktok-toast tiktok-action-toast flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-zinc-900/95 backdrop-blur-md border border-amber-400/50 text-xs font-semibold text-white shadow-[0_8px_30px_rgba(251,191,36,0.3)] pointer-events-auto cursor-pointer transition-all duration-200 w-full max-w-[340px]';
   toast.innerHTML = `
-    <div class="flex items-center gap-2">
-      <div class="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-        <i data-lucide="bookmark" class="w-3.5 h-3.5 fill-amber-400"></i>
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shrink-0 shadow-sm">
+        <i data-lucide="bookmark" class="w-4 h-4 fill-amber-400"></i>
       </div>
-      <span class="text-xs text-zinc-100 font-medium">${message}</span>
+      <div class="flex flex-col">
+        <span class="text-xs text-white font-bold leading-tight">${message}</span>
+        <span class="text-[10px] text-zinc-400 leading-tight">Ketuk untuk kelola folder</span>
+      </div>
     </div>
-    <button class="toast-action-btn shrink-0 px-3 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-black font-bold text-[11px] active:scale-95 transition-all shadow-md">
-      ${actionText}
+    <button class="toast-action-btn shrink-0 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-[11px] active:scale-95 transition-all shadow-md flex items-center gap-1">
+      <span>${actionText}</span>
+      <i data-lucide="chevron-right" class="w-3 h-3 stroke-[3]"></i>
     </button>
   `;
 
   let dismissTimer = null;
   const dismiss = () => {
     if (dismissTimer) clearTimeout(dismissTimer);
-    toast.classList.add('opacity-0', 'translate-y-2');
+    toast.classList.add('toast-exit');
     setTimeout(() => toast.remove(), 200);
   };
 
@@ -2331,7 +2347,9 @@ function setupEvents() {
     const created = createNewCollection(name, currentManagingVideoId);
     inlineCreateBox?.classList.add('hidden');
     if (inputInlineColName) inputInlineColName.value = '';
-    showToast(`Koleksi "${created.name}" dibuat & video dimasukkan! 📁`, 'check', 'amber');
+    
+    // Tampilkan feedback instan di dalam sheet
+    showManageCollectionFeedback(`Koleksi "${created.name}" dibuat & video tersimpan! 📁✨`, 'amber');
     triggerHaptic('success');
 
     if (currentManagingVideoId) {
@@ -2352,7 +2370,22 @@ function setupEvents() {
     inlineCreateBox?.classList.add('hidden');
   });
 
-  [btnDoneManageCol, backdropManageCol, btnCloseManageCol].forEach(btn => {
+  btnDoneManageCol?.addEventListener('click', () => {
+    const videoId = currentManagingVideoId;
+    closeManageCollectionsModal();
+    if (videoId) {
+      const activeCols = customCollections.filter(c => c.videoIds.includes(videoId));
+      if (activeCols.length > 0) {
+        const names = activeCols.map(c => c.name).join(', ');
+        showToast(`Tersimpan ke Koleksi: ${names} 🔖`, 'bookmark', 'amber', 3000);
+      } else {
+        showToast('Video dihapus dari semua koleksi 🗑️', 'bookmark', 'zinc', 2500);
+      }
+      triggerHaptic('success');
+    }
+  });
+
+  [backdropManageCol, btnCloseManageCol].forEach(btn => {
     btn?.addEventListener('click', closeManageCollectionsModal);
   });
 }
@@ -2361,6 +2394,16 @@ function setupEvents() {
 // KOLEKSI BARU & MANAGE KOLEKSI MODALS (TIKTOK STYLE)
 // ============================================================
 let pendingVideoIdForNewCol = null;
+
+function showManageCollectionFeedback(message, color = 'amber') {
+  const box = document.getElementById('modal-manage-feedback');
+  const txt = document.getElementById('modal-manage-feedback-text');
+  if (!box || !txt) return;
+  txt.textContent = message;
+  box.className = `flex items-center justify-between px-3.5 py-2 rounded-xl bg-${color === 'amber' ? 'amber-500/15 border-amber-500/30 text-amber-300' : 'zinc-800 border-zinc-700 text-zinc-300'} border text-xs font-semibold animate-slide-up transition-all`;
+  box.classList.remove('hidden');
+  lucide.createIcons();
+}
 
 function openCreateCollectionModal(initialVideoId = null) {
   pendingVideoIdForNewCol = initialVideoId;
@@ -2385,6 +2428,8 @@ function openManageCollectionsModal(videoId) {
   currentManagingVideoId = videoId;
   const inlineBox = document.getElementById('inline-create-col-box');
   if (inlineBox) inlineBox.classList.add('hidden');
+  const feedbackBox = document.getElementById('modal-manage-feedback');
+  if (feedbackBox) feedbackBox.classList.add('hidden');
   renderManageCollectionsList(videoId);
   const modal = document.getElementById('modal-manage-collections');
   if (modal) modal.classList.remove('hidden');
@@ -2422,13 +2467,19 @@ function renderManageCollectionsList(videoId) {
     `;
     row.onclick = () => {
       triggerHaptic('light');
-      toggleVideoInCollection(col.id, videoId);
+      const isNowSaved = toggleVideoInCollection(col.id, videoId);
       renderManageCollectionsList(videoId);
 
       const slide = document.querySelector(`.snap-slide[data-id="${videoId}"]`);
       if (slide) {
         updateSaveButtonUI(slide, savedShortIds.has(videoId));
       }
+
+      // Tampilkan feedback instan di dalam bottom sheet
+      showManageCollectionFeedback(
+        isNowSaved ? `Tersimpan ke "${col.name}" 🔖` : `Dihapus dari "${col.name}" 🗑️`,
+        isNowSaved ? 'amber' : 'zinc'
+      );
     };
     list.appendChild(row);
   });

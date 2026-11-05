@@ -127,15 +127,20 @@
       animation: bookmark-bounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    /* Floating Toast */
-    @keyframes toast-in-out {
-      0% { opacity: 0; transform: translateY(-16px) scale(0.92); }
-      15% { opacity: 1; transform: translateY(0) scale(1); }
-      85% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-12px) scale(0.92); }
+    /* Floating Toast Animations (Slide Up from Bottom & Smooth Exit) */
+    @keyframes toast-slide-up {
+      0% { opacity: 0; transform: translateY(24px) scale(0.94); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toast-slide-down {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(18px) scale(0.94); }
     }
     .tiktok-toast {
-      animation: toast-in-out 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: toast-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .tiktok-toast.toast-exit {
+      animation: toast-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
     /* Seek ripple */
@@ -234,9 +239,6 @@
       <!-- Volume icon removed as requested -->
       <div class="w-8"></div>
     </header>
-
-    <!-- FLOATING TOAST NOTIFICATION (DI BAWAH TEPAT DI ATAS NAVBAR ALA TIKTOK) -->
-    <div id="toast-container" class="fixed bottom-[74px] inset-x-0 max-w-[480px] mx-auto z-50 flex flex-col items-center pointer-events-none gap-2 px-4"></div>
 
     <main id="feed-container" class="snap-reel-container">
       <!-- Slides dynamically generated in app.js -->
@@ -609,6 +611,15 @@
         </button>
       </div>
 
+      <!-- INLINE FEEDBACK TOAST / STATUS PILL (INTERAKTIF & NYAMAN DILIHAT) -->
+      <div id="modal-manage-feedback" class="hidden flex items-center justify-between px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold animate-slide-up transition-all">
+        <div class="flex items-center gap-2">
+          <i data-lucide="bookmark" class="w-4 h-4 fill-amber-400 text-amber-400"></i>
+          <span id="modal-manage-feedback-text">Tersimpan ke Koleksi</span>
+        </div>
+        <span class="text-[10px] text-amber-400/80 font-mono">Tersimpan ✓</span>
+      </div>
+
       <div id="collection-checkbox-list" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
         <!-- Rendered dynamically via app.js -->
       </div>
@@ -620,6 +631,9 @@
       </div>
     </div>
   </div>
+
+  <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
+  <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
   <script src="app.js"></script>
 </body>
