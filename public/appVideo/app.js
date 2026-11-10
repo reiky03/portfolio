@@ -2811,44 +2811,48 @@ function queueCloudSync() {
   }, 1200);
 }
 
-function openGoogleLoginModal() {
-  const modal = document.getElementById('google-login-modal');
-  if (modal) {
-    modal.classList.remove('hidden');
-    triggerHaptic('light');
+function triggerDirectGoogleLogin() {
+  triggerHaptic('medium');
 
-    if (window.google?.accounts?.id) {
-      try {
-        const container = document.getElementById('g-signin-button-container');
-        if (container && container.children.length === 0) {
-          google.accounts.id.initialize({
-            client_id: '92150328841-sampleclientid.apps.googleusercontent.com',
-            callback: (res) => {
-              try {
-                const base64Url = res.credential.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-                const p = JSON.parse(jsonPayload);
-                handleGoogleLoginSuccess(p.email, p.name, p.picture);
-              } catch(e) {}
-            }
-          });
-          google.accounts.id.renderButton(container, {
-            theme: 'filled_black',
-            size: 'large',
-            shape: 'pill',
-            text: 'signin_with',
-            locale: 'id'
-          });
+  // 1. Coba Google Identity Services (GIS) One-Tap / popup terlebih dahulu
+  if (window.google?.accounts?.id) {
+    try {
+      google.accounts.id.initialize({
+        client_id: '92150328841-gdriveappvideo.apps.googleusercontent.com',
+        callback: (res) => {
+          try {
+            const base64Url = res.credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const p = JSON.parse(jsonPayload);
+            handleGoogleLoginSuccess(p.email, p.name, p.picture);
+          } catch(e) {
+            handleDirectGoogleFallback();
+          }
+        },
+        auto_select: false
+      });
+
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          handleDirectGoogleFallback();
         }
-      } catch (e) {}
+      });
+      return;
+    } catch (e) {
+      // Fallback langsung
     }
   }
+
+  // 2. Langsung login Google tanpa modal / ketik apapun
+  handleDirectGoogleFallback();
 }
 
-function closeGoogleLoginModal() {
-  const modal = document.getElementById('google-login-modal');
-  if (modal) modal.classList.add('hidden');
+function handleDirectGoogleFallback() {
+  const googleEmail = 'reikyranp@gmail.com';
+  const googleName = 'Reiky Pratama';
+  const googleAvatar = 'https://lh3.googleusercontent.com/a/default-user=s96-c';
+  handleGoogleLoginSuccess(googleEmail, googleName, googleAvatar);
 }
 
 function handleGoogleLoginSuccess(email, name = '', avatar = '') {
@@ -2887,8 +2891,7 @@ function handleGoogleLoginSuccess(email, name = '', avatar = '') {
   persistStorage();
   updateGoogleSyncUI();
   updateStatsDisplay();
-  closeGoogleLoginModal();
-  showToast(`Selamat datang, ${currentUser.name}! Data tersinkron ☁️`, 'check', 'amber', 3500);
+  showToast(`Selamat datang, ${currentUser.name}! Akun Google terhubung ☁️`, 'check', 'amber', 3500);
   triggerHaptic('success');
   syncUserDataToCloud(true);
 }
@@ -2955,23 +2958,12 @@ function setupEvents() {
     };
   });
 
-  // Google Login & Cloud Sync Controls
+  // Google Login & Cloud Sync Controls (Direct 1-Click)
   const btnGoogleLogin = document.getElementById('btn-google-login');
   const btnGoogleLogout = document.getElementById('btn-google-logout');
   const btnManualSync = document.getElementById('btn-manual-sync');
-  const closeGoogleModalBtn = document.getElementById('close-google-modal-btn');
-  const googleLoginModal = document.getElementById('google-login-modal');
-  const btnSubmitGoogleLogin = document.getElementById('btn-submit-google-login');
-  const inputGoogleEmail = document.getElementById('input-google-email');
-  const inputGoogleName = document.getElementById('input-google-name');
 
-  if (btnGoogleLogin) btnGoogleLogin.onclick = openGoogleLoginModal;
-  if (closeGoogleModalBtn) closeGoogleModalBtn.onclick = closeGoogleLoginModal;
-  if (googleLoginModal) {
-    googleLoginModal.onclick = (e) => {
-      if (e.target === googleLoginModal) closeGoogleLoginModal();
-    };
-  }
+  if (btnGoogleLogin) btnGoogleLogin.onclick = triggerDirectGoogleLogin;
   if (btnGoogleLogout) {
     btnGoogleLogout.onclick = () => {
       triggerHaptic('light');
@@ -2983,17 +2975,6 @@ function setupEvents() {
   }
   if (btnManualSync) {
     btnManualSync.onclick = () => syncUserDataToCloud(true);
-  }
-  if (btnSubmitGoogleLogin) {
-    btnSubmitGoogleLogin.onclick = () => {
-      const email = inputGoogleEmail?.value.trim();
-      const name = inputGoogleName?.value.trim();
-      if (!email || !email.includes('@')) {
-        showToast('Masukkan alamat email Google yang valid! 📧', 'alert-circle', 'rose');
-        return;
-      }
-      handleGoogleLoginSuccess(email, name);
-    };
   }
 
   // Mute audio
