@@ -625,6 +625,42 @@ function updateSaveButtonUI(slide, isSaved) {
   }
 }
 
+// ============================================================
+// HELPER GLOBAL: ANIMASI & INDIKATOR BUFFERING / LOADING VIDEO
+// ============================================================
+function wireVideoLoadingIndicator(video, loaderEl) {
+  if (!video || !loaderEl) return;
+  let showTimeout = null;
+
+  const showLoader = () => {
+    clearTimeout(showTimeout);
+    showTimeout = setTimeout(() => {
+      if (video.readyState < 3 || video.seeking) {
+        loaderEl.classList.remove('hidden');
+      }
+    }, 120);
+  };
+
+  const hideLoader = () => {
+    clearTimeout(showTimeout);
+    loaderEl.classList.add('hidden');
+  };
+
+  video.addEventListener('loadstart', showLoader);
+  video.addEventListener('waiting', showLoader);
+  video.addEventListener('seeking', showLoader);
+
+  video.addEventListener('canplay', hideLoader);
+  video.addEventListener('playing', hideLoader);
+  video.addEventListener('seeked', hideLoader);
+  video.addEventListener('timeupdate', () => {
+    if (video.readyState >= 3 && !video.seeking) {
+      hideLoader();
+    }
+  });
+  video.addEventListener('error', hideLoader);
+}
+
 function createShortSlide(data, index) {
   const slide = document.createElement('div');
   slide.className = 'snap-slide';
@@ -661,6 +697,16 @@ function createShortSlide(data, index) {
         preload="${index <= 1 ? 'auto' : 'none'}"
         muted
       ></video>
+
+      <!-- Video Buffering / Loading Indicator for Short -->
+      <div class="short-loading-indicator hidden absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] z-25 pointer-events-none transition-opacity duration-200">
+        <div class="relative w-14 h-14 flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full border-2 border-rose-500/25 animate-ping"></div>
+          <div class="w-12 h-12 rounded-full border-3 border-rose-500/30 border-t-rose-500 animate-spin"></div>
+          <svg class="w-5 h-5 text-rose-400 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <span class="mt-3 text-xs font-semibold text-zinc-200 tracking-wide drop-shadow">Memuat video...</span>
+      </div>
     </div>
 
     <!-- TOUCH DETECTOR GESTURE LAYER (Z-20: CAPTURES TAP / DOUBLE TAP / LONG PRESS) -->
@@ -793,6 +839,7 @@ function setupShortSlideGestures(slide, data) {
   const saveBtn = slide.querySelector('.save-btn');
   const shareBtn = slide.querySelector('.share-btn');
   const touchLayer = slide.querySelector('.touch-gesture-layer');
+  const loaderEl = slide.querySelector('.short-loading-indicator');
 
   // Scrubber elements
   const scrubber = slide.querySelector('.short-scrubber');
@@ -811,13 +858,27 @@ function setupShortSlideGestures(slide, data) {
   let lastTapTime = 0;
   let singleTapTimer = null;
 
+  // Video buffering / loading indicator
+  if (video && loaderEl) {
+    wireVideoLoadingIndicator(video, loaderEl);
+  }
+
   // 1. Video playback events
   if (video) {
+    video.addEventListener('loadedmetadata', () => {
+      if (scrubTimeTotal && video.duration) {
+        scrubTimeTotal.textContent = formatTime(video.duration);
+      }
+    });
+
     video.addEventListener('timeupdate', () => {
       if (isScrubbing) return;
       const cur = video.currentTime;
       const dur = video.duration || 1;
       if (scrubFill) scrubFill.style.width = ((cur / dur) * 100) + '%';
+      if (scrubTimeTotal && video.duration && (scrubTimeTotal.textContent === '00:00' || scrubTimeTotal.textContent === '')) {
+        scrubTimeTotal.textContent = formatTime(video.duration);
+      }
     });
 
     video.addEventListener('playing', () => {
@@ -1474,6 +1535,16 @@ function renderDramaReelSlides(drama) {
         ${isMuted ? 'muted' : ''}
       ></video>
 
+      <!-- Video Buffering / Loading Indicator for Drama Slide -->
+      <div class="reel-loading-indicator hidden absolute inset-0 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] z-25 pointer-events-none transition-opacity duration-200">
+        <div class="relative w-14 h-14 flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full border-2 border-amber-400/25 animate-ping"></div>
+          <div class="w-12 h-12 rounded-full border-3 border-amber-400/30 border-t-amber-400 animate-spin"></div>
+          <svg class="w-5 h-5 text-amber-400 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/></svg>
+        </div>
+        <span class="mt-3 text-xs font-semibold text-zinc-200 tracking-wide drop-shadow">Memuat episode...</span>
+      </div>
+
       <!-- Gradient Overlay -->
       <div class="absolute inset-x-0 top-0 h-32 top-gradient pointer-events-none"></div>
       <div class="absolute inset-x-0 bottom-0 h-48 bottom-gradient pointer-events-none"></div>
@@ -1533,7 +1604,7 @@ function renderDramaReelSlides(drama) {
 
       </div>
 
-      <!-- BOTTOM METADATA & PROGRESS -->
+      <!-- BOTTOM METADATA & INTERACTIVE PROGRESS -->
       <div class="absolute left-4 right-20 bottom-8 z-20 space-y-2 pointer-events-auto">
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-extrabold bg-amber-500 text-black px-2 py-0.5 rounded uppercase">
@@ -1548,14 +1619,29 @@ function renderDramaReelSlides(drama) {
           ${ep.title} • <span class="text-zinc-400">${ep.duration}</span>
         </p>
 
-        <!-- Progress Bar Episode -->
-        <div class="w-full bg-white/20 h-1 rounded-full overflow-hidden">
-          <div class="reel-progress-fill bg-amber-400 h-full w-0 transition-all duration-100"></div>
+        <!-- Interactive Scrubber Progress Bar for Drama Reel (Bisa Diputar & Digeser) -->
+        <div class="reel-scrubber relative w-full py-1.5 cursor-pointer touch-none pointer-events-auto group">
+          <!-- Floating Time Bubble while dragging -->
+          <div class="reel-scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-md border border-amber-400/40 text-amber-300 font-mono text-xs px-3 py-1 rounded-full shadow-2xl pointer-events-none z-50 whitespace-nowrap">
+            <span class="reel-bubble-time">00:00</span> / <span class="reel-bubble-total">${ep.duration || '00:00'}</span>
+          </div>
+
+          <!-- Progress Track -->
+          <div class="reel-scrub-track w-full h-1.5 group-hover:h-3 group-active:h-3 bg-white/25 rounded-full transition-all relative flex items-center">
+            <div class="reel-progress-fill bg-amber-400 h-full rounded-full w-0 relative pointer-events-none">
+              <!-- Knob Handle -->
+              <div class="reel-scrub-knob absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3.5 h-3.5 bg-amber-300 border-2 border-white rounded-full shadow-md scale-0 group-hover:scale-100 group-active:scale-100 transition-transform"></div>
+            </div>
+          </div>
         </div>
 
         <div class="text-[10px] text-zinc-400 flex items-center justify-between font-mono">
-          <span class="reel-time-now">00:00</span>
-          <span>⬇️ Scroll ke bawah: Episode ${idx + 2 <= drama.episodes.length ? idx + 2 : 'Selesai'}</span>
+          <div class="flex items-center gap-1 font-semibold text-zinc-300">
+            <span class="reel-time-now text-amber-300">00:00</span>
+            <span>/</span>
+            <span class="reel-time-total text-zinc-400">${ep.duration || '00:00'}</span>
+          </div>
+          <span class="text-[9px] text-zinc-400">⬇️ Scroll: Ep ${idx + 2 <= drama.episodes.length ? idx + 2 : 'Tamat'}</span>
         </div>
       </div>
     `;
@@ -1569,6 +1655,7 @@ function renderDramaReelSlides(drama) {
 
 function setupDramaSlideGestures(slide, drama, ep, idx) {
   const video = slide.querySelector('video');
+  const loaderEl = slide.querySelector('.reel-loading-indicator');
   const playIndicator = slide.querySelector('.play-indicator');
   const likeBtn = slide.querySelector('.reel-like-ep-btn');
   const heartIcon = slide.querySelector('.ep-heart-svg');
@@ -1576,9 +1663,19 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   const epListBtn = slide.querySelector('.reel-ep-list-btn');
   const chatBtn = slide.querySelector('.reel-chat-btn');
   const muteBtn = slide.querySelector('.reel-mute-btn');
-  const progressFill = slide.querySelector('.reel-progress-fill');
-  const timeNowEl = slide.querySelector('.reel-time-now');
 
+  // Interactive Scrubber Elements
+  const scrubber = slide.querySelector('.reel-scrubber');
+  const scrubTrack = slide.querySelector('.reel-scrub-track');
+  const progressFill = slide.querySelector('.reel-progress-fill');
+  const scrubKnob = slide.querySelector('.reel-scrub-knob');
+  const scrubBubble = slide.querySelector('.reel-scrub-bubble');
+  const bubbleTime = slide.querySelector('.reel-bubble-time');
+  const bubbleTotal = slide.querySelector('.reel-bubble-total');
+  const timeNowEl = slide.querySelector('.reel-time-now');
+  const timeTotalEl = slide.querySelector('.reel-time-total');
+
+  let isScrubbing = false;
   let longPressTimer = null;
   let isHolding2x = false;
   let justFinishedHold = false;
@@ -1588,36 +1685,114 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // 1. Progress Bar Update & Video States
-  video.addEventListener('timeupdate', () => {
-    const cur = video.currentTime;
-    const dur = video.duration || 1;
-    progressFill.style.width = `${(cur / dur) * 100}%`;
-    timeNowEl.textContent = formatTime(cur);
-  });
+  // Video Buffering / Loading Indicator
+  if (video && loaderEl) {
+    wireVideoLoadingIndicator(video, loaderEl);
+  }
 
-  video.addEventListener('play', () => {
-    if (playIndicator) playIndicator.style.opacity = '0';
-  });
-
-  video.addEventListener('pause', () => {
-    if (playIndicator) playIndicator.style.opacity = '1';
-  });
-
-  // 2. Auto-next episode saat video habis
-  video.addEventListener('ended', () => {
-    if (idx < drama.episodes.length - 1) {
-      const nextSlide = dramaEpisodesReel.children[idx + 1];
-      if (nextSlide) {
-        nextSlide.scrollIntoView({ behavior: 'smooth' });
+  // 1. Duration & Progress Bar Updates
+  if (video) {
+    video.addEventListener('loadedmetadata', () => {
+      if (timeTotalEl && video.duration) {
+        timeTotalEl.textContent = formatTime(video.duration);
       }
-    }
-  });
+      if (bubbleTotal && video.duration) {
+        bubbleTotal.textContent = formatTime(video.duration);
+      }
+    });
 
-  // 3. TAHAN LAYAR -> 2X SPEED (Long Press Hold)
+    video.addEventListener('timeupdate', () => {
+      if (isScrubbing) return;
+      const cur = video.currentTime;
+      const dur = video.duration || 1;
+      if (progressFill) progressFill.style.width = `${(cur / dur) * 100}%`;
+      if (timeNowEl) timeNowEl.textContent = formatTime(cur);
+      if (timeTotalEl && video.duration && (timeTotalEl.textContent === '00:00' || timeTotalEl.textContent === '')) {
+        timeTotalEl.textContent = formatTime(video.duration);
+      }
+    });
+
+    video.addEventListener('play', () => {
+      if (playIndicator) playIndicator.style.opacity = '0';
+    });
+
+    video.addEventListener('pause', () => {
+      if (playIndicator) playIndicator.style.opacity = '1';
+    });
+
+    // 2. Auto-next episode saat video habis
+    video.addEventListener('ended', () => {
+      if (idx < drama.episodes.length - 1) {
+        const nextSlide = dramaEpisodesReel.children[idx + 1];
+        if (nextSlide) {
+          nextSlide.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    });
+  }
+
+  // 3. Interactive Scrubber (Drag / Seek Timeline)
+  if (scrubber && video) {
+    function seekDramaPosition(clientX) {
+      if (!scrubTrack) return 0;
+      const rect = scrubTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (progressFill) progressFill.style.width = `${pct * 100}%`;
+      const dur = video.duration || 1;
+      const seekTime = pct * dur;
+      if (timeNowEl) timeNowEl.textContent = formatTime(seekTime);
+      if (bubbleTime) bubbleTime.textContent = formatTime(seekTime);
+      if (bubbleTotal && video.duration) bubbleTotal.textContent = formatTime(video.duration);
+      if (scrubBubble) {
+        scrubBubble.style.left = `${pct * 100}%`;
+        scrubBubble.classList.remove('hidden');
+      }
+      return seekTime;
+    }
+
+    scrubber.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      isScrubbing = true;
+      if (scrubKnob) scrubKnob.classList.remove('scale-0');
+      const seekTime = seekDramaPosition(e.clientX);
+      video.currentTime = seekTime;
+      triggerHaptic('light');
+
+      const onPointerMove = (ev) => {
+        if (!isScrubbing) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        const curSeek = seekDramaPosition(ev.clientX);
+        video.currentTime = curSeek;
+      };
+
+      const onPointerUp = (ev) => {
+        if (!isScrubbing) return;
+        isScrubbing = false;
+        ev.stopPropagation();
+        const finalSeek = seekDramaPosition(ev.clientX);
+        video.currentTime = finalSeek;
+        if (scrubKnob) scrubKnob.classList.add('scale-0');
+        if (scrubBubble) scrubBubble.classList.add('hidden');
+        video.play().catch(() => {});
+        triggerHaptic('light');
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    });
+  }
+
+  // 4. TAHAN LAYAR -> 2X SPEED (Long Press Hold)
   function isInteractiveTarget(target) {
     return target.closest('button') || 
            target.closest('.z-20') || 
+           target.closest('.reel-scrubber') ||
            target.closest('.open-landscape-slide-btn');
   }
 
@@ -1832,7 +2007,9 @@ function closeDramaReel() {
 const dramaLandscapeTheater = document.getElementById('drama-landscape-theater');
 const landscapeVideo = document.getElementById('landscape-video');
 const landscapeVideoContainer = document.getElementById('landscape-video-container');
+const exitLandscapeBackBtn = document.getElementById('exit-landscape-back-btn');
 const exitLandscapeBtn = document.getElementById('exit-landscape-btn');
+const landscapeLoadingIndicator = document.getElementById('landscape-loading-indicator');
 const landscapeDramaTitle = document.getElementById('landscape-drama-title');
 const landscapeEpBadge = document.getElementById('landscape-ep-badge');
 const landscapeEpListBtn = document.getElementById('landscape-ep-list-btn');
@@ -1844,6 +2021,10 @@ const landscapeTimeNow = document.getElementById('landscape-time-now');
 const landscapeTimeTotal = document.getElementById('landscape-time-total');
 const landscapeProgressTrack = document.getElementById('landscape-progress-track');
 const landscapeProgressFill = document.getElementById('landscape-progress-fill');
+const landscapeScrubBubble = document.getElementById('landscape-scrub-bubble');
+const landscapeBubbleTime = document.getElementById('landscape-bubble-time');
+const landscapeBubbleTotal = document.getElementById('landscape-bubble-total');
+const landscapeScrubKnob = document.getElementById('landscape-scrub-knob');
 const landscapePrevEpBtn = document.getElementById('landscape-prev-ep-btn');
 const landscapeTogglePlayBtn = document.getElementById('landscape-toggle-play-btn');
 const landscapePlayBtnIcon = document.getElementById('landscape-play-btn-icon');
@@ -2501,11 +2682,19 @@ function setupEvents() {
   if (exitLandscapeBtn) {
     exitLandscapeBtn.onclick = closeLandscapeTheater;
   }
+  if (exitLandscapeBackBtn) {
+    exitLandscapeBackBtn.onclick = closeLandscapeTheater;
+  }
   if (landscapeEpListBtn) {
     landscapeEpListBtn.onclick = openLandscapeEpisodeSheet;
   }
   if (closeLandscapeEpSheet) {
     closeLandscapeEpSheet.onclick = () => landscapeEpSheet.classList.add('hidden');
+  }
+
+  // Wire loading indicator di mode lanskap
+  if (landscapeVideo && landscapeLoadingIndicator) {
+    wireVideoLoadingIndicator(landscapeVideo, landscapeLoadingIndicator);
   }
 
   // Toggle Play / Pause in Landscape
@@ -2573,28 +2762,78 @@ function setupEvents() {
     };
   }
 
-  // Scrubbing on Landscape Progress Bar
+  // Interactive Scrubbing on Landscape Progress Bar (Click & Drag Timeline with Time Bubble)
   if (landscapeProgressTrack) {
-    landscapeProgressTrack.onclick = (e) => {
+    let isLandscapeScrubbing = false;
+
+    function updateLandscapeScrub(clientX) {
+      if (!landscapeVideo || !landscapeVideo.duration) return 0;
+      const rect = landscapeProgressTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct * 100}%`;
+      const seekTime = pct * landscapeVideo.duration;
+      if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(seekTime);
+      if (landscapeBubbleTime) landscapeBubbleTime.textContent = formatTime(seekTime);
+      if (landscapeBubbleTotal && landscapeVideo.duration) landscapeBubbleTotal.textContent = formatTime(landscapeVideo.duration);
+      if (landscapeScrubBubble) {
+        landscapeScrubBubble.style.left = `${pct * 100}%`;
+        landscapeScrubBubble.classList.remove('hidden');
+      }
+      return seekTime;
+    }
+
+    landscapeProgressTrack.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       if (!landscapeVideo || !landscapeVideo.duration) return;
-      const rect = landscapeProgressTrack.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const pct = Math.max(0, Math.min(1, clickX / rect.width));
-      landscapeVideo.currentTime = pct * landscapeVideo.duration;
+      isLandscapeScrubbing = true;
+      if (landscapeScrubKnob) landscapeScrubKnob.classList.remove('scale-0');
+      const seekTime = updateLandscapeScrub(e.clientX);
+      landscapeVideo.currentTime = seekTime;
       triggerHaptic('light');
-    };
-  }
 
-  // Landscape Video Listeners (Timeupdate, Play, Pause, Auto-Next Ended)
-  if (landscapeVideo) {
-    landscapeVideo.addEventListener('timeupdate', () => {
-      if (!landscapeVideo.duration) return;
-      const pct = (landscapeVideo.currentTime / landscapeVideo.duration) * 100;
-      if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct}%`;
-      if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(landscapeVideo.currentTime);
+      const onPointerMove = (ev) => {
+        if (!isLandscapeScrubbing) return;
+        ev.stopPropagation();
+        const curSeek = updateLandscapeScrub(ev.clientX);
+        landscapeVideo.currentTime = curSeek;
+      };
+
+      const onPointerUp = (ev) => {
+        if (!isLandscapeScrubbing) return;
+        isLandscapeScrubbing = false;
+        ev.stopPropagation();
+        const finalSeek = updateLandscapeScrub(ev.clientX);
+        landscapeVideo.currentTime = finalSeek;
+        if (landscapeScrubKnob) landscapeScrubKnob.classList.add('scale-0');
+        if (landscapeScrubBubble) landscapeScrubBubble.classList.add('hidden');
+        landscapeVideo.play().catch(() => {});
+        triggerHaptic('light');
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
     });
 
+    // Landscape Video Timeupdate (Only if not currently scrubbing)
+    if (landscapeVideo) {
+      landscapeVideo.addEventListener('timeupdate', () => {
+        if (isLandscapeScrubbing || !landscapeVideo.duration) return;
+        const pct = (landscapeVideo.currentTime / landscapeVideo.duration) * 100;
+        if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct}%`;
+        if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(landscapeVideo.currentTime);
+        if (landscapeTimeTotal && landscapeVideo.duration && (landscapeTimeTotal.textContent === '00:00' || landscapeTimeTotal.textContent === '')) {
+          landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration);
+        }
+      });
+    }
+  }
+
+  // Landscape Video Listeners (Play, Pause, Auto-Next Ended)
+  if (landscapeVideo) {
     landscapeVideo.addEventListener('play', () => {
       updateLandscapePlayBtn(true);
       if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '0';
