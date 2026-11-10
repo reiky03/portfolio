@@ -2811,14 +2811,59 @@ function queueCloudSync() {
   }, 1200);
 }
 
+const GOOGLE_CLIENT_ID = localStorage.getItem('teleshorts_google_client_id') || '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com';
+
 function triggerDirectGoogleLogin() {
   triggerHaptic('medium');
 
-  // 1. Coba Google Identity Services (GIS) One-Tap / popup terlebih dahulu
-  if (window.google?.accounts?.id) {
-    try {
+  if (!window.google?.accounts?.oauth2 && !window.google?.accounts?.id) {
+    showToast('Memuat Google SDK, silakan coba beberapa detik lagi... 🌐', 'alert-circle', 'rose', 3500);
+    return;
+  }
+
+  showToast('Menghubungkan ke server resmi Google... ⏳', 'cloud', 'amber', 2500);
+
+  try {
+    // Gunakan Google OAuth 2.0 Token Client Resmi (Membuka popup asli Google untuk memilih akun)
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'email profile openid',
+      prompt: 'select_account',
+      callback: async (tokenResponse) => {
+        if (tokenResponse?.error) {
+          if (tokenResponse.error === 'access_denied') {
+            showToast('Login Google dibatalkan', 'alert-circle', 'zinc', 2500);
+          } else {
+            showToast(`Otentikasi Google: ${tokenResponse.error}`, 'alert-circle', 'rose', 4000);
+          }
+          return;
+        }
+
+        if (tokenResponse?.access_token) {
+          try {
+            // Ambil data profil asli langsung dari server resmi Google API
+            const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const profile = await res.json();
+            handleGoogleLoginSuccess(profile.email, profile.name, profile.picture);
+          } catch (err) {
+            showToast('Gagal memuat profil dari Google API ⚠️', 'alert-circle', 'rose', 3500);
+          }
+        }
+      },
+      error_callback: (err) => {
+        showToast('Google OAuth: ' + (err?.message || err), 'alert-circle', 'rose', 4000);
+      }
+    });
+
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
+  } catch (err) {
+    // Fallback ke Google Identity Services (GIS) One-Tap jika popup dicegah browser
+    if (window.google?.accounts?.id) {
       google.accounts.id.initialize({
-        client_id: '92150328841-gdriveappvideo.apps.googleusercontent.com',
+        client_id: GOOGLE_CLIENT_ID,
         callback: (res) => {
           try {
             const base64Url = res.credential.split('.')[1];
@@ -2827,32 +2872,19 @@ function triggerDirectGoogleLogin() {
             const p = JSON.parse(jsonPayload);
             handleGoogleLoginSuccess(p.email, p.name, p.picture);
           } catch(e) {
-            handleDirectGoogleFallback();
+            showToast('Gagal memverifikasi token Google ⚠️', 'alert-circle', 'rose');
           }
-        },
-        auto_select: false
-      });
-
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          handleDirectGoogleFallback();
         }
       });
-      return;
-    } catch (e) {
-      // Fallback langsung
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed()) {
+          showToast('Popup Google diblokir browser, mohon izinkan popup ya beb ⚠️', 'alert-circle', 'rose', 4000);
+        }
+      });
+    } else {
+      showToast('Gagal membuka otentikasi Google: ' + err.message, 'alert-circle', 'rose', 4000);
     }
   }
-
-  // 2. Langsung login Google tanpa modal / ketik apapun
-  handleDirectGoogleFallback();
-}
-
-function handleDirectGoogleFallback() {
-  const googleEmail = 'reikyranp@gmail.com';
-  const googleName = 'Reiky Pratama';
-  const googleAvatar = 'https://lh3.googleusercontent.com/a/default-user=s96-c';
-  handleGoogleLoginSuccess(googleEmail, googleName, googleAvatar);
 }
 
 function handleGoogleLoginSuccess(email, name = '', avatar = '') {
