@@ -298,6 +298,7 @@
       <!-- Filter Genre Pills -->
       <div id="drama-genre-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
         <button class="genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500 text-black shadow-sm whitespace-nowrap active:scale-95 transition-all" data-genre="all">Semua</button>
+        <button class="genre-pill px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/80 border border-rose-600/60 text-rose-300 hover:bg-rose-900/80 whitespace-nowrap active:scale-95 transition-all flex items-center gap-1 shadow-sm" data-genre="18+"><span>🔞 18+ Dewasa</span></button>
         <button class="genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-genre="Romantis">Romantis</button>
         <button class="genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-genre="Drama Populer">Populer</button>
         <button class="genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-genre="Thriller / Aksi">Aksi / Misteri</button>
@@ -447,9 +448,14 @@
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
         <div class="absolute bottom-3 left-4 right-4">
-          <span id="modal-drama-genre" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black uppercase"></span>
-          <h3 id="modal-drama-title" class="text-lg font-black text-white mt-1"></h3>
-          <div class="flex items-center gap-3 text-[11px] text-zinc-300">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white flex items-center gap-1 shadow">
+              🔞 18+ DEWASA
+            </span>
+            <span id="modal-drama-genre" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black uppercase"></span>
+          </div>
+          <h3 id="modal-drama-title" class="text-lg font-black text-white"></h3>
+          <div class="flex items-center gap-3 text-[11px] text-zinc-300 mt-0.5">
             <span id="modal-drama-rating" class="text-amber-400 font-bold">★ 4.9</span>
             <span id="modal-drama-eps-count">16 Episode</span>
           </div>
@@ -457,6 +463,11 @@
       </div>
 
       <div class="p-4 border-b border-zinc-900 space-y-2 shrink-0">
+        <!-- 18+ Advisory Banner -->
+        <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-rose-950/40 border border-rose-600/30 text-[10.5px] text-rose-300">
+          <span class="text-sm">🔞</span>
+          <span class="leading-tight"><strong class="text-rose-200">Konten Khusus Dewasa (18+):</strong> Mengandung adegan khusus dewasa. Ditujukan hanya untuk penonton berusia 18 tahun ke atas.</span>
+        </div>
         <p id="modal-drama-synopsis" class="text-xs text-zinc-400 leading-relaxed"></p>
         <div class="flex items-center gap-2">
           <!-- Tombol Mulai Nonton Episode 1 -->
@@ -500,7 +511,10 @@
           <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
         </button>
         <div>
-          <h3 id="reel-drama-title" class="text-xs font-bold text-white line-clamp-1 max-w-[180px]">Judul Drama</h3>
+          <div class="flex items-center gap-1.5">
+            <h3 id="reel-drama-title" class="text-xs font-bold text-white line-clamp-1 max-w-[150px]">Judul Drama</h3>
+            <span class="px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
+          </div>
           <span id="reel-current-ep-badge" class="text-[10px] text-amber-400 font-semibold">Episode 1 / 16</span>
         </div>
       </div>
@@ -579,7 +593,10 @@
           <span>Keluar Lanskap</span>
         </button>
         <div>
-          <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1">Judul Drama</h3>
+          <div class="flex items-center gap-1.5">
+            <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1 max-w-[200px]">Judul Drama</h3>
+            <span class="px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
+          </div>
           <span id="landscape-ep-badge" class="text-xs text-amber-400 font-semibold">Episode 1 / 50</span>
         </div>
       </div>
@@ -809,6 +826,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=2.5.0"></script>
+  <script src="app.js?v=2.6.0"></script>
 </body>
 </html>

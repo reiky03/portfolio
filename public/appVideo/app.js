@@ -1239,9 +1239,39 @@ function searchDramasWordByWord(query, dramas) {
 
 function filterAndRenderDramas() {
   const query = dramaSearchInput.value.trim();
-  let results = currentGenreFilter === 'all'
-    ? allDramas
-    : allDramas.filter(d => d.genre.toLowerCase().includes(currentGenreFilter.toLowerCase()));
+  let results = allDramas;
+
+  if (currentGenreFilter !== 'all') {
+    const f = currentGenreFilter.toLowerCase();
+    results = allDramas.filter(d => {
+      const g = (d.genre || '').toLowerCase();
+      if (f === '18+' || f === '18') {
+        return d.age_rating === '18+' || g.includes('18+');
+      }
+      if (f === 'romantis') {
+        return g.includes('romantis') || g.includes('romance');
+      }
+      if (f === 'drama populer') {
+        return parseFloat(d.rating || 0) >= 4.7;
+      }
+      if (f.includes('thriller') || f.includes('aksi')) {
+        return g.includes('thriller') || g.includes('aksi') || g.includes('action') || g.includes('misteri') || g.includes('mystery');
+      }
+      if (f === 'petualangan') {
+        return g.includes('petualangan') || g.includes('adventure') || g.includes('martial arts');
+      }
+      if (f === 'fantasi') {
+        return g.includes('fantasi') || g.includes('fantasy');
+      }
+      if (f === 'komedi') {
+        return g.includes('komedi') || g.includes('comedy');
+      }
+      if (f === 'ceo') {
+        return g.includes('ceo');
+      }
+      return g.includes(f);
+    });
+  }
 
   if (query.length > 0) {
     dramaSearchClear.classList.remove('hidden');
@@ -1290,9 +1320,14 @@ function renderDramaList(dramas) {
         <img src="${drm.poster}" alt="${drm.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
         <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
         
-        <span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400">
-          ★ ${drm.rating}
-        </span>
+        <div class="absolute top-2 left-2 flex items-center gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400">
+            ★ ${drm.rating}
+          </span>
+          <span class="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black tracking-wider shadow flex items-center gap-0.5">
+            🔞 18+
+          </span>
+        </div>
 
         ${drm.orientation === 'horizontal' ? `
           <span class="absolute top-2 right-10 px-1.5 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black flex items-center gap-0.5 shadow">
@@ -2450,11 +2485,14 @@ function renderProfileContent() {
           <span class="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-sky-400">
             <i data-lucide="bookmark" class="w-3.5 h-3.5 fill-sky-400"></i>
           </span>
-          ${likedCount > 0 ? `
-            <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9px] font-bold flex items-center gap-0.5">
-              <span>❤️</span> ${likedCount} Disukai
-            </div>
-          ` : ''}
+          <div class="absolute top-1.5 left-1.5 flex items-center gap-1">
+            <span class="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black tracking-wider shadow">🔞 18+</span>
+            ${likedCount > 0 ? `
+              <div class="px-1.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9px] font-bold flex items-center gap-0.5">
+                <span>❤️</span> ${likedCount}
+              </div>
+            ` : ''}
+          </div>
           <div class="absolute bottom-1.5 left-1.5 right-1.5">
             <span class="text-[9px] font-bold text-amber-400">${drm.genre}</span>
             <h5 class="text-xs font-bold text-white line-clamp-1">${drm.title}</h5>
@@ -2624,9 +2662,17 @@ function setupEvents() {
     pill.onclick = () => {
       triggerHaptic('light');
       dramaGenrePills.forEach(p => {
-        p.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all';
+        if (p.dataset.genre === '18+') {
+          p.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/80 border border-rose-600/60 text-rose-300 hover:bg-rose-900/80 whitespace-nowrap active:scale-95 transition-all flex items-center gap-1 shadow-sm';
+        } else {
+          p.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all';
+        }
       });
-      pill.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500 text-black shadow-sm whitespace-nowrap active:scale-95 transition-all';
+      if (pill.dataset.genre === '18+') {
+        pill.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-black bg-rose-600 text-white shadow-lg shadow-rose-600/40 whitespace-nowrap active:scale-95 transition-all flex items-center gap-1';
+      } else {
+        pill.className = 'genre-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500 text-black shadow-sm whitespace-nowrap active:scale-95 transition-all';
+      }
       currentGenreFilter = pill.dataset.genre;
       filterAndRenderDramas();
     };
