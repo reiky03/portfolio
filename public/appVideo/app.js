@@ -331,6 +331,7 @@ const modalDramaRating = document.getElementById('modal-drama-rating');
 const modalDramaEpsCount = document.getElementById('modal-drama-eps-count');
 const modalDramaSynopsis = document.getElementById('modal-drama-synopsis');
 const modalStartWatchBtn = document.getElementById('modal-start-watch-btn');
+const modalLandscapeWatchBtn = document.getElementById('modal-landscape-watch-btn');
 const modalBookmarkDramaBtn = document.getElementById('modal-bookmark-drama-btn');
 const modalBookmarkLabel = document.getElementById('modal-bookmark-label');
 const modalEpisodeList = document.getElementById('modal-episode-list');
@@ -1215,6 +1216,16 @@ function renderDramaList(dramas) {
         <span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400">
           ★ ${drm.rating}
         </span>
+
+        ${drm.orientation === 'horizontal' ? `
+          <span class="absolute top-2 right-10 px-1.5 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black flex items-center gap-0.5 shadow">
+            ⛶ 16:9 Lanskap
+          </span>
+        ` : `
+          <span class="absolute top-2 right-10 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-zinc-300 text-[9px] font-bold">
+            📱 Vertikal
+          </span>
+        `}
         
         <button class="drama-quick-save absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 active:scale-75 transition-all">
           <i data-lucide="bookmark" class="w-3.5 h-3.5 ${isSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}"></i>
@@ -1278,6 +1289,18 @@ function openDramaDetailModal(drm) {
     dramaDetailModal.classList.add('hidden');
     openDramaReel(drm, 0); // Mulai nonton dari Ep 1
   };
+
+  if (modalLandscapeWatchBtn) {
+    if (drm.orientation === 'horizontal') {
+      modalLandscapeWatchBtn.classList.remove('hidden');
+      modalLandscapeWatchBtn.onclick = () => {
+        dramaDetailModal.classList.add('hidden');
+        openLandscapeTheater(drm, 0, 0);
+      };
+    } else {
+      modalLandscapeWatchBtn.classList.add('hidden');
+    }
+  }
 
   dramaDetailModal.classList.remove('hidden');
   lucide.createIcons();
@@ -1401,9 +1424,21 @@ function updateReelEpBadge(epIdx) {
 function renderDramaReelSlides(drama) {
   dramaEpisodesReel.innerHTML = '';
 
+  const isHorizontal = drama.orientation === 'horizontal';
+
+  // Toggle header landscape button visibility or style
+  const reelLandscapeToggleBtn = document.getElementById('reel-landscape-toggle-btn');
+  if (reelLandscapeToggleBtn) {
+    if (isHorizontal) {
+      reelLandscapeToggleBtn.classList.remove('hidden');
+    } else {
+      reelLandscapeToggleBtn.classList.remove('hidden'); // Tetap izinkan untuk video apa saja jika user mau
+    }
+  }
+
   drama.episodes.forEach((ep, idx) => {
     const slide = document.createElement('div');
-    slide.className = 'snap-slide';
+    slide.className = `snap-slide ${isHorizontal ? 'horizontal-drama' : ''}`;
     slide.dataset.index = idx;
     slide.dataset.ep = ep.ep;
 
@@ -1415,7 +1450,7 @@ function renderDramaReelSlides(drama) {
 
     slide.innerHTML = `
       <video 
-        class="video-player"
+        class="video-player ${isHorizontal ? 'fit-contain' : ''}"
         src="${streamSrc}"
         playsinline
         webkit-playsinline
@@ -1433,6 +1468,16 @@ function renderDramaReelSlides(drama) {
           <i data-lucide="play" class="w-8 h-8 fill-white ml-1"></i>
         </div>
       </div>
+
+      <!-- Floating Center Landscape Button for Horizontal Video -->
+      ${isHorizontal ? `
+        <div class="absolute inset-x-0 bottom-36 flex items-center justify-center pointer-events-none z-30">
+          <button class="open-landscape-slide-btn pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-2xl border border-amber-300 active:scale-95 transition-all">
+            <i data-lucide="maximize" class="w-4 h-4"></i>
+            <span>⛶ Tonton Mode Lanskap Penuh</span>
+          </button>
+        </div>
+      ` : ''}
 
       <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK/MELOLO) -->
       <div class="absolute right-3 bottom-12 flex flex-col items-center gap-4 z-20">
@@ -1643,6 +1688,15 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     muteBtn.querySelector('i').setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
     lucide.createIcons();
   };
+
+  // 9. Tombol Tonton Mode Lanskap di Layar Slide
+  const openLandscapeSlideBtn = slide.querySelector('.open-landscape-slide-btn');
+  if (openLandscapeSlideBtn) {
+    openLandscapeSlideBtn.onclick = (e) => {
+      e.stopPropagation();
+      openLandscapeTheater(drama, idx, video.currentTime);
+    };
+  }
 }
 
 function setupDramaReelObserver() {
@@ -1722,6 +1776,178 @@ function closeDramaReel() {
   if (activeView === 'shorts' && currentPlayingShortVideo) {
     currentPlayingShortVideo.play().catch(() => {});
   }
+}
+
+// ============================================================
+// 3B. LANDSCAPE THEATER PLAYER (UNTUK DRAMA HORIZONTAL 16:9)
+// ============================================================
+const dramaLandscapeTheater = document.getElementById('drama-landscape-theater');
+const landscapeVideo = document.getElementById('landscape-video');
+const landscapeVideoContainer = document.getElementById('landscape-video-container');
+const exitLandscapeBtn = document.getElementById('exit-landscape-btn');
+const landscapeDramaTitle = document.getElementById('landscape-drama-title');
+const landscapeEpBadge = document.getElementById('landscape-ep-badge');
+const landscapeEpListBtn = document.getElementById('landscape-ep-list-btn');
+const landscapePlayIndicator = document.getElementById('landscape-play-indicator');
+const landscapeSeekLeft = document.getElementById('landscape-seek-left');
+const landscapeSeekRight = document.getElementById('landscape-seek-right');
+const landscapeFooter = document.getElementById('landscape-footer');
+const landscapeTimeNow = document.getElementById('landscape-time-now');
+const landscapeTimeTotal = document.getElementById('landscape-time-total');
+const landscapeProgressTrack = document.getElementById('landscape-progress-track');
+const landscapeProgressFill = document.getElementById('landscape-progress-fill');
+const landscapePrevEpBtn = document.getElementById('landscape-prev-ep-btn');
+const landscapeTogglePlayBtn = document.getElementById('landscape-toggle-play-btn');
+const landscapePlayBtnIcon = document.getElementById('landscape-play-btn-icon');
+const landscapeNextEpBtn = document.getElementById('landscape-next-ep-btn');
+const landscapeMuteBtn = document.getElementById('landscape-mute-btn');
+const landscapeMuteIcon = document.getElementById('landscape-mute-icon');
+const landscapeEpSheet = document.getElementById('landscape-ep-sheet');
+const closeLandscapeEpSheet = document.getElementById('close-landscape-ep-sheet');
+const landscapeSheetGrid = document.getElementById('landscape-sheet-grid');
+
+let currentLandscapeDrama = null;
+let currentLandscapeEpIndex = 0;
+let lastLandscapeTapTime = 0;
+let landscapeTapTimer = null;
+
+function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
+  triggerHaptic('medium');
+  currentLandscapeDrama = drama;
+  currentLandscapeEpIndex = startEpIdx;
+
+  // Pause all portrait videos
+  document.querySelectorAll('#drama-episodes-reel video').forEach(v => v.pause());
+
+  // Check orientation and apply mobile rotation if device is portrait
+  if (window.innerHeight > window.innerWidth) {
+    dramaLandscapeTheater.classList.add('rotate-mobile');
+  } else {
+    dramaLandscapeTheater.classList.remove('rotate-mobile');
+  }
+
+  // Try screen orientation lock and fullscreen
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch (e) {}
+
+  dramaLandscapeTheater.classList.remove('hidden');
+  playLandscapeEpisode(startEpIdx, startTime);
+  lucide.createIcons();
+}
+
+function playLandscapeEpisode(epIdx, startTime = 0) {
+  if (!currentLandscapeDrama) return;
+  const ep = currentLandscapeDrama.episodes[epIdx];
+  if (!ep) return;
+
+  currentLandscapeEpIndex = epIdx;
+  landscapeDramaTitle.textContent = currentLandscapeDrama.title;
+  landscapeEpBadge.textContent = `Episode ${ep.ep} / ${currentLandscapeDrama.total_episodes}`;
+
+  // Stream URL with proxy
+  const streamSrc = ep.gdrive_file_id 
+    ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
+    : ep.video_url;
+
+  landscapeVideo.src = streamSrc;
+  landscapeVideo.muted = isMuted;
+  updateLandscapeMuteBtn();
+
+  landscapeVideo.onloadedmetadata = () => {
+    if (startTime > 0) landscapeVideo.currentTime = startTime;
+    landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration || 0);
+  };
+
+  const playPromise = landscapeVideo.play();
+  if (playPromise) {
+    playPromise
+      .then(() => updateLandscapePlayBtn(true))
+      .catch(() => updateLandscapePlayBtn(false));
+  }
+
+  // Update prev / next buttons state
+  landscapePrevEpBtn.style.opacity = epIdx > 0 ? '1' : '0.4';
+  landscapeNextEpBtn.style.opacity = epIdx < currentLandscapeDrama.episodes.length - 1 ? '1' : '0.4';
+}
+
+function updateLandscapePlayBtn(isPlaying) {
+  if (!landscapePlayBtnIcon) return;
+  landscapePlayBtnIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+  lucide.createIcons();
+}
+
+function updateLandscapeMuteBtn() {
+  if (!landscapeMuteIcon) return;
+  landscapeMuteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
+  lucide.createIcons();
+}
+
+function closeLandscapeTheater() {
+  triggerHaptic('light');
+  const savedTime = landscapeVideo ? landscapeVideo.currentTime : 0;
+  if (landscapeVideo) {
+    landscapeVideo.pause();
+    landscapeVideo.removeAttribute('src');
+    landscapeVideo.load();
+  }
+
+  dramaLandscapeTheater.classList.add('hidden');
+  dramaLandscapeTheater.classList.remove('rotate-mobile');
+
+  try {
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+  } catch (e) {}
+
+  // Sync back to portrait reel if reel is currently open
+  if (currentLandscapeDrama && !dramaReelModal.classList.contains('hidden')) {
+    currentReelEpisodeIndex = currentLandscapeEpIndex;
+    updateReelEpBadge(currentLandscapeEpIndex);
+    const targetSlide = dramaEpisodesReel.children[currentLandscapeEpIndex];
+    if (targetSlide) {
+      targetSlide.scrollIntoView({ behavior: 'auto' });
+      const v = targetSlide.querySelector('video');
+      if (v) {
+        v.currentTime = savedTime;
+        v.muted = isMuted;
+        v.play().catch(() => {});
+      }
+    }
+  }
+}
+
+// In-Landscape Episode Sheet Drawer
+function openLandscapeEpisodeSheet() {
+  if (!currentLandscapeDrama) return;
+  landscapeSheetGrid.innerHTML = '';
+
+  currentLandscapeDrama.episodes.forEach((ep, idx) => {
+    const isCurrent = idx === currentLandscapeEpIndex;
+    const btn = document.createElement('button');
+    btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
+      isCurrent
+        ? 'bg-amber-500 border-amber-400 text-black font-extrabold shadow-lg'
+        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+    }`;
+
+    btn.innerHTML = `
+      <span class="text-xs font-bold">Ep ${ep.ep}</span>
+    `;
+
+    btn.onclick = () => {
+      landscapeEpSheet.classList.add('hidden');
+      triggerHaptic('medium');
+      playLandscapeEpisode(idx, 0);
+    };
+
+    landscapeSheetGrid.appendChild(btn);
+  });
+
+  landscapeEpSheet.classList.remove('hidden');
 }
 
 // ============================================================
@@ -2203,6 +2429,228 @@ function setupEvents() {
   closeDramaReelBtn.onclick = closeDramaReel;
   reelOpenEpSheetBtn.onclick = openReelEpisodeSheet;
   closeReelEpSheet.onclick = () => reelEpSheet.classList.add('hidden');
+
+  // Header Landscape Toggle Button in Drama Reel
+  const reelLandscapeToggleBtn = document.getElementById('reel-landscape-toggle-btn');
+  if (reelLandscapeToggleBtn) {
+    reelLandscapeToggleBtn.onclick = () => {
+      if (!currentPlayingDrama) return;
+      const targetSlide = dramaEpisodesReel.children[currentReelEpisodeIndex];
+      const v = targetSlide ? targetSlide.querySelector('video') : null;
+      const currentTime = v ? v.currentTime : 0;
+      openLandscapeTheater(currentPlayingDrama, currentReelEpisodeIndex, currentTime);
+    };
+  }
+
+  // ============================================================
+  // LANDSCAPE THEATER EVENTS (WIDESCREEN & AUTO-NEXT EPISODES)
+  // ============================================================
+  if (exitLandscapeBtn) {
+    exitLandscapeBtn.onclick = closeLandscapeTheater;
+  }
+  if (landscapeEpListBtn) {
+    landscapeEpListBtn.onclick = openLandscapeEpisodeSheet;
+  }
+  if (closeLandscapeEpSheet) {
+    closeLandscapeEpSheet.onclick = () => landscapeEpSheet.classList.add('hidden');
+  }
+
+  // Toggle Play / Pause in Landscape
+  if (landscapeTogglePlayBtn) {
+    landscapeTogglePlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      if (!landscapeVideo) return;
+      if (landscapeVideo.paused) {
+        landscapeVideo.play()
+          .then(() => updateLandscapePlayBtn(true))
+          .catch(() => updateLandscapePlayBtn(false));
+      } else {
+        landscapeVideo.pause();
+        updateLandscapePlayBtn(false);
+      }
+    };
+  }
+
+  // Skip Next Episode in Landscape
+  if (landscapeNextEpBtn) {
+    landscapeNextEpBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!currentLandscapeDrama) return;
+      if (currentLandscapeEpIndex < currentLandscapeDrama.episodes.length - 1) {
+        triggerHaptic('medium');
+        const nextIdx = currentLandscapeEpIndex + 1;
+        playLandscapeEpisode(nextIdx, 0);
+        showToast(`Episode ${currentLandscapeDrama.episodes[nextIdx].ep} 🎬`, 'play', 'amber');
+      } else {
+        showToast('Ini episode terakhir beb! 🎉', 'check', 'amber');
+      }
+    };
+  }
+
+  // Skip Prev Episode in Landscape
+  if (landscapePrevEpBtn) {
+    landscapePrevEpBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!currentLandscapeDrama) return;
+      if (currentLandscapeEpIndex > 0) {
+        triggerHaptic('medium');
+        const prevIdx = currentLandscapeEpIndex - 1;
+        playLandscapeEpisode(prevIdx, 0);
+        showToast(`Episode ${currentLandscapeDrama.episodes[prevIdx].ep} 🎬`, 'skip-back', 'amber');
+      } else {
+        showToast('Ini episode pertama beb!', 'alert-circle', 'zinc');
+      }
+    };
+  }
+
+  // Mute / Unmute in Landscape
+  if (landscapeMuteBtn) {
+    landscapeMuteBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      isMuted = !isMuted;
+      if (landscapeVideo) landscapeVideo.muted = isMuted;
+      document.querySelectorAll('video').forEach(v => v.muted = isMuted);
+      updateLandscapeMuteBtn();
+      if (globalMuteBtn && muteIcon) {
+        muteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
+        lucide.createIcons();
+      }
+    };
+  }
+
+  // Scrubbing on Landscape Progress Bar
+  if (landscapeProgressTrack) {
+    landscapeProgressTrack.onclick = (e) => {
+      e.stopPropagation();
+      if (!landscapeVideo || !landscapeVideo.duration) return;
+      const rect = landscapeProgressTrack.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      landscapeVideo.currentTime = pct * landscapeVideo.duration;
+      triggerHaptic('light');
+    };
+  }
+
+  // Landscape Video Listeners (Timeupdate, Play, Pause, Auto-Next Ended)
+  if (landscapeVideo) {
+    landscapeVideo.addEventListener('timeupdate', () => {
+      if (!landscapeVideo.duration) return;
+      const pct = (landscapeVideo.currentTime / landscapeVideo.duration) * 100;
+      if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct}%`;
+      if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(landscapeVideo.currentTime);
+    });
+
+    landscapeVideo.addEventListener('play', () => updateLandscapePlayBtn(true));
+    landscapeVideo.addEventListener('pause', () => updateLandscapePlayBtn(false));
+
+    // OTOMATIS LANJUT KE EPISODE BERIKUTNYA SAAT EPISODE SELESAI
+    landscapeVideo.addEventListener('ended', () => {
+      if (!currentLandscapeDrama) return;
+      if (currentLandscapeEpIndex < currentLandscapeDrama.episodes.length - 1) {
+        const nextIdx = currentLandscapeEpIndex + 1;
+        const nextEpNum = currentLandscapeDrama.episodes[nextIdx]?.ep || nextIdx + 1;
+        showToast(`Lanjut otomatis ke Episode ${nextEpNum} 🎬✨`, 'play', 'amber', 3500);
+        triggerHaptic('success');
+        playLandscapeEpisode(nextIdx, 0);
+      } else {
+        showToast('Drama telah tamat! Selamat menonton 🎉', 'check', 'amber', 4000);
+        updateLandscapePlayBtn(false);
+      }
+    });
+  }
+
+  // Tap & Double-Tap Gestures on Landscape Video Container
+  if (landscapeVideoContainer) {
+    let tapTimeout = null;
+    let lastTapTime = 0;
+
+    const flashFeedback = (el) => {
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      el.style.opacity = '1';
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        }, 200);
+      }, 500);
+    };
+
+    landscapeVideoContainer.addEventListener('click', (e) => {
+      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
+        return;
+      }
+
+      const now = Date.now();
+      const rect = landscapeVideoContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+
+      if (now - lastTapTime < 300) {
+        // Double tap
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        triggerHaptic('medium');
+
+        if (clickX < width * 0.35) {
+          // Mundur 10 detik
+          if (landscapeVideo) {
+            landscapeVideo.currentTime = Math.max(0, landscapeVideo.currentTime - 10);
+            flashFeedback(landscapeSeekLeft);
+          }
+        } else if (clickX > width * 0.65) {
+          // Maju 10 detik
+          if (landscapeVideo) {
+            landscapeVideo.currentTime = Math.min(landscapeVideo.duration || 9999, landscapeVideo.currentTime + 10);
+            flashFeedback(landscapeSeekRight);
+          }
+        } else {
+          // Toggle play / pause di tengah
+          if (landscapeVideo) {
+            if (landscapeVideo.paused) {
+              landscapeVideo.play().catch(() => {});
+            } else {
+              landscapeVideo.pause();
+            }
+            flashFeedback(landscapePlayIndicator);
+          }
+        }
+      } else {
+        // Single tap: toggle overlay controls (cinema mode)
+        tapTimeout = setTimeout(() => {
+          triggerHaptic('light');
+          const header = dramaLandscapeTheater.querySelector('header');
+          const footer = document.getElementById('landscape-footer');
+          if (header && footer) {
+            const isHidden = header.classList.contains('opacity-0');
+            if (isHidden) {
+              header.classList.remove('opacity-0', 'pointer-events-none');
+              footer.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+              header.classList.add('opacity-0', 'pointer-events-none');
+              footer.classList.add('opacity-0', 'pointer-events-none');
+            }
+          }
+        }, 280);
+      }
+      lastTapTime = now;
+    });
+  }
+
+  // Auto handle orientation resize
+  window.addEventListener('resize', () => {
+    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
+      if (window.innerHeight > window.innerWidth) {
+        dramaLandscapeTheater.classList.add('rotate-mobile');
+      } else {
+        dramaLandscapeTheater.classList.remove('rotate-mobile');
+      }
+    }
+  });
 
   // Profile Tab Buttons
   profileTabLikes.onclick = () => {

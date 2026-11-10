@@ -36785,7 +36785,8 @@
           "gdrive_file_id": "1fJXeaJ2_wG9EmgjIpzW6PY-C81dv-RE6",
           "message_id": 2150
         }
-      ]
+      ],
+      "orientation": "horizontal"
     },
     {
       "id": "drm_2",
@@ -37189,7 +37190,8 @@
           "gdrive_file_id": "1lLJo3SlaiaaRB-ajBd_Ih9B0E5-LWouN",
           "message_id": 2249
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_3",
@@ -37449,7 +37451,8 @@
           "gdrive_file_id": "10rZTN62xZMe_uWGC1vmQzeeNX-ZV1v6y",
           "message_id": 2331
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_4",
@@ -37685,7 +37688,8 @@
           "gdrive_file_id": "1fVZpTfvfdsVzgMbWZGnr4ELPveWVtf6x",
           "message_id": 2428
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_5",
@@ -37937,7 +37941,8 @@
           "gdrive_file_id": "1Y-tvUqUIe762rrqZoyQNlEFR-06_-Q9F",
           "message_id": 2530
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_6",
@@ -38285,7 +38290,8 @@
           "gdrive_file_id": "1Q6Vlb4s9ftBzsg6gz0doQKZiXwNVDgFT",
           "message_id": 2642
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_7",
@@ -38529,7 +38535,8 @@
           "gdrive_file_id": "1Q_lF8No9FaTwRfw_2ouSJUy3IDSgKuFD",
           "message_id": 2729
         }
-      ]
+      ],
+      "orientation": "vertical"
     },
     {
       "id": "drm_8",
@@ -38549,7 +38556,8 @@
           "gdrive_file_id": "1RiVBTgCcz-uHFaUbpGKZDSSzzTot9t-D",
           "message_id": 2801
         }
-      ]
+      ],
+      "orientation": "vertical"
     }
   ]
 }

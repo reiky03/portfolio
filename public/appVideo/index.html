@@ -72,6 +72,25 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      background: #000;
+    }
+    .video-player.fit-contain,
+    .snap-slide.horizontal-drama .video-player {
+      object-fit: contain !important;
+      background: #000;
+    }
+
+    /* Mobile Rotate for Landscape Theater if phone held in portrait */
+    @media (orientation: portrait) {
+      #drama-landscape-theater.rotate-mobile {
+        transform: rotate(90deg);
+        transform-origin: center center;
+        width: 100dvh !important;
+        height: 100dvw !important;
+        position: fixed !important;
+        top: calc((100dvh - 100dvw) / 2) !important;
+        left: calc((100dvw - 100dvh) / 2) !important;
+      }
     }
 
     .top-gradient {
@@ -445,6 +464,10 @@
             <i data-lucide="play" class="w-4 h-4 fill-white"></i>
             <span>Mulai Nonton (Ep 1)</span>
           </button>
+          <button id="modal-landscape-watch-btn" class="hidden py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-black text-black flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/30 active:scale-95 transition-all">
+            <i data-lucide="maximize" class="w-4 h-4"></i>
+            <span>Lanskap</span>
+          </button>
           <button id="modal-bookmark-drama-btn" class="px-4 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all">
             <i data-lucide="bookmark" class="w-4 h-4 text-amber-400"></i>
             <span id="modal-bookmark-label">Simpan</span>
@@ -482,11 +505,19 @@
         </div>
       </div>
 
-      <!-- Quick Episode Drawer Trigger -->
-      <button id="reel-open-ep-sheet-btn" class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
-        <i data-lucide="list-video" class="w-3.5 h-3.5"></i>
-        <span>Pilih Ep</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <!-- Landscape Mode Switcher Button -->
+        <button id="reel-landscape-toggle-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-extrabold shadow-lg active:scale-95 transition-all">
+          <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
+          <span>Mode Lanskap</span>
+        </button>
+
+        <!-- Quick Episode Drawer Trigger -->
+        <button id="reel-open-ep-sheet-btn" class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
+          <i data-lucide="list-video" class="w-3.5 h-3.5"></i>
+          <span>Pilih Ep</span>
+        </button>
+      </div>
     </header>
 
     <!-- FLOATING 2X SPEED BADGE ON LONG PRESS -->
@@ -526,6 +557,117 @@
         </button>
       </div>
       <div id="reel-sheet-grid" class="grid grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 8. DRAMA LANDSCAPE THEATER (UNTUK VIDEO HORIZONTAL 16:9) -->
+  <!-- ============================================================ -->
+  <div id="drama-landscape-theater" class="hidden fixed inset-0 z-[70] bg-black flex flex-col justify-between select-none overflow-hidden">
+    
+    <!-- Top Bar Controls -->
+    <header class="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/90 via-black/40 to-transparent p-4 flex items-center justify-between text-white pointer-events-auto transition-opacity duration-300">
+      <div class="flex items-center gap-3">
+        <button id="exit-landscape-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs font-bold active:scale-95 transition-all">
+          <i data-lucide="minimize-2" class="w-4 h-4"></i>
+          <span>Keluar Lanskap</span>
+        </button>
+        <div>
+          <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1">Judul Drama</h3>
+          <span id="landscape-ep-badge" class="text-xs text-amber-400 font-semibold">Episode 1 / 50</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="landscape-ep-list-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
+          <i data-lucide="list-video" class="w-4 h-4"></i>
+          <span>Daftar Ep</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Center Video Container -->
+    <div id="landscape-video-container" class="relative w-full h-full flex items-center justify-center bg-black overflow-hidden cursor-pointer">
+      <video 
+        id="landscape-video" 
+        class="w-full h-full object-contain"
+        playsinline
+        webkit-playsinline
+        preload="auto"
+      ></video>
+
+      <!-- Center Play/Pause Flash Indicator -->
+      <div id="landscape-play-indicator" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-30">
+        <div class="w-16 h-16 rounded-full bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-2xl">
+          <i data-lucide="play" class="w-8 h-8 fill-white ml-0.5"></i>
+        </div>
+      </div>
+
+      <!-- Double Tap Rewind/Forward Feedback -->
+      <div id="landscape-seek-left" class="hidden absolute left-12 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-16 h-16 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-amber-400 pointer-events-none z-30">
+        <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+        <span class="text-xs font-bold mt-0.5">-10s</span>
+      </div>
+      <div id="landscape-seek-right" class="hidden absolute right-12 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-16 h-16 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-amber-400 pointer-events-none z-30">
+        <i data-lucide="rotate-cw" class="w-6 h-6"></i>
+        <span class="text-xs font-bold mt-0.5">+10s</span>
+      </div>
+    </div>
+
+    <!-- Bottom Controls Overlay -->
+    <footer id="landscape-footer" class="absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pb-safe space-y-2 pointer-events-auto transition-opacity duration-300">
+      <!-- Progress Bar & Scrubbing -->
+      <div class="flex items-center gap-3">
+        <span id="landscape-time-now" class="text-xs font-mono text-zinc-300">00:00</span>
+        <div id="landscape-progress-track" class="relative flex-1 h-2 bg-white/20 hover:h-3 rounded-full cursor-pointer transition-all">
+          <div id="landscape-progress-fill" class="h-full bg-amber-400 rounded-full w-0"></div>
+        </div>
+        <span id="landscape-time-total" class="text-xs font-mono text-zinc-400">00:00</span>
+      </div>
+
+      <!-- Playback Control Buttons -->
+      <div class="flex items-center justify-between pt-1">
+        <div class="flex items-center gap-3">
+          <button id="landscape-prev-ep-btn" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1 active:scale-95 transition-all">
+            <i data-lucide="skip-back" class="w-4 h-4"></i>
+            <span>Ep Sebelumnya</span>
+          </button>
+          
+          <button id="landscape-toggle-play-btn" class="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center active:scale-90 transition-all shadow-lg">
+            <i id="landscape-play-btn-icon" data-lucide="pause" class="w-5 h-5 fill-black"></i>
+          </button>
+
+          <button id="landscape-next-ep-btn" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1 active:scale-95 transition-all shadow-lg">
+            <span>Ep Berikutnya</span>
+            <i data-lucide="skip-forward" class="w-4 h-4 fill-black"></i>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="landscape-mute-btn" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white active:scale-90 transition-all">
+            <i id="landscape-mute-icon" data-lucide="volume-2" class="w-5 h-5"></i>
+          </button>
+          <span class="text-xs text-zinc-400 hidden sm:inline">Lanjut otomatis ke episode berikutnya ✨</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- IN-LANDSCAPE EPISODE DRAWER -->
+    <div id="landscape-ep-sheet" class="hidden absolute inset-x-0 bottom-0 z-50 bg-zinc-950/95 border-t border-zinc-800 rounded-t-3xl p-5 pb-safe shadow-2xl backdrop-blur-md">
+      <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-3"></div>
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h5 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <span>📺</span> Pilih Episode
+          </h5>
+          <p class="text-xs text-zinc-400">Pilih episode untuk langsung melanjutkan menonton</p>
+        </div>
+        <button id="close-landscape-ep-sheet" class="p-1 rounded-full text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="landscape-sheet-grid" class="grid grid-cols-5 sm:grid-cols-8 gap-2 max-h-56 overflow-y-auto pr-1"></div>
     </div>
 
   </div>
