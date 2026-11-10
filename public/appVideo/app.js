@@ -501,6 +501,22 @@ function showToastWithAction(message, actionText, actionCallback, durationMs = 4
   dismissTimer = setTimeout(() => dismiss(), durationMs);
 }
 
+// Global Toggle Play / Pause Helper dengan Visual Indicator
+function togglePlayback(video, playIndicator) {
+  if (!video) return;
+  triggerHaptic('light');
+  if (video.paused) {
+    video.play()
+      .then(() => {
+        if (playIndicator) playIndicator.style.opacity = '0';
+      })
+      .catch(() => {});
+  } else {
+    video.pause();
+    if (playIndicator) playIndicator.style.opacity = '1';
+  }
+}
+
 // ============================================================
 // 1. SHORTS FEED & PLAYER (BERANDA) - VIRTUAL INFINITE BATCHING
 // ============================================================
@@ -1564,16 +1580,28 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   const timeNowEl = slide.querySelector('.reel-time-now');
 
   let longPressTimer = null;
-  let is2xSpeed = false;
+  let isHolding2x = false;
+  let justFinishedHold = false;
+  let startX = 0;
+  let startY = 0;
+  let hasMoved = false;
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // 1. Progress Bar Update
+  // 1. Progress Bar Update & Video States
   video.addEventListener('timeupdate', () => {
     const cur = video.currentTime;
     const dur = video.duration || 1;
     progressFill.style.width = `${(cur / dur) * 100}%`;
     timeNowEl.textContent = formatTime(cur);
+  });
+
+  video.addEventListener('play', () => {
+    if (playIndicator) playIndicator.style.opacity = '0';
+  });
+
+  video.addEventListener('pause', () => {
+    if (playIndicator) playIndicator.style.opacity = '1';
   });
 
   // 2. Auto-next episode saat video habis
@@ -1586,74 +1614,92 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     }
   });
 
-  // 3. TAHAN LAYAR -> 2X SPEED (Long Press)
-  function startLongPress(e) {
-    if (e.target.closest('.z-20')) return;
-
-    longPressTimer = setTimeout(() => {
-      is2xSpeed = true;
-      video.playbackRate = 2.0;
-      reelSpeedBadge.classList.remove('hidden');
-      triggerHaptic('medium');
-    }, 320);
+  // 3. TAHAN LAYAR -> 2X SPEED (Long Press Hold)
+  function isInteractiveTarget(target) {
+    return target.closest('button') || 
+           target.closest('.z-20') || 
+           target.closest('.open-landscape-slide-btn');
   }
 
-  function stopLongPress() {
+  slide.addEventListener('pointerdown', (e) => {
+    if (isInteractiveTarget(e.target)) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    hasMoved = false;
+
     clearTimeout(longPressTimer);
-    if (is2xSpeed) {
-      is2xSpeed = false;
-      video.playbackRate = 1.0;
-      reelSpeedBadge.classList.add('hidden');
-      triggerHaptic('light');
-    }
-  }
+    longPressTimer = setTimeout(() => {
+      isHolding2x = true;
+      video.playbackRate = 2.0;
+      if (reelSpeedBadge) reelSpeedBadge.classList.remove('hidden');
+      triggerHaptic('medium');
+    }, 250);
+  });
 
-  slide.addEventListener('pointerdown', startLongPress);
+  slide.addEventListener('pointermove', (e) => {
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+    if (dx > 10 || dy > 10) {
+      hasMoved = true;
+      clearTimeout(longPressTimer);
+    }
+  });
+
+  const stopLongPress = () => {
+    clearTimeout(longPressTimer);
+    if (isHolding2x) {
+      isHolding2x = false;
+      justFinishedHold = true;
+      video.playbackRate = 1.0;
+      if (reelSpeedBadge) reelSpeedBadge.classList.add('hidden');
+      triggerHaptic('light');
+      setTimeout(() => { justFinishedHold = false; }, 250);
+    }
+  };
+
   slide.addEventListener('pointerup', stopLongPress);
   slide.addEventListener('pointercancel', stopLongPress);
   slide.addEventListener('pointerleave', stopLongPress);
 
-  // 4. TAP (1x Jeda/Pause, 2x Kiri -10s, 2x Kanan +10s)
-  slide.addEventListener('click', (e) => {
-    if (is2xSpeed) return;
-    if (e.target.closest('.z-20')) return;
+  // 4. TEKAN 1X -> JEDA / PUTAR VIDEO LANGSUNG
+  function flashSeek(el) {
+    if (!el) return;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 600);
+  }
 
-    const currentTime = new Date().getTime();
+  slide.addEventListener('click', (e) => {
+    if (justFinishedHold || isHolding2x || hasMoved) return;
+    if (isInteractiveTarget(e.target)) return;
+
+    const currentTime = Date.now();
     const tapLength = currentTime - lastTapTime;
     const rect = slide.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const width = rect.width;
 
-    if (tapLength < 320 && tapLength > 0) {
-      // DOUBLE TAP!
+    if (tapLength < 260 && tapLength > 0) {
+      // Double Tap: Mundur 10s (kiri) / Maju 10s (kanan) / Jeda (tengah)
       clearTimeout(singleTapTimer);
-      if (clickX < width * 0.4) {
-        // -10s Mundur
+      if (clickX < width * 0.35) {
         triggerHaptic('medium');
         video.currentTime = Math.max(0, video.currentTime - 10);
         flashSeek(reelSeekLeft);
-      } else if (clickX > width * 0.6) {
-        // +10s Maju
+      } else if (clickX > width * 0.65) {
         triggerHaptic('medium');
         video.currentTime = Math.min(video.duration || 1000, video.currentTime + 10);
         flashSeek(reelSeekRight);
       } else {
-        // Tengah: Toggle Pause
         togglePlayback(video, playIndicator);
       }
     } else {
-      // SINGLE TAP: Jeda / Pause! (Persis seperti yang diminta!)
+      // SINGLE TAP: Jeda / Putar Video!
       singleTapTimer = setTimeout(() => {
-        if (video) togglePlayback(video, playIndicator);
-      }, 300);
+        togglePlayback(video, playIndicator);
+      }, 180);
     }
     lastTapTime = currentTime;
   });
-
-  function flashSeek(el) {
-    el.classList.remove('hidden');
-    setTimeout(() => el.classList.add('hidden'), 600);
-  }
 
   // 5. Sukai Episode Ini (Melolo Style)
   likeBtn.onclick = (e) => {
@@ -1765,7 +1811,9 @@ function renderReelSheetGrid() {
 
 function closeDramaReel() {
   triggerHaptic('light');
+  if (reelSpeedBadge) reelSpeedBadge.classList.add('hidden');
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => {
+    v.playbackRate = 1.0;
     v.pause();
     v.currentTime = 0;
   });
@@ -1805,6 +1853,7 @@ const landscapeMuteIcon = document.getElementById('landscape-mute-icon');
 const landscapeEpSheet = document.getElementById('landscape-ep-sheet');
 const closeLandscapeEpSheet = document.getElementById('close-landscape-ep-sheet');
 const landscapeSheetGrid = document.getElementById('landscape-sheet-grid');
+const landscapeSpeedBadge = document.getElementById('landscape-speed-badge');
 
 let currentLandscapeDrama = null;
 let currentLandscapeEpIndex = 0;
@@ -1854,6 +1903,8 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
 
   landscapeVideo.src = streamSrc;
   landscapeVideo.muted = isMuted;
+  landscapeVideo.playbackRate = 1.0;
+  if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
   updateLandscapeMuteBtn();
 
   landscapeVideo.onloadedmetadata = () => {
@@ -1887,8 +1938,10 @@ function updateLandscapeMuteBtn() {
 
 function closeLandscapeTheater() {
   triggerHaptic('light');
+  if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
   const savedTime = landscapeVideo ? landscapeVideo.currentTime : 0;
   if (landscapeVideo) {
+    landscapeVideo.playbackRate = 1.0;
     landscapeVideo.pause();
     landscapeVideo.removeAttribute('src');
     landscapeVideo.load();
@@ -2542,8 +2595,14 @@ function setupEvents() {
       if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(landscapeVideo.currentTime);
     });
 
-    landscapeVideo.addEventListener('play', () => updateLandscapePlayBtn(true));
-    landscapeVideo.addEventListener('pause', () => updateLandscapePlayBtn(false));
+    landscapeVideo.addEventListener('play', () => {
+      updateLandscapePlayBtn(true);
+      if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '0';
+    });
+    landscapeVideo.addEventListener('pause', () => {
+      updateLandscapePlayBtn(false);
+      if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '1';
+    });
 
     // OTOMATIS LANJUT KE EPISODE BERIKUTNYA SAAT EPISODE SELESAI
     landscapeVideo.addEventListener('ended', () => {
@@ -2561,10 +2620,16 @@ function setupEvents() {
     });
   }
 
-  // Tap & Double-Tap Gestures on Landscape Video Container
-  if (landscapeVideoContainer) {
-    let tapTimeout = null;
+  // Long Press (Hold 2X Speed) & Single Tap (Jeda / Putar) di Landscape Theater
+  if (landscapeVideoContainer && landscapeVideo) {
+    let longPressTimer = null;
+    let isHolding2x = false;
+    let justFinishedHold = false;
+    let startX = 0;
+    let startY = 0;
+    let hasMoved = false;
     let lastTapTime = 0;
+    let tapTimeout = null;
 
     const flashFeedback = (el) => {
       if (!el) return;
@@ -2580,7 +2645,52 @@ function setupEvents() {
       }, 500);
     };
 
+    // 1. TAHAN LAYAR -> 2X SPEED (Long Press Hold)
+    landscapeVideoContainer.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
+        return;
+      }
+      startX = e.clientX;
+      startY = e.clientY;
+      hasMoved = false;
+
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(() => {
+        isHolding2x = true;
+        landscapeVideo.playbackRate = 2.0;
+        if (landscapeSpeedBadge) landscapeSpeedBadge.classList.remove('hidden');
+        triggerHaptic('medium');
+      }, 250);
+    });
+
+    landscapeVideoContainer.addEventListener('pointermove', (e) => {
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 12 || dy > 12) {
+        hasMoved = true;
+        clearTimeout(longPressTimer);
+      }
+    });
+
+    const stopLandscapeLongPress = () => {
+      clearTimeout(longPressTimer);
+      if (isHolding2x) {
+        isHolding2x = false;
+        justFinishedHold = true;
+        landscapeVideo.playbackRate = 1.0;
+        if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
+        triggerHaptic('light');
+        setTimeout(() => { justFinishedHold = false; }, 250);
+      }
+    };
+
+    landscapeVideoContainer.addEventListener('pointerup', stopLandscapeLongPress);
+    landscapeVideoContainer.addEventListener('pointercancel', stopLandscapeLongPress);
+    landscapeVideoContainer.addEventListener('pointerleave', stopLandscapeLongPress);
+
+    // 2. TEKAN 1X -> JEDA / PUTAR VIDEO LANGSUNG (Dan Double Tap Seek -10s / +10s)
     landscapeVideoContainer.addEventListener('click', (e) => {
+      if (justFinishedHold || isHolding2x || hasMoved) return;
       if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
         return;
       }
@@ -2589,53 +2699,45 @@ function setupEvents() {
       const rect = landscapeVideoContainer.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const width = rect.width;
+      const tapInterval = now - lastTapTime;
 
-      if (now - lastTapTime < 300) {
-        // Double tap
+      if (tapInterval < 260 && tapInterval > 0) {
+        // Double tap!
         clearTimeout(tapTimeout);
-        tapTimeout = null;
         triggerHaptic('medium');
 
         if (clickX < width * 0.35) {
           // Mundur 10 detik
-          if (landscapeVideo) {
-            landscapeVideo.currentTime = Math.max(0, landscapeVideo.currentTime - 10);
-            flashFeedback(landscapeSeekLeft);
-          }
+          landscapeVideo.currentTime = Math.max(0, landscapeVideo.currentTime - 10);
+          flashFeedback(landscapeSeekLeft);
         } else if (clickX > width * 0.65) {
           // Maju 10 detik
-          if (landscapeVideo) {
-            landscapeVideo.currentTime = Math.min(landscapeVideo.duration || 9999, landscapeVideo.currentTime + 10);
-            flashFeedback(landscapeSeekRight);
-          }
+          landscapeVideo.currentTime = Math.min(landscapeVideo.duration || 9999, landscapeVideo.currentTime + 10);
+          flashFeedback(landscapeSeekRight);
         } else {
-          // Toggle play / pause di tengah
-          if (landscapeVideo) {
-            if (landscapeVideo.paused) {
-              landscapeVideo.play().catch(() => {});
-            } else {
-              landscapeVideo.pause();
-            }
-            flashFeedback(landscapePlayIndicator);
+          // Tengah: Toggle play / pause
+          if (landscapeVideo.paused) {
+            landscapeVideo.play()
+              .then(() => updateLandscapePlayBtn(true))
+              .catch(() => updateLandscapePlayBtn(false));
+          } else {
+            landscapeVideo.pause();
+            updateLandscapePlayBtn(false);
           }
         }
       } else {
-        // Single tap: toggle overlay controls (cinema mode)
+        // SINGLE TAP: Jeda / Putar Video langsung!
         tapTimeout = setTimeout(() => {
           triggerHaptic('light');
-          const header = dramaLandscapeTheater.querySelector('header');
-          const footer = document.getElementById('landscape-footer');
-          if (header && footer) {
-            const isHidden = header.classList.contains('opacity-0');
-            if (isHidden) {
-              header.classList.remove('opacity-0', 'pointer-events-none');
-              footer.classList.remove('opacity-0', 'pointer-events-none');
-            } else {
-              header.classList.add('opacity-0', 'pointer-events-none');
-              footer.classList.add('opacity-0', 'pointer-events-none');
-            }
+          if (landscapeVideo.paused) {
+            landscapeVideo.play()
+              .then(() => updateLandscapePlayBtn(true))
+              .catch(() => updateLandscapePlayBtn(false));
+          } else {
+            landscapeVideo.pause();
+            updateLandscapePlayBtn(false);
           }
-        }, 280);
+        }, 180);
       }
       lastTapTime = now;
     });

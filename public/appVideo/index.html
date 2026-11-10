@@ -587,6 +587,12 @@
       </div>
     </header>
 
+    <!-- FLOATING 2X SPEED BADGE ON LONG PRESS IN LANDSCAPE -->
+    <div id="landscape-speed-badge" class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-xs shadow-2xl flex items-center gap-1.5 speed-badge pointer-events-none">
+      <i data-lucide="fast-forward" class="w-4 h-4 fill-black"></i>
+      <span>2X KECEPATAN</span>
+    </div>
+
     <!-- Center Video Container -->
     <div id="landscape-video-container" class="relative w-full h-full flex items-center justify-center bg-black overflow-hidden cursor-pointer">
       <video 
@@ -780,6 +786,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=2.2.0"></script>
+  <script src="app.js?v=2.3.0"></script>
 </body>
 </html>
