@@ -282,61 +282,7 @@ const FALLBACK_DATA = {
       message_id: 106
     }
   ],
-  dramas: [
-    {
-      id: "drm_1",
-      title: "Cinta di Balik Hujan",
-      genre: "Romantis",
-      rating: "4.9",
-      total_episodes: 16,
-      poster: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80",
-      synopsis: "Dua insan yang tak sengaja berteduh di kafe tua saat hujan deras, memulai kisah cinta manis yang penuh misteri masa lalu.",
-      episodes: [
-        { ep: 1, title: "Payung Biru di Halte", duration: "18 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-sparkler-at-night-42898-large.mp4", message_id: 501 },
-        { ep: 2, title: "Secangkir Kopi Hangat", duration: "20 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-vertical-view-of-trees-under-a-sunny-sky-41485-large.mp4", message_id: 502 },
-        { ep: 3, title: "Janji di Bawah Pohon", duration: "19 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-going-down-a-curved-highway-down-a-mountain-41576-large.mp4", message_id: 503 },
-        { ep: 4, title: "Surat Tanpa Nama", duration: "21 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4", message_id: 504 }
-      ]
-    },
-    {
-      id: "drm_2",
-      title: "Misteri Jam Ke-12",
-      genre: "Thriller / Aksi",
-      rating: "4.8",
-      total_episodes: 12,
-      poster: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=500&auto=format&fit=crop&q=80",
-      synopsis: "Seorang detektif muda menemukan pesan rahasia yang tersembunyi di dalam jam antik setiap tengah malam.",
-      episodes: [
-        { ep: 1, title: "Detik yang Hilang", duration: "22 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-going-down-a-curved-highway-down-a-mountain-41576-large.mp4", message_id: 505 },
-        { ep: 2, title: "Jejak Kaki Basah", duration: "25 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-sparkler-at-night-42898-large.mp4", message_id: 506 }
-      ]
-    },
-    {
-      id: "drm_3",
-      title: "Takdir CEO Dingin",
-      genre: "Drama Populer",
-      rating: "4.95",
-      total_episodes: 24,
-      poster: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=500&auto=format&fit=crop&q=80",
-      synopsis: "CEO perfeksionis yang tidak pernah tersenyum tiba-tiba harus bekerja sama dengan magang ceria yang mengubah dunianya.",
-      episodes: [
-        { ep: 1, title: "Hari Pertama Wawancara", duration: "15 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-vertical-view-of-trees-under-a-sunny-sky-41485-large.mp4", message_id: 507 },
-        { ep: 2, title: "Kopi yang Tumpah", duration: "17 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4", message_id: 508 }
-      ]
-    },
-    {
-      id: "drm_4",
-      title: "Rembulan Mahameru",
-      genre: "Petualangan",
-      rating: "4.7",
-      total_episodes: 8,
-      poster: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=500&auto=format&fit=crop&q=80",
-      synopsis: "Ekspedisi persahabatan 5 anak muda mendaki gunung tertinggi demi mengantarkan surat terakhir sahabat mereka.",
-      episodes: [
-        { ep: 1, title: "Ransel dan Sepatu Usang", duration: "24 Menit", video_url: "https://assets.mixkit.co/videos/preview/mixkit-stars-in-the-night-sky-40432-large.mp4", message_id: 509 }
-      ]
-    }
-  ]
+  dramas: []
 };
 
 // ============================================================
@@ -1463,10 +1409,14 @@ function renderDramaReelSlides(drama) {
 
     const isLiked = isEpisodeLiked(drama.id, ep.ep);
 
+    const streamSrc = ep.gdrive_file_id 
+      ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
+      : ep.video_url;
+
     slide.innerHTML = `
       <video 
         class="video-player"
-        src="${ep.video_url}"
+        src="${streamSrc}"
         playsinline
         webkit-playsinline
         preload="${idx <= 1 ? 'auto' : 'metadata'}"
