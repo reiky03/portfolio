@@ -1320,7 +1320,9 @@ function renderDramaList(dramas) {
         </div>
       </div>
       <div class="p-2.5 flex items-center justify-between bg-zinc-900/90 text-[10px] text-zinc-400 border-t border-zinc-800/60">
-        <span>${drm.total_episodes} Episode</span>
+        <span class="${drm.total_episodes === 1 ? 'text-amber-300 font-bold flex items-center gap-1' : ''}">
+          ${drm.total_episodes === 1 ? '🎬 Full Movie (' + (drm.episodes[0]?.duration || 'Lengkap') + ')' : drm.total_episodes + ' Episode'}
+        </span>
         <span class="font-bold text-amber-400 flex items-center gap-1">
           Nonton <i data-lucide="play" class="w-2.5 h-2.5 fill-amber-400"></i>
         </span>
@@ -1356,7 +1358,9 @@ function openDramaDetailModal(drm) {
   modalDramaTitle.textContent = drm.title;
   modalDramaGenre.textContent = drm.genre;
   modalDramaRating.textContent = `★ ${drm.rating}`;
-  modalDramaEpsCount.textContent = `${drm.total_episodes} Episode`;
+  modalDramaEpsCount.textContent = drm.total_episodes === 1 
+    ? `Full Movie • ${drm.episodes[0]?.duration || 'Lengkap'}`
+    : `${drm.total_episodes} Episode`;
   modalDramaSynopsis.textContent = drm.synopsis;
 
   updateModalBookmarkBtn();
