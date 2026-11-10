@@ -367,7 +367,7 @@ const profileContentArea = document.getElementById('profile-content-area');
 // ============================================================
 async function initApp() {
   try {
-    const res = await fetch('videos.json');
+    const res = await fetch(`videos.json?v=${Date.now()}`);
     if (!res.ok) throw new Error('Network error');
     const data = await res.json();
     allTopics = data.topics || FALLBACK_DATA.topics;
