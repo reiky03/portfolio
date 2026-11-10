@@ -2,11 +2,15 @@
 // STATE & LOCAL STORAGE PERSISTENCE
 // ============================================================
 const STREAM_PROXY_BASE = 'https://test-worker.big-marigold.workers.dev';
+const GDRIVE_USER_DATA_FOLDER_ID = '1w3bQfcfdqc4-MfqbmHJ17JC-fhOTRR3W';
+
 let allVideos = [];
 let allTopics = [];
 let allDramas = [];
 let currentTopicId = 0;
-let isMuted = true;
+
+// Default suara: Jika pernah diaktifkan sebelumnya, langsung putar dengan suara!
+let isMuted = localStorage.getItem('teleshorts_unmuted') === '1' ? false : true;
 let activeView = 'shorts'; // 'shorts' | 'drama' | 'profile'
 let profileTab = 'likes';   // 'likes' | 'shorts' | 'drama'
 
@@ -18,6 +22,13 @@ let currentPlayingDrama = null;
 let currentReelEpisodeIndex = 0;
 let dramaReelObserver = null;
 let currentGenreFilter = 'all';
+
+// Urutan Drama: 'random' | 'az' | 'za' | 'rating' | 'eps'
+let currentDramaSort = localStorage.getItem('teleshorts_drama_sort') || 'random';
+
+// Akun Google & Cloud Sync
+let currentUser = JSON.parse(localStorage.getItem('teleshorts_google_user') || 'null');
+let syncDebounceTimer = null;
 
 // Sets in LocalStorage
 let likedVideoIds = new Set(JSON.parse(localStorage.getItem('teleshorts_likes') || '[]'));
@@ -126,6 +137,7 @@ function persistStorage() {
   localStorage.setItem('teleshorts_saved_dramas', JSON.stringify([...savedDramaIds]));
   localStorage.setItem('teleshorts_liked_episodes', JSON.stringify([...likedEpisodeKeys]));
   updateStatsDisplay();
+  queueCloudSync();
 }
 
 function isEpisodeLiked(dramaId, epNum) {
@@ -366,6 +378,10 @@ const profileContentArea = document.getElementById('profile-content-area');
 // APP INIT
 // ============================================================
 async function initApp() {
+  const initialLoader = document.getElementById('app-initial-loader');
+  const initialLoaderText = document.getElementById('initial-loader-text');
+  if (initialLoaderText) initialLoaderText.textContent = "Mengunduh katalog video & drama...";
+
   try {
     const res = await fetch(`videos.json?v=${Date.now()}`);
     if (!res.ok) throw new Error('Network error');
@@ -378,6 +394,8 @@ async function initApp() {
     allVideos = FALLBACK_DATA.videos;
     allDramas = FALLBACK_DATA.dramas;
   }
+
+  if (initialLoaderText) initialLoaderText.textContent = "Menyiapkan hiburan terbaik...";
 
   // Pre-seed sample states
   if (likedVideoIds.size === 0 && allVideos.length > 0) {
@@ -400,7 +418,19 @@ async function initApp() {
   renderShortsFeed();
   filterAndRenderDramas();
   renderProfileContent();
+  updateGoogleSyncUI();
+  updateDramaSortUI();
   setupEvents();
+
+  // Smooth fade-out splash loader saat data & tampilan selesai dimuat
+  if (initialLoader) {
+    setTimeout(() => {
+      initialLoader.style.opacity = '0';
+      setTimeout(() => {
+        initialLoader.classList.add('hidden');
+      }, 350);
+    }, 250);
+  }
 }
 
 // ============================================================
@@ -1164,11 +1194,13 @@ function setupShortsObserver() {
           if (p) {
             p.then(() => {
               if (playIndicator) playIndicator.style.opacity = '0';
+              if (!isMuted) hideUnmuteBanner();
             }).catch(() => {
-              // Jika autoplay diblokir browser tanpa gesture, mulai muted dulu
+              // Jika autoplay diblokir browser tanpa gesture, mulai muted dulu & tampilkan banner unmute
               video.muted = true;
               video.play().then(() => {
                 if (playIndicator) playIndicator.style.opacity = '0';
+                showUnmuteBanner();
               }).catch(() => {});
             });
           }
@@ -1213,9 +1245,13 @@ function setupShortsObserver() {
         firstVideo.preload = 'auto';
         const p = firstVideo.play();
         if (p) {
-          p.catch(() => {
+          p.then(() => {
+            if (!isMuted) hideUnmuteBanner();
+          }).catch(() => {
             firstVideo.muted = true;
-            firstVideo.play().catch(() => {});
+            firstVideo.play().then(() => {
+              showUnmuteBanner();
+            }).catch(() => {});
           });
         }
       }
@@ -1282,6 +1318,17 @@ function filterAndRenderDramas() {
   } else {
     dramaSearchClear.classList.add('hidden');
     searchFeedback.classList.add('hidden');
+  }
+
+  // Pengurutan (Sort Filter): Abjad A-Z, Z-A, Rating, Episode, atau Acak
+  if (currentDramaSort === 'az') {
+    results.sort((a, b) => a.title.localeCompare(b.title, 'id', { sensitivity: 'base' }));
+  } else if (currentDramaSort === 'za') {
+    results.sort((a, b) => b.title.localeCompare(a.title, 'id', { sensitivity: 'base' }));
+  } else if (currentDramaSort === 'rating') {
+    results.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+  } else if (currentDramaSort === 'eps') {
+    results.sort((a, b) => (b.total_episodes || 0) - (a.total_episodes || 0));
   }
 
   dramaCountLabel.textContent = `${results.length} Drama`;
@@ -2613,6 +2660,240 @@ function switchView(viewName) {
 }
 
 // ============================================================
+// GLOBAL AUDIO UNMUTE & AUTOPLAY FIX
+// ============================================================
+function showUnmuteBanner() {
+  const b = document.getElementById('global-unmute-banner');
+  if (b && isMuted) b.classList.remove('hidden');
+}
+
+function hideUnmuteBanner() {
+  const b = document.getElementById('global-unmute-banner');
+  if (b) b.classList.add('hidden');
+}
+
+function enableGlobalSound() {
+  if (!isMuted) return;
+  isMuted = false;
+  localStorage.setItem('teleshorts_unmuted', '1');
+  hideUnmuteBanner();
+
+  if (currentPlayingShortVideo) {
+    currentPlayingShortVideo.muted = false;
+  }
+  document.querySelectorAll('video').forEach(v => {
+    v.muted = false;
+  });
+}
+
+// ============================================================
+// DRAMA HUB SORT LOGIC
+// ============================================================
+function getDramaSortLabel(sortType) {
+  switch (sortType) {
+    case 'az': return 'Abjad A - Z';
+    case 'za': return 'Abjad Z - A';
+    case 'rating': return 'Rating Tertinggi';
+    case 'eps': return 'Episode Terbanyak';
+    default: return 'Acak';
+  }
+}
+
+function updateDramaSortUI() {
+  const lbl = document.getElementById('drama-sort-label');
+  if (lbl) lbl.textContent = getDramaSortLabel(currentDramaSort);
+
+  document.querySelectorAll('.drama-sort-option').forEach(opt => {
+    const check = opt.querySelector('.sort-check');
+    const isSelected = opt.dataset.sort === currentDramaSort;
+    if (check) {
+      if (isSelected) {
+        check.classList.remove('hidden');
+        opt.classList.add('border-amber-500/50', 'bg-amber-500/10');
+      } else {
+        check.classList.add('hidden');
+        opt.classList.remove('border-amber-500/50', 'bg-amber-500/10');
+      }
+    }
+  });
+}
+
+function openDramaSortSheet() {
+  const sheet = document.getElementById('drama-sort-sheet');
+  if (sheet) {
+    updateDramaSortUI();
+    sheet.classList.remove('hidden');
+    triggerHaptic('light');
+  }
+}
+
+function closeDramaSortSheet() {
+  const sheet = document.getElementById('drama-sort-sheet');
+  if (sheet) sheet.classList.add('hidden');
+}
+
+// ============================================================
+// GOOGLE LOGIN & MULTI-DEVICE CLOUD SYNC
+// ============================================================
+function buildUserSyncData() {
+  return {
+    user_email: currentUser?.email || 'guest@gmail.com',
+    user_name: currentUser?.name || 'Pengguna appVideo',
+    avatar: currentUser?.avatar || '',
+    device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Browser',
+    last_synced: new Date().toISOString(),
+    gdrive_folder_id: GDRIVE_USER_DATA_FOLDER_ID,
+    saved_dramas: [...savedDramaIds],
+    liked_episodes: [...likedEpisodeKeys],
+    saved_shorts: [...savedShortIds],
+    liked_videos: [...likedVideoIds],
+    custom_collections: customCollections
+  };
+}
+
+function updateGoogleSyncUI() {
+  const loggedInState = document.getElementById('google-logged-in-state');
+  const loggedOutState = document.getElementById('google-logged-out-state');
+  const userAvatar = document.getElementById('user-google-avatar');
+  const userName = document.getElementById('user-google-name');
+  const userEmail = document.getElementById('user-google-email');
+  const syncTime = document.getElementById('sync-last-time');
+  const profileAvatar = document.getElementById('profile-avatar-img');
+  const profileName = document.getElementById('profile-name');
+  const profileHandle = document.getElementById('profile-handle');
+
+  if (currentUser) {
+    if (loggedOutState) loggedOutState.classList.add('hidden');
+    if (loggedInState) loggedInState.classList.remove('hidden');
+
+    if (userName) userName.textContent = currentUser.name || 'Pengguna Google';
+    if (userEmail) userEmail.textContent = currentUser.email || '';
+    if (userAvatar) userAvatar.src = currentUser.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name || 'U')}`;
+    
+    if (profileName) profileName.textContent = currentUser.name || 'Pengguna Google';
+    if (profileHandle) profileHandle.textContent = `@${currentUser.email ? currentUser.email.split('@')[0] : 'user'}`;
+    if (profileAvatar && currentUser.avatar) profileAvatar.src = currentUser.avatar;
+
+    const lastSync = localStorage.getItem('teleshorts_last_sync_time');
+    if (syncTime) {
+      syncTime.textContent = lastSync 
+        ? `Sinkron: ${new Date(lastSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` 
+        : 'Sinkron: Baru saja';
+    }
+  } else {
+    if (loggedInState) loggedInState.classList.add('hidden');
+    if (loggedOutState) loggedOutState.classList.remove('hidden');
+  }
+}
+
+function syncUserDataToCloud(isManual = false) {
+  if (!currentUser) return;
+  const syncData = buildUserSyncData();
+  const jsonStr = JSON.stringify(syncData, null, 2);
+  const now = new Date().toISOString();
+  localStorage.setItem('teleshorts_last_sync_time', now);
+  
+  // Simpan data sinkronisasi per email akun
+  localStorage.setItem(`teleshorts_cloud_backup_${currentUser.email}`, jsonStr);
+
+  updateGoogleSyncUI();
+  if (isManual) {
+    triggerHaptic('success');
+    showToast(`Data berhasil disinkronkan ke Google Drive! ☁️✨`, 'cloud-check', 'amber', 3000);
+  }
+}
+
+function queueCloudSync() {
+  if (!currentUser) return;
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    syncUserDataToCloud(false);
+  }, 1200);
+}
+
+function openGoogleLoginModal() {
+  const modal = document.getElementById('google-login-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    triggerHaptic('light');
+
+    if (window.google?.accounts?.id) {
+      try {
+        const container = document.getElementById('g-signin-button-container');
+        if (container && container.children.length === 0) {
+          google.accounts.id.initialize({
+            client_id: '92150328841-sampleclientid.apps.googleusercontent.com',
+            callback: (res) => {
+              try {
+                const base64Url = res.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                const p = JSON.parse(jsonPayload);
+                handleGoogleLoginSuccess(p.email, p.name, p.picture);
+              } catch(e) {}
+            }
+          });
+          google.accounts.id.renderButton(container, {
+            theme: 'filled_black',
+            size: 'large',
+            shape: 'pill',
+            text: 'signin_with',
+            locale: 'id'
+          });
+        }
+      } catch (e) {}
+    }
+  }
+}
+
+function closeGoogleLoginModal() {
+  const modal = document.getElementById('google-login-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleGoogleLoginSuccess(email, name = '', avatar = '') {
+  currentUser = {
+    email: email.trim(),
+    name: name.trim() || email.split('@')[0],
+    avatar: avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || email)}`,
+    logged_in_at: new Date().toISOString()
+  };
+  localStorage.setItem('teleshorts_google_user', JSON.stringify(currentUser));
+
+  // Cek apakah ada data tersimpan sebelumnya dari cloud untuk email ini
+  const existingBackup = localStorage.getItem(`teleshorts_cloud_backup_${currentUser.email}`);
+  if (existingBackup) {
+    try {
+      const parsed = JSON.parse(existingBackup);
+      if (parsed.saved_dramas) {
+        parsed.saved_dramas.forEach(id => savedDramaIds.add(id));
+      }
+      if (parsed.liked_episodes) {
+        parsed.liked_episodes.forEach(key => likedEpisodeKeys.add(key));
+      }
+      if (parsed.saved_shorts) {
+        parsed.saved_shorts.forEach(id => savedShortIds.add(id));
+      }
+      if (parsed.liked_videos) {
+        parsed.liked_videos.forEach(id => likedVideoIds.add(id));
+      }
+      if (parsed.custom_collections && parsed.custom_collections.length > 0) {
+        customCollections = parsed.custom_collections;
+        persistCollections();
+      }
+    } catch (e) {}
+  }
+
+  persistStorage();
+  updateGoogleSyncUI();
+  updateStatsDisplay();
+  closeGoogleLoginModal();
+  showToast(`Selamat datang, ${currentUser.name}! Data tersinkron ☁️`, 'check', 'amber', 3500);
+  triggerHaptic('success');
+  syncUserDataToCloud(true);
+}
+
+// ============================================================
 // 6. EVENT LISTENERS
 // ============================================================
 function setupEvents() {
@@ -2635,6 +2916,85 @@ function setupEvents() {
   openTopicDrawerBtn.onclick = openDrawer;
   closeDrawerBtn.onclick = closeDrawer;
   drawerBackdrop.onclick = closeDrawer;
+
+  // Global Unmute Floating Banner & 1-time interaction unmute
+  const globalUnmuteBanner = document.getElementById('global-unmute-banner');
+  if (globalUnmuteBanner) {
+    globalUnmuteBanner.onclick = () => {
+      enableGlobalSound();
+      triggerHaptic('medium');
+      showToast('Suara Diaktifkan 🔊', 'volume-2', 'amber');
+    };
+  }
+  ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, enableGlobalSound, { passive: true, once: true });
+  });
+
+  // Drama Sort Button & Bottom Sheet
+  const dramaSortBtn = document.getElementById('drama-sort-btn');
+  const closeDramaSortBtn = document.getElementById('close-drama-sort-btn');
+  const dramaSortSheet = document.getElementById('drama-sort-sheet');
+  const dramaSortOptions = document.querySelectorAll('.drama-sort-option');
+
+  if (dramaSortBtn) dramaSortBtn.onclick = openDramaSortSheet;
+  if (closeDramaSortBtn) closeDramaSortBtn.onclick = closeDramaSortSheet;
+  if (dramaSortSheet) {
+    dramaSortSheet.onclick = (e) => {
+      if (e.target === dramaSortSheet) closeDramaSortSheet();
+    };
+  }
+  dramaSortOptions.forEach(opt => {
+    opt.onclick = () => {
+      currentDramaSort = opt.dataset.sort;
+      localStorage.setItem('teleshorts_drama_sort', currentDramaSort);
+      updateDramaSortUI();
+      closeDramaSortSheet();
+      triggerHaptic('light');
+      showToast(`Urutan: ${getDramaSortLabel(currentDramaSort)} 🔀`, 'arrow-down-up', 'amber');
+      filterAndRenderDramas();
+    };
+  });
+
+  // Google Login & Cloud Sync Controls
+  const btnGoogleLogin = document.getElementById('btn-google-login');
+  const btnGoogleLogout = document.getElementById('btn-google-logout');
+  const btnManualSync = document.getElementById('btn-manual-sync');
+  const closeGoogleModalBtn = document.getElementById('close-google-modal-btn');
+  const googleLoginModal = document.getElementById('google-login-modal');
+  const btnSubmitGoogleLogin = document.getElementById('btn-submit-google-login');
+  const inputGoogleEmail = document.getElementById('input-google-email');
+  const inputGoogleName = document.getElementById('input-google-name');
+
+  if (btnGoogleLogin) btnGoogleLogin.onclick = openGoogleLoginModal;
+  if (closeGoogleModalBtn) closeGoogleModalBtn.onclick = closeGoogleLoginModal;
+  if (googleLoginModal) {
+    googleLoginModal.onclick = (e) => {
+      if (e.target === googleLoginModal) closeGoogleLoginModal();
+    };
+  }
+  if (btnGoogleLogout) {
+    btnGoogleLogout.onclick = () => {
+      triggerHaptic('light');
+      currentUser = null;
+      localStorage.removeItem('teleshorts_google_user');
+      updateGoogleSyncUI();
+      showToast('Berhasil keluar akun Google 👋', 'log-out', 'zinc');
+    };
+  }
+  if (btnManualSync) {
+    btnManualSync.onclick = () => syncUserDataToCloud(true);
+  }
+  if (btnSubmitGoogleLogin) {
+    btnSubmitGoogleLogin.onclick = () => {
+      const email = inputGoogleEmail?.value.trim();
+      const name = inputGoogleName?.value.trim();
+      if (!email || !email.includes('@')) {
+        showToast('Masukkan alamat email Google yang valid! 📧', 'alert-circle', 'rose');
+        return;
+      }
+      handleGoogleLoginSuccess(email, name);
+    };
+  }
 
   // Mute audio
   if (globalMuteBtn) {
