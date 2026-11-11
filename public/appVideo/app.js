@@ -76,11 +76,20 @@ function playVideoSafely(video, onPlaying = null) {
   const p = video.play();
   if (p && typeof p.then === 'function') {
     p.then(() => {
-      if (!isMuted) hideUnmuteBanner();
+      if (!isMuted && !video.muted) {
+        awaitingAudioUnlock = false;
+        hideUnmuteBanner();
+      }
       if (onPlaying) onPlaying(true);
-    }).catch(() => {
+    }).catch((err) => {
+      if (err && err.name === 'AbortError') {
+        if (onPlaying) onPlaying(false);
+        return;
+      }
       if (!video.muted) {
         video.muted = true;
+        awaitingAudioUnlock = true;
+        showUnmuteBanner();
         video.play()
           .then(() => {
             showUnmuteBanner();
@@ -107,8 +116,11 @@ function getAllCatalogMedia() {
   return [...allDramas, ...allAdultVideos];
 }
 
-// Default suara: Jika pernah diaktifkan sebelumnya, langsung putar dengan suara!
-let isMuted = localStorage.getItem('teleshorts_unmuted') === '1' ? false : true;
+// Default suara aktif kecuali user secara eksplisit menekan Mute ('0');
+// jika browser memblokir autoplay bersuara sebelum ketukan pertama, awaitingAudioUnlock menandakan butuh 1x ketukan.
+let isMuted = localStorage.getItem('teleshorts_unmuted') === '0';
+let awaitingAudioUnlock = false;
+let pendingAudioVerifyUntil = 0;
 let activeView = 'shorts'; // 'shorts' | 'drama' | 'adult18' | 'profile'
 let profileTab = 'likes';   // 'likes' | 'shorts' | 'drama'
 
@@ -980,7 +992,7 @@ function createShortSlide(data, index) {
         playsinline
         webkit-playsinline
         preload="${hydrateNow ? 'auto' : 'none'}"
-        muted
+        ${isMuted ? 'muted' : ''}
       ></video>
 
       <!-- Video Buffering / Loading Indicator for Short -->
@@ -1269,9 +1281,14 @@ function setupShortSlideGestures(slide, data) {
       const dy = Math.abs(e.clientY - startY);
       if (dx > 12 || dy > 12) return; // User sedang swipe ganti video
 
-      // Unmute otomatis pada sentuhan pertama pengguna
+      // Unmute otomatis pada sentuhan pertama tanpa menjeda video yang sedang menunggu suara
       if (isMuted) {
         setGlobalMuted(false);
+        return;
+      }
+      if (awaitingAudioUnlock || video.muted) {
+        unlockActiveVideoSound(video);
+        return;
       }
 
       const currentTime = Date.now();
@@ -3278,9 +3295,23 @@ function switchView(viewName) {
 // ============================================================
 // GLOBAL AUDIO UNMUTE & AUTOPLAY FIX
 // ============================================================
+function getActiveAudibleVideo() {
+  if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
+    return landscapeVideo;
+  }
+  if (dramaReelModal && !dramaReelModal.classList.contains('hidden')) {
+    const activeSlide = dramaEpisodesReel?.children[currentReelEpisodeIndex];
+    return activeSlide ? activeSlide.querySelector('video') : null;
+  }
+  if (activeView === 'shorts') {
+    return currentPlayingShortVideo || feedContainer?.querySelector('.snap-slide video') || null;
+  }
+  return null;
+}
+
 function showUnmuteBanner() {
   const b = document.getElementById('global-unmute-banner');
-  if (b && isMuted) b.classList.remove('hidden');
+  if (b && (isMuted || awaitingAudioUnlock)) b.classList.remove('hidden');
 }
 
 function hideUnmuteBanner() {
@@ -3299,21 +3330,83 @@ function syncMuteButtonsUI() {
   });
 }
 
+function unlockActiveVideoSound(targetVideo = null) {
+  const activeVid = targetVideo || getActiveAudibleVideo();
+  if (isMuted) return;
+  if (!activeVid) {
+    awaitingAudioUnlock = false;
+    pendingAudioVerifyUntil = 0;
+    hideUnmuteBanner();
+    return;
+  }
+
+  activeVid.muted = false;
+  awaitingAudioUnlock = false;
+  hideUnmuteBanner();
+  pendingAudioVerifyUntil = Date.now() + 400;
+
+  if (activeVid.paused && !activeVid.ended) {
+    const p = activeVid.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        pendingAudioVerifyUntil = 0;
+      }).catch((err) => {
+        if (err && err.name === 'AbortError') return;
+        activeVid.muted = true;
+        awaitingAudioUnlock = true;
+        pendingAudioVerifyUntil = 0;
+        showUnmuteBanner();
+        activeVid.play().catch(() => {});
+      });
+    } else {
+      pendingAudioVerifyUntil = 0;
+    }
+    return;
+  }
+
+  // Video sedang berjalan (sebelumnya fallback muted): verifikasi browser tidak otomatis menjeda setelah unmute
+  setTimeout(() => {
+    if (isMuted) return;
+    if (activeVid.paused && !activeVid.ended && activeVid === getActiveAudibleVideo()) {
+      activeVid.muted = true;
+      awaitingAudioUnlock = true;
+      showUnmuteBanner();
+      activeVid.play().catch(() => {});
+    } else {
+      pendingAudioVerifyUntil = 0;
+    }
+  }, 90);
+}
+
 function setGlobalMuted(muted, persist = true) {
   isMuted = Boolean(muted);
   if (persist) {
     localStorage.setItem('teleshorts_unmuted', isMuted ? '0' : '1');
   }
-  document.querySelectorAll('video').forEach(v => {
-    v.muted = isMuted;
-  });
+  if (isMuted) {
+    awaitingAudioUnlock = false;
+    document.querySelectorAll('video').forEach(v => {
+      v.muted = true;
+    });
+    hideUnmuteBanner();
+  } else {
+    document.querySelectorAll('video').forEach(v => {
+      v.muted = false;
+    });
+    unlockActiveVideoSound();
+  }
   syncMuteButtonsUI();
-  if (!isMuted) hideUnmuteBanner();
 }
 
 function enableGlobalSound() {
-  if (!isMuted) return;
-  setGlobalMuted(false, true);
+  if (isMuted) {
+    setGlobalMuted(false, true);
+    return;
+  }
+  const activeVid = getActiveAudibleVideo();
+  if (awaitingAudioUnlock || (activeVid && activeVid.muted)) {
+    unlockActiveVideoSound(activeVid);
+  }
 }
 
 // ============================================================
@@ -3800,8 +3893,13 @@ function setupEvents() {
       showToast('Suara Diaktifkan 🔊', 'volume-2', 'amber');
     };
   }
-  ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evt => {
-    window.addEventListener(evt, enableGlobalSound, { passive: true, once: true });
+  ['click', 'touchend', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, () => {
+      const activeVid = getActiveAudibleVideo();
+      if (!isMuted && (awaitingAudioUnlock || (activeVid && (activeVid.muted || (Date.now() < pendingAudioVerifyUntil && activeVid.paused && !activeVid.ended))))) {
+        unlockActiveVideoSound(activeVid);
+      }
+    }, { passive: true });
   });
 
   // Drama Sort Button & Bottom Sheet
