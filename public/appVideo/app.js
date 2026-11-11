@@ -1,8 +1,87 @@
 // ============================================================
-// STATE & LOCAL STORAGE PERSISTENCE
+// STATE, SAFE RENDERING & MEDIA HELPERS
 // ============================================================
 const STREAM_PROXY_BASE = 'https://test-worker.big-marigold.workers.dev';
 const GDRIVE_USER_DATA_FOLDER_ID = '1w3bQfcfdqc4-MfqbmHJ17JC-fhOTRR3W';
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function thumbUrl(gdriveFileId, width = 480) {
+  return gdriveFileId ? `https://lh3.googleusercontent.com/d/${gdriveFileId}=w${width}` : '';
+}
+
+const SVG_ICONS = {
+  'sparkles': '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>',
+  'bookmark': '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  'bookmark-x': '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/><path d="m14.5 7.5-5 5"/><path d="m9.5 7.5 5 5"/>',
+  'heart': '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  'heart-off': '<line x1="2" y1="2" x2="22" y2="22"/><path d="M16.5 16.5 12 21l-7-7c-1.5-1.45-3-3.2-3-5.5a5.5 5.5 0 0 1 2.14-4.35"/><path d="M8.76 3.1c1.15.22 2.13.78 3.24 1.9 1.5-1.5 2.74-2 4.5-2A5.5 5.5 0 0 1 22 8.5c0 2.12-1.3 3.78-2.67 5.17"/>',
+  'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
+  'pause': '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+  'skip-back': '<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>',
+  'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  'volume-x': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
+  'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
+  'rotate-cw': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  'maximize': '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  'list-video': '<path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/>',
+  'send': '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  'folder': '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'folder-heart': '<path d="M11 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v1.5"/><path d="M13.9 17.45c-1.2-1.2-1.14-2.8-.2-3.73a2.43 2.43 0 0 1 3.44 0l.36.34.34-.34a2.43 2.43 0 0 1 3.45-.01c.95.95 1 2.53-.2 3.74L17.5 21Z"/>',
+  'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'clapperboard': '<path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+  'video-off': '<path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/><path d="m2 2 20 20"/>',
+  'search-x': '<path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  'flame': '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  'cloud': '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  'cloud-check': '<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m9 15 2 2 4-4"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+  'arrow-down-up': '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>'
+};
+
+function iconSvg(name, cls = 'w-4 h-4') {
+  const paths = SVG_ICONS[name] || SVG_ICONS['sparkles'];
+  return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
+function playVideoSafely(video, onPlaying = null) {
+  if (!video) return;
+  video.muted = isMuted;
+  const p = video.play();
+  if (p && typeof p.then === 'function') {
+    p.then(() => {
+      if (!isMuted) hideUnmuteBanner();
+      if (onPlaying) onPlaying(true);
+    }).catch(() => {
+      if (!video.muted) {
+        video.muted = true;
+        video.play()
+          .then(() => {
+            showUnmuteBanner();
+            if (onPlaying) onPlaying(true);
+          })
+          .catch(() => {
+            if (onPlaying) onPlaying(false);
+          });
+      } else if (onPlaying) {
+        onPlaying(false);
+      }
+    });
+  }
+}
 
 let allVideos = [];
 let allTopics = [];
@@ -173,10 +252,32 @@ function toggleEpisodeLike(dramaId, epNum, heartIconEl = null, labelEl = null) {
     labelEl.classList.toggle('text-zinc-200', !isNowLiked);
   }
 
-  // Refresh badges in modals & sheets if open
-  if (selectedDrama) renderModalEpisodes(selectedDrama);
-  renderReelSheetGrid();
-  filterAndRenderDramas();
+  // Refresh badges only for open containers + update single drama card in-place
+  if (selectedDrama && selectedDrama.id === dramaId && dramaDetailModal && !dramaDetailModal.classList.contains('hidden')) {
+    renderModalEpisodes(selectedDrama);
+  }
+  if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) {
+    renderReelSheetGrid();
+  }
+  const card = dramaListGrid?.querySelector(`[data-drama-id="${dramaId}"]`);
+  const targetDrm = allDramas.find(d => d.id === dramaId);
+  if (card && targetDrm) {
+    let likedEpCount = 0;
+    if (targetDrm.episodes) {
+      targetDrm.episodes.forEach(e => {
+        if (isEpisodeLiked(targetDrm.id, e.ep)) likedEpCount++;
+      });
+    }
+    const badgeEl = card.querySelector('.drama-liked-ep-badge');
+    if (badgeEl) {
+      if (likedEpCount > 0) {
+        badgeEl.classList.remove('hidden');
+        badgeEl.innerHTML = `<span>❤️</span> ${likedEpCount} Ep Disukai`;
+      } else {
+        badgeEl.classList.add('hidden');
+      }
+    }
+  }
 }
 
 // ============================================================
@@ -378,12 +479,17 @@ const profileContentArea = document.getElementById('profile-content-area');
 // APP INIT
 // ============================================================
 async function initApp() {
+  if (window.lucide?.createIcons) {
+    window.lucide.createIcons();
+  }
+  syncMuteButtonsUI();
+
   const initialLoader = document.getElementById('app-initial-loader');
   const initialLoaderText = document.getElementById('initial-loader-text');
   if (initialLoaderText) initialLoaderText.textContent = "Mengunduh katalog video & drama...";
 
   try {
-    const res = await fetch(`videos.json?v=${Date.now()}`);
+    const res = await fetch('videos.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error('Network error');
     const data = await res.json();
     allTopics = data.topics || FALLBACK_DATA.topics;
@@ -395,42 +501,57 @@ async function initApp() {
     allDramas = FALLBACK_DATA.dramas;
   }
 
+  // Precompute searchable lowercase corpus per drama once at startup
+  allDramas.forEach(d => {
+    const eps = d.episodes ? d.episodes.map(e => e.title || '').join(' ') : '';
+    d._searchCorpus = `${d.title || ''} ${d.genre || ''} ${d.synopsis || ''} ${eps}`.toLowerCase();
+  });
+
   if (initialLoaderText) initialLoaderText.textContent = "Menyiapkan hiburan terbaik...";
 
-  // Pre-seed sample states
-  if (likedVideoIds.size === 0 && allVideos.length > 0) {
-    likedVideoIds.add(allVideos[0].id);
-    likedVideoIds.add(allVideos[1].id);
-  }
-  if (savedShortIds.size === 0 && allVideos.length > 2) {
-    savedShortIds.add(allVideos[2].id);
-  }
-  if (savedDramaIds.size === 0 && allDramas.length > 0) {
-    savedDramaIds.add(allDramas[0].id);
-  }
-  if (likedEpisodeKeys.size === 0 && allDramas.length > 0) {
-    likedEpisodeKeys.add(`${allDramas[0].id}_ep_1`);
+  // Pre-seed sample states only on first visit
+  if (!localStorage.getItem('teleshorts_seeded_v1')) {
+    if (likedVideoIds.size === 0 && allVideos.length > 0) {
+      likedVideoIds.add(allVideos[0].id);
+      likedVideoIds.add(allVideos[1].id);
+    }
+    if (savedShortIds.size === 0 && allVideos.length > 2) {
+      savedShortIds.add(allVideos[2].id);
+    }
+    if (savedDramaIds.size === 0 && allDramas.length > 0) {
+      savedDramaIds.add(allDramas[0].id);
+    }
+    if (likedEpisodeKeys.size === 0 && allDramas.length > 0) {
+      likedEpisodeKeys.add(`${allDramas[0].id}_ep_1`);
+    }
+    localStorage.setItem('teleshorts_seeded_v1', '1');
   }
   loadCollections();
   persistStorage();
 
-  renderDrawerTopics();
+  // Critical path first: Shorts feed, UI states, event bindings
   renderShortsFeed();
-  filterAndRenderDramas();
-  renderProfileContent();
+  if (dramaCountLabel) dramaCountLabel.textContent = `${allDramas.length} Drama`;
   updateGoogleSyncUI();
   updateDramaSortUI();
   setupEvents();
 
-  // Smooth fade-out splash loader saat data & tampilan selesai dimuat
+  // Fade out splash loader immediately on next animation frame
   if (initialLoader) {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       initialLoader.style.opacity = '0';
       setTimeout(() => {
         initialLoader.classList.add('hidden');
-      }, 350);
-    }, 250);
+      }, 280);
+    });
   }
+
+  // Defer off-screen views so cold startup stays fast & smooth
+  setTimeout(() => {
+    renderDrawerTopics();
+    filterAndRenderDramas();
+    if (activeView === 'profile') renderProfileContent();
+  }, 0);
 }
 
 // ============================================================
@@ -444,6 +565,14 @@ function shuffleArray(array) {
   }
   return arr;
 }
+
+const TOAST_COLOR_CLASSES = {
+  rose: 'bg-rose-500/20 text-rose-400',
+  amber: 'bg-amber-500/20 text-amber-400',
+  emerald: 'bg-emerald-500/20 text-emerald-400',
+  zinc: 'bg-zinc-700/40 text-zinc-300',
+  sky: 'bg-sky-500/20 text-sky-400'
+};
 
 // Toast notification helper ala TikTok (Posisi di bawah di atas navbar, z-[100] interaktif)
 function showToast(message, iconName = 'sparkles', color = 'rose', durationMs = 2400) {
@@ -459,15 +588,15 @@ function showToast(message, iconName = 'sparkles', color = 'rose', durationMs = 
 
   const toast = document.createElement('div');
   const isAmber = color === 'amber';
+  const badgeCls = TOAST_COLOR_CLASSES[color] || TOAST_COLOR_CLASSES.rose;
   toast.className = `tiktok-toast flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-zinc-900/95 backdrop-blur-md border ${isAmber ? 'border-amber-400/50 shadow-[0_4px_20px_rgba(251,191,36,0.25)]' : 'border-white/20 shadow-2xl'} text-xs font-semibold text-white pointer-events-auto`;
   toast.innerHTML = `
-    <div class="w-6 h-6 rounded-full bg-${color}-500/20 flex items-center justify-center text-${color}-400 shrink-0">
-      <i data-lucide="${iconName}" class="w-3.5 h-3.5 ${iconName === 'bookmark' ? 'fill-current' : ''}"></i>
+    <div class="w-6 h-6 rounded-full ${badgeCls} flex items-center justify-center shrink-0">
+      ${iconSvg(iconName, `w-3.5 h-3.5 ${iconName === 'bookmark' ? 'fill-current' : ''}`)}
     </div>
-    <span class="leading-snug">${message}</span>
+    <span class="leading-snug">${escapeHtml(message)}</span>
   `;
   container.appendChild(toast);
-  lucide.createIcons();
 
   const dismiss = () => {
     toast.classList.add('toast-exit');
@@ -494,16 +623,16 @@ function showToastWithAction(message, actionText, actionCallback, durationMs = 4
   toast.innerHTML = `
     <div class="flex items-center gap-2.5">
       <div class="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shrink-0 shadow-sm">
-        <i data-lucide="bookmark" class="w-4 h-4 fill-amber-400"></i>
+        ${iconSvg('bookmark', 'w-4 h-4 fill-amber-400')}
       </div>
       <div class="flex flex-col">
-        <span class="text-xs text-white font-bold leading-tight">${message}</span>
+        <span class="text-xs text-white font-bold leading-tight">${escapeHtml(message)}</span>
         <span class="text-[10px] text-zinc-400 leading-tight">Ketuk untuk kelola folder</span>
       </div>
     </div>
     <button class="toast-action-btn shrink-0 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-[11px] active:scale-95 transition-all shadow-md flex items-center gap-1">
-      <span>${actionText}</span>
-      <i data-lucide="chevron-right" class="w-3 h-3 stroke-[3]"></i>
+      <span>${escapeHtml(actionText)}</span>
+      ${iconSvg('chevron-right', 'w-3 h-3 stroke-[3]')}
     </button>
   `;
 
@@ -527,7 +656,6 @@ function showToastWithAction(message, actionText, actionCallback, durationMs = 4
     if (actionCallback) actionCallback();
   };
   container.appendChild(toast);
-  lucide.createIcons();
   dismissTimer = setTimeout(() => dismiss(), durationMs);
 }
 
@@ -573,15 +701,15 @@ function renderShortsFeed(targetVideoId = null) {
   if (filtered.length === 0) {
     feedContainer.innerHTML = `
       <div class="w-full h-full flex flex-col items-center justify-center p-6 text-center text-zinc-400">
-        <i data-lucide="video-off" class="w-12 h-12 mb-3 text-zinc-600"></i>
+        ${iconSvg('video-off', 'w-12 h-12 mb-3 text-zinc-600')}
         <p class="font-semibold text-zinc-200">Belum ada video di topik ini</p>
         <p class="text-xs text-zinc-500 mt-1">Pilih topik lain lewat menu di kiri atas ya beb ✨</p>
       </div>
     `;
-    lucide.createIcons();
     return;
   }
 
+  currentPlayingShortVideo = null;
   currentFeedVideos = filtered;
 
   // Jika targetVideoId dipanggil (misal dari Koleksi / Pencarian), posisikan di depan
@@ -598,6 +726,31 @@ function renderShortsFeed(targetVideoId = null) {
   loadMoreFeedVideos(FEED_BATCH_SIZE);
   setupShortsObserver();
   feedContainer.scrollTop = 0;
+}
+
+function syncShortSlideSources(centerIdx) {
+  if (!feedContainer) return;
+  const slides = feedContainer.children;
+  for (let idx = 0; idx < slides.length; idx++) {
+    const slide = slides[idx];
+    const video = slide.querySelector('video');
+    if (!video || !video.dataset.src) continue;
+    const dist = Math.abs(idx - centerIdx);
+    const hasSrc = Boolean(video.getAttribute('src'));
+
+    if (dist <= 1) {
+      if (!hasSrc) {
+        video.src = video.dataset.src;
+      }
+      video.preload = (idx === centerIdx || idx === centerIdx + 1) ? 'auto' : 'metadata';
+    } else if (dist > 2 && hasSrc) {
+      if (currentPlayingShortVideo === video) currentPlayingShortVideo = null;
+      video.pause();
+      video.playbackRate = 1.0;
+      video.removeAttribute('src');
+      video.load();
+    }
+  }
 }
 
 function loadMoreFeedVideos(count = FEED_BATCH_SIZE) {
@@ -650,8 +803,8 @@ function updateSaveButtonUI(slide, isSaved) {
     }
   }
   if (saveCount) {
-    saveCount.textContent = isSaved ? 'Tersimpan' : 'Simpan';
-    saveCount.className = `save-count text-[10px] font-semibold ${isSaved ? 'text-amber-400' : 'text-zinc-300'}`;
+    saveCount.textContent = isSaved ? 'Tersimpan' : (saveCount.dataset.defaultLabel || 'Simpan');
+    saveCount.className = `save-count text-[11px] font-bold drop-shadow ${isSaved ? 'text-amber-400' : 'text-white'}`;
   }
 }
 
@@ -663,9 +816,10 @@ function wireVideoLoadingIndicator(video, loaderEl) {
   let showTimeout = null;
 
   const showLoader = () => {
+    if (!video.getAttribute('src') && !video.currentSrc) return;
     clearTimeout(showTimeout);
     showTimeout = setTimeout(() => {
-      if (video.readyState < 3 || video.seeking) {
+      if ((video.getAttribute('src') || video.currentSrc) && (video.readyState < 3 || video.seeking)) {
         loaderEl.classList.remove('hidden');
       }
     }, 120);
@@ -681,8 +835,10 @@ function wireVideoLoadingIndicator(video, loaderEl) {
   video.addEventListener('seeking', showLoader);
 
   video.addEventListener('canplay', hideLoader);
+  video.addEventListener('canplaythrough', hideLoader);
   video.addEventListener('playing', hideLoader);
   video.addEventListener('seeked', hideLoader);
+  video.addEventListener('emptied', hideLoader);
   video.addEventListener('timeupdate', () => {
     if (video.readyState >= 3 && !video.seeking) {
       hideLoader();
@@ -693,7 +849,7 @@ function wireVideoLoadingIndicator(video, loaderEl) {
 
 function createShortSlide(data, index) {
   const slide = document.createElement('div');
-  slide.className = 'snap-slide';
+  slide.className = index === 0 ? 'snap-slide' : 'snap-slide slide-paused';
   slide.dataset.id = data.id;
 
   const isLiked = likedVideoIds.has(data.id);
@@ -702,29 +858,37 @@ function createShortSlide(data, index) {
   const streamSrc = data.gdrive_file_id 
     ? `${STREAM_PROXY_BASE}?id=${data.gdrive_file_id}` 
     : data.video_url;
+  const posterSrc = thumbUrl(data.gdrive_file_id, 480);
+  const hydrateNow = index <= 1;
+  const safeTitle = escapeHtml(data.title);
+  const safeAuthor = escapeHtml(data.author);
+  const safeTopic = escapeHtml(data.topic_name);
+  const defaultSaveLabel = formatCount(Math.round((data.likes || 0) * 0.28));
 
   slide.innerHTML = `
     <!-- VIDEO MEDIA WRAPPER -->
     <div class="video-media-wrapper absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
-      <!-- High-res Poster Thumbnail from Google Drive (Loaded Instantly) -->
-      ${data.gdrive_file_id ? `
+      <!-- Optimized Thumbnail from Google Drive (w480 for fast initial load) -->
+      ${posterSrc ? `
         <img 
-          src="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}" 
+          src="${posterSrc}" 
           class="video-poster-img absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0" 
-          alt="${data.title}" 
-          loading="${index < 3 ? 'eager' : 'lazy'}"
+          alt="${safeTitle}" 
+          loading="${index < 2 ? 'eager' : 'lazy'}"
+          decoding="async"
         />
       ` : ''}
 
-      <!-- Native HTML5 Video Player with Autoplay, Loop & Inline Streaming -->
+      <!-- Native HTML5 Video Player with Windowed Lazy Hydration -->
       <video 
         class="video-player w-full h-full object-cover absolute inset-0 z-10"
-        src="${streamSrc}"
-        ${data.gdrive_file_id ? `poster="https://lh3.googleusercontent.com/d/${data.gdrive_file_id}"` : ''}
+        data-src="${streamSrc}"
+        ${hydrateNow ? `src="${streamSrc}"` : ''}
+        ${posterSrc ? `poster="${posterSrc}"` : ''}
         loop
         playsinline
         webkit-playsinline
-        preload="${index <= 1 ? 'auto' : 'none'}"
+        preload="${hydrateNow ? 'auto' : 'none'}"
         muted
       ></video>
 
@@ -765,7 +929,7 @@ function createShortSlide(data, index) {
       <div class="relative mb-1 cursor-pointer active:scale-90 transition-transform">
         <div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-rose-500 via-pink-400 to-amber-300 shadow-md">
           <div class="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-black text-xs text-white">
-            ${data.author.charAt(1).toUpperCase()}
+            ${escapeHtml((data.author || '@U').charAt(1) || 'U').toUpperCase()}
           </div>
         </div>
         <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-black shadow-md border-2 border-black">
@@ -790,7 +954,7 @@ function createShortSlide(data, index) {
             <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
           </svg>
         </button>
-        <span class="save-count text-[11px] font-bold ${isSaved ? 'text-amber-400' : 'text-white'} drop-shadow">${isSaved ? 'Tersimpan' : formatCount(Math.round(data.likes * 0.28))}</span>
+        <span class="save-count text-[11px] font-bold ${isSaved ? 'text-amber-400' : 'text-white'} drop-shadow" data-default-label="${defaultSaveLabel}">${isSaved ? 'Tersimpan' : defaultSaveLabel}</span>
       </div>
 
       <!-- Share (↗️) -->
@@ -814,24 +978,24 @@ function createShortSlide(data, index) {
     <div class="absolute left-4 right-20 bottom-[90px] z-30 space-y-2 pointer-events-auto">
       <div class="flex items-center gap-2">
         <span class="text-xs font-black text-white drop-shadow flex items-center gap-1">
-          ${data.author}
+          ${safeAuthor}
           <svg class="w-3.5 h-3.5 text-sky-400 fill-sky-400 inline" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </span>
         <span class="text-[10px] font-semibold bg-rose-500/80 text-white px-2 py-0.5 rounded-full backdrop-blur-md">
-          ${data.topic_name}
+          ${safeTopic}
         </span>
       </div>
 
       <p class="text-xs text-white font-normal leading-relaxed line-clamp-2 drop-shadow">
-        ${data.title}
+        ${safeTitle}
       </p>
 
       <div class="flex items-center gap-1.5 text-zinc-300 text-[11px] overflow-hidden max-w-[220px]">
         <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         <div class="overflow-hidden whitespace-nowrap">
           <div class="ticker-track">
-            <span class="mr-4">Original Audio - ${data.topic_name} • ${data.author} • </span>
-            <span class="mr-4">Original Audio - ${data.topic_name} • ${data.author} • </span>
+            <span class="mr-4">Original Audio - ${safeTopic} • ${safeAuthor} • </span>
+            <span class="mr-4">Original Audio - ${safeTopic} • ${safeAuthor} • </span>
           </div>
         </div>
       </div>
@@ -1016,8 +1180,7 @@ function setupShortSlideGestures(slide, data) {
 
       // Unmute otomatis pada sentuhan pertama pengguna
       if (isMuted) {
-        isMuted = false;
-        document.querySelectorAll('video').forEach(v => v.muted = false);
+        setGlobalMuted(false);
       }
 
       const currentTime = Date.now();
@@ -1141,12 +1304,19 @@ function setupShortSlideGestures(slide, data) {
       e.stopPropagation();
       triggerHaptic('medium');
       const txt = `Tonton video seru "${data.title}" di appVideo!`;
-      if (navigator.share) {
-        navigator.share({ title: 'appVideo', text: txt, url: window.location.href }).catch(() => {});
-      } else if (tg?.openTelegramLink) {
-        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(txt)}`);
-      } else {
+      const url = window.location.href;
+      const copyShareFallback = () => {
+        navigator.clipboard?.writeText(url).catch(() => {});
         showToast('Tautan berhasil disalin! 📋', 'check', 'emerald');
+      };
+      if (navigator.share) {
+        navigator.share({ title: 'appVideo', text: txt, url }).catch((err) => {
+          if (err?.name !== 'AbortError') copyShareFallback();
+        });
+      } else if (tg?.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(txt)}`);
+      } else {
+        copyShareFallback();
       }
     });
   }
@@ -1177,52 +1347,35 @@ function setupShortsObserver() {
       const video = slide.querySelector('video');
       const disc = slide.querySelector('.music-disc');
       const playIndicator = slide.querySelector('.play-indicator');
+      const idx = parseInt(slide.dataset.feedIndex || '0', 10);
 
       if (entry.isIntersecting && activeView === 'shorts' && dramaReelModal.classList.contains('hidden')) {
-        // Hentikan video lain segera agar suara tidak pernah tabrakan
-        feedContainer.querySelectorAll('video').forEach(v => {
-          if (v !== video && !v.paused) {
-            v.pause();
-          }
-        });
+        // Hentikan video aktif sebelumnya agar suara tidak pernah tabrakan
+        if (currentPlayingShortVideo && currentPlayingShortVideo !== video && !currentPlayingShortVideo.paused) {
+          currentPlayingShortVideo.pause();
+        }
 
+        syncShortSlideSources(idx);
+        slide.classList.remove('slide-paused');
         currentPlayingShortVideo = video;
         if (video) {
-          video.muted = isMuted;
-          video.preload = 'auto';
-          const p = video.play();
-          if (p) {
-            p.then(() => {
-              if (playIndicator) playIndicator.style.opacity = '0';
-              if (!isMuted) hideUnmuteBanner();
-            }).catch(() => {
-              // Jika autoplay diblokir browser tanpa gesture, mulai muted dulu & tampilkan banner unmute
-              video.muted = true;
-              video.play().then(() => {
-                if (playIndicator) playIndicator.style.opacity = '0';
-                showUnmuteBanner();
-              }).catch(() => {});
-            });
+          if (!video.getAttribute('src') && video.dataset.src) {
+            video.src = video.dataset.src;
           }
+          video.preload = 'auto';
+          playVideoSafely(video, (ok) => {
+            if (ok && playIndicator) playIndicator.style.opacity = '0';
+          });
           if (disc) disc.classList.remove('spin-paused');
         }
 
-        // Preload video slide berikutnya agar saat swipe ke bawah langsung putar seketika!
-        const nextSlide = slide.nextElementSibling;
-        if (nextSlide) {
-          const nextVid = nextSlide.querySelector('video');
-          if (nextVid && nextVid.preload !== 'auto') {
-            nextVid.preload = 'auto';
-          }
-        }
-
         // Infinite Scroll: Muat batch berikutnya secara mulus saat mendekati slide akhir
-        const idx = parseInt(slide.dataset.feedIndex || '0', 10);
         if (idx >= currentRenderedFeedCount - 4) {
           loadMoreFeedVideos();
         }
       } else {
-        // BEGITU DISCROLL PERGI: BERHENTIKAN SEGERA & RESET SPEED!
+        // BEGITU DISCROLL PERGI: BERHENTIKAN SEGERA, RESET SPEED & PAUSE ANIMASI OFF-SCREEN!
+        slide.classList.add('slide-paused');
         if (video) {
           video.pause();
           video.playbackRate = 1.0;
@@ -1236,27 +1389,22 @@ function setupShortsObserver() {
 
   // Putar otomatis video pertama langsung tanpa harus discroll dulu!
   setTimeout(() => {
+    if (activeView !== 'shorts' || !dramaReelModal.classList.contains('hidden')) return;
     const firstSlide = feedContainer.querySelector('.snap-slide');
     if (firstSlide) {
+      firstSlide.classList.remove('slide-paused');
       const firstVideo = firstSlide.querySelector('video');
       if (firstVideo && firstVideo.paused) {
-        currentPlayingShortVideo = firstVideo;
-        firstVideo.muted = isMuted;
-        firstVideo.preload = 'auto';
-        const p = firstVideo.play();
-        if (p) {
-          p.then(() => {
-            if (!isMuted) hideUnmuteBanner();
-          }).catch(() => {
-            firstVideo.muted = true;
-            firstVideo.play().then(() => {
-              showUnmuteBanner();
-            }).catch(() => {});
-          });
+        if (!firstVideo.getAttribute('src') && firstVideo.dataset.src) {
+          firstVideo.src = firstVideo.dataset.src;
         }
+        syncShortSlideSources(0);
+        currentPlayingShortVideo = firstVideo;
+        firstVideo.preload = 'auto';
+        playVideoSafely(firstVideo);
       }
     }
-  }, 100);
+  }, 80);
 }
 
 // ============================================================
@@ -1267,8 +1415,7 @@ function searchDramasWordByWord(query, dramas) {
   if (rawWords.length === 0) return dramas;
 
   return dramas.filter(drm => {
-    const episodesText = drm.episodes ? drm.episodes.map(e => e.title).join(' ') : '';
-    const searchableCorpus = `${drm.title} ${drm.genre} ${drm.synopsis} ${episodesText}`.toLowerCase();
+    const searchableCorpus = drm._searchCorpus || `${drm.title} ${drm.genre} ${drm.synopsis}`.toLowerCase();
     return rawWords.every(word => searchableCorpus.includes(word));
   });
 }
@@ -1341,18 +1488,19 @@ function renderDramaList(dramas) {
   if (dramas.length === 0) {
     dramaListGrid.innerHTML = `
       <div class="col-span-2 py-12 text-center text-zinc-500">
-        <i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-zinc-700"></i>
+        ${iconSvg('search-x', 'w-8 h-8 mx-auto mb-2 text-zinc-700')}
         <p class="text-xs font-semibold text-zinc-300">Tidak ada drama yang cocok</p>
         <p class="text-[11px] text-zinc-500 mt-0.5">Coba gunakan kata kunci lain</p>
       </div>
     `;
-    lucide.createIcons();
     return;
   }
 
+  const frag = document.createDocumentFragment();
   dramas.forEach(drm => {
     const isSaved = savedDramaIds.has(drm.id);
     const card = document.createElement('div');
+    card.dataset.dramaId = drm.id;
     card.className = 'bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col group cursor-pointer active:scale-95 transition-all shadow-lg';
     
     let likedEpCount = 0;
@@ -1362,9 +1510,15 @@ function renderDramaList(dramas) {
       });
     }
 
+    const safeTitle = escapeHtml(drm.title);
+    const safeGenre = escapeHtml(drm.genre);
+    const epFooter = drm.total_episodes === 1
+      ? '🎬 Full Movie (' + escapeHtml(drm.episodes[0]?.duration || 'Lengkap') + ')'
+      : drm.total_episodes + ' Episode';
+
     card.innerHTML = `
       <div class="relative aspect-[3/4] w-full overflow-hidden bg-zinc-800">
-        <img src="${drm.poster}" alt="${drm.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+        <img src="${drm.poster}" alt="${safeTitle}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
         <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
         
         <div class="absolute top-2 left-2 flex items-center gap-1">
@@ -1386,51 +1540,52 @@ function renderDramaList(dramas) {
           </span>
         `}
         
-        <button class="drama-quick-save absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 active:scale-75 transition-all">
-          <i data-lucide="bookmark" class="w-3.5 h-3.5 ${isSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}"></i>
+        <button class="drama-quick-save absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 active:scale-75 transition-all" aria-label="Simpan Drama">
+          ${iconSvg('bookmark', `w-3.5 h-3.5 ${isSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`)}
         </button>
 
-        ${likedEpCount > 0 ? `
-          <div class="absolute top-9 left-2 px-1.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9px] font-bold flex items-center gap-1 shadow-md">
-            <span>❤️</span> ${likedEpCount} Ep Disukai
-          </div>
-        ` : ''}
+        <div class="drama-liked-ep-badge ${likedEpCount > 0 ? '' : 'hidden'} absolute top-9 left-2 px-1.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9px] font-bold flex items-center gap-1 shadow-md">
+          <span>❤️</span> ${likedEpCount} Ep Disukai
+        </div>
 
         <div class="absolute bottom-2 left-2 right-2">
-          <span class="text-[9px] font-bold uppercase tracking-wider text-rose-400">${drm.genre}</span>
-          <h4 class="text-xs font-bold text-white line-clamp-1 leading-snug">${drm.title}</h4>
+          <span class="text-[9px] font-bold uppercase tracking-wider text-rose-400">${safeGenre}</span>
+          <h4 class="text-xs font-bold text-white line-clamp-1 leading-snug">${safeTitle}</h4>
         </div>
       </div>
       <div class="p-2.5 flex items-center justify-between bg-zinc-900/90 text-[10px] text-zinc-400 border-t border-zinc-800/60">
         <span class="${drm.total_episodes === 1 ? 'text-amber-300 font-bold flex items-center gap-1' : ''}">
-          ${drm.total_episodes === 1 ? '🎬 Full Movie (' + (drm.episodes[0]?.duration || 'Lengkap') + ')' : drm.total_episodes + ' Episode'}
+          ${epFooter}
         </span>
         <span class="font-bold text-amber-400 flex items-center gap-1">
-          Nonton <i data-lucide="play" class="w-2.5 h-2.5 fill-amber-400"></i>
+          Nonton ${iconSvg('play', 'w-2.5 h-2.5 fill-amber-400')}
         </span>
       </div>
     `;
 
-    card.querySelector('.drama-quick-save').onclick = (e) => {
+    const quickSaveBtn = card.querySelector('.drama-quick-save');
+    quickSaveBtn.onclick = (e) => {
       e.stopPropagation();
       triggerHaptic('medium');
-      if (savedDramaIds.has(drm.id)) {
-        savedDramaIds.delete(drm.id);
-      } else {
+      const nowSaved = !savedDramaIds.has(drm.id);
+      if (nowSaved) {
         savedDramaIds.add(drm.id);
+        showToast('Drama disimpan ke profil ✓', 'bookmark', 'amber', 1800);
+      } else {
+        savedDramaIds.delete(drm.id);
+        showToast('Dihapus dari drama tersimpan', 'bookmark', 'zinc', 1800);
       }
+      quickSaveBtn.innerHTML = iconSvg('bookmark', `w-3.5 h-3.5 ${nowSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`);
       persistStorage();
-      filterAndRenderDramas();
     };
 
     card.onclick = () => {
       openDramaDetailModal(drm);
     };
 
-    dramaListGrid.appendChild(card);
+    frag.appendChild(card);
   });
-
-  lucide.createIcons();
+  dramaListGrid.appendChild(frag);
 }
 
 function openDramaDetailModal(drm) {
@@ -1466,7 +1621,6 @@ function openDramaDetailModal(drm) {
   }
 
   dramaDetailModal.classList.remove('hidden');
-  lucide.createIcons();
 }
 
 function updateModalBookmarkBtn() {
@@ -1483,6 +1637,7 @@ function updateModalBookmarkBtn() {
 
 function renderModalEpisodes(drm) {
   modalEpisodeList.innerHTML = '';
+  const frag = document.createDocumentFragment();
   drm.episodes.forEach((ep, idx) => {
     const isLiked = isEpisodeLiked(drm.id, ep.ep);
     const item = document.createElement('div');
@@ -1495,23 +1650,23 @@ function renderModalEpisodes(drm) {
         </div>
         <div>
           <div class="flex items-center gap-1.5">
-            <h5 class="text-xs font-bold text-white line-clamp-1">Ep ${ep.ep}: ${ep.title}</h5>
+            <h5 class="text-xs font-bold text-white line-clamp-1">Ep ${ep.ep}: ${escapeHtml(ep.title)}</h5>
             ${isLiked ? '<span class="text-[10px] text-rose-500 font-bold flex items-center gap-0.5">❤️ Disukai</span>' : ''}
           </div>
-          <span class="text-[10px] text-zinc-500">${ep.duration}</span>
+          <span class="text-[10px] text-zinc-500">${escapeHtml(ep.duration)}</span>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
-        <button class="ep-like-btn p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-rose-500 active:scale-75 transition-all">
-          <i data-lucide="heart" class="w-3.5 h-3.5 ${isLiked ? 'text-rose-500 fill-rose-500' : 'text-zinc-400'}"></i>
+        <button class="ep-like-btn p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-rose-500 active:scale-75 transition-all" aria-label="Suka Episode">
+          ${iconSvg('heart', `w-3.5 h-3.5 ${isLiked ? 'text-rose-500 fill-rose-500' : 'text-zinc-400'}`)}
         </button>
 
-        <button class="ep-chat-btn p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white" title="Kirim ke Chat Telegram">
-          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+        <button class="ep-chat-btn p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white" title="Kirim ke Chat Telegram" aria-label="Bagikan Episode">
+          ${iconSvg('send', 'w-3.5 h-3.5')}
         </button>
 
         <button class="ep-play-btn px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-all">
-          <i data-lucide="play" class="w-3 h-3 fill-white"></i>
+          ${iconSvg('play', 'w-3 h-3 fill-white')}
           <span>Nonton</span>
         </button>
       </div>
@@ -1532,13 +1687,14 @@ function renderModalEpisodes(drm) {
       if (tg?.openTelegramLink) {
         tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('ep_' + ep.message_id)}`);
       } else {
-        alert(`Mengirim Drama "${drm.title}" Episode #${ep.ep} ke chat Telegram!`);
+        navigator.clipboard?.writeText(`${drm.title} - Ep ${ep.ep}: ${window.location.href}`).catch(() => {});
+        showToast(`Info Ep #${ep.ep} "${drm.title}" disalin! 📋`, 'send', 'amber');
       }
     };
 
-    modalEpisodeList.appendChild(item);
+    frag.appendChild(item);
   });
-  lucide.createIcons();
+  modalEpisodeList.appendChild(frag);
 }
 
 // ============================================================
@@ -1555,27 +1711,26 @@ function openDramaReel(drama, startEpIndex = 0) {
   reelDramaTitle.textContent = drama.title;
   updateReelEpBadge(startEpIndex);
 
-  // Buat vertical slides untuk SEMUA episode (lazy hydrate window di sekitar episode awal)
-  renderDramaReelSlides(drama, startEpIndex);
-  syncDramaSlideSources(startEpIndex);
+  // Buat vertical slides untuk semua episode tanpa mengaktifkan observer dulu (cegah ep 1 sempat autoplay)
+  renderDramaReelSlides(drama, startEpIndex, false);
 
-  // Buka modal reel
+  // Buka modal reel & posisikan langsung ke episode terpilih sebelum observer & playback dimulai
   dramaReelModal.classList.remove('hidden');
+  const targetSlide = dramaEpisodesReel.children[startEpIndex];
+  if (targetSlide) {
+    targetSlide.scrollIntoView({ behavior: 'auto' });
+  }
+  syncDramaSlideSources(startEpIndex);
+  setupDramaReelObserver();
 
-  // Scroll ke episode yang dipilih
-  setTimeout(() => {
-    const targetSlide = dramaEpisodesReel.children[startEpIndex];
-    if (targetSlide) {
-      targetSlide.scrollIntoView({ behavior: 'auto' });
-      const video = targetSlide.querySelector('video');
-      if (video) {
-        video.muted = isMuted;
-        video.play().catch(() => {});
-      }
+  requestAnimationFrame(() => {
+    const activeSlide = dramaEpisodesReel.children[startEpIndex];
+    if (activeSlide) {
+      activeSlide.scrollIntoView({ behavior: 'auto' });
+      const video = activeSlide.querySelector('video');
+      if (video) playVideoSafely(video);
     }
-  }, 100);
-
-  lucide.createIcons();
+  });
 }
 
 function updateReelEpBadge(epIdx) {
@@ -1607,7 +1762,7 @@ function syncDramaSlideSources(centerIdx) {
   });
 }
 
-function renderDramaReelSlides(drama, startEpIndex = 0) {
+function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
   dramaEpisodesReel.innerHTML = '';
 
   const isHorizontal = drama.orientation === 'horizontal';
@@ -1615,12 +1770,11 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
   // Toggle header landscape button visibility or style
   const reelLandscapeToggleBtn = document.getElementById('reel-landscape-toggle-btn');
   if (reelLandscapeToggleBtn) {
-    if (isHorizontal) {
-      reelLandscapeToggleBtn.classList.remove('hidden');
-    } else {
-      reelLandscapeToggleBtn.classList.remove('hidden'); // Tetap izinkan untuk video apa saja jika user mau
-    }
+    reelLandscapeToggleBtn.classList.remove('hidden'); // Tetap izinkan untuk video apa saja jika user mau
   }
+
+  const frag = document.createDocumentFragment();
+  const safeDramaTitle = escapeHtml(drama.title);
 
   drama.episodes.forEach((ep, idx) => {
     const slide = document.createElement('div');
@@ -1634,6 +1788,8 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
       ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
       : ep.video_url;
     const shouldHydrateNow = Math.abs(idx - startEpIndex) <= 2;
+    const safeEpTitle = escapeHtml(ep.title);
+    const safeDuration = escapeHtml(ep.duration || '00:00');
 
     slide.innerHTML = `
       <video 
@@ -1659,12 +1815,12 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
       <!-- Error / Retry Overlay for Drama Slide -->
       <div class="reel-error-overlay hidden absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm z-30 px-6 text-center">
         <div class="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-400 mb-3">
-          <i data-lucide="wifi-off" class="w-6 h-6"></i>
+          ${iconSvg('wifi-off', 'w-6 h-6')}
         </div>
         <p class="text-sm font-bold text-white mb-1">Video gagal dimuat</p>
         <p class="text-[11px] text-zinc-400 mb-4 max-w-xs">Koneksi ke server video sempat terputus. Coba muat ulang episode ini.</p>
         <button class="reel-retry-btn px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
-          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          ${iconSvg('rotate-cw', 'w-3.5 h-3.5')}
           <span>Coba Lagi</span>
         </button>
       </div>
@@ -1676,7 +1832,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
       <!-- Play/Pause Flash Indicator Tengah (Ketuk 1x) -->
       <div class="play-indicator absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-20">
         <div class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white/90 shadow-2xl">
-          <i data-lucide="play" class="w-8 h-8 fill-white ml-1"></i>
+          ${iconSvg('play', 'w-8 h-8 fill-white ml-1')}
         </div>
       </div>
 
@@ -1684,7 +1840,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
       ${isHorizontal ? `
         <div class="absolute inset-x-0 bottom-36 flex items-center justify-center pointer-events-none z-30">
           <button class="open-landscape-slide-btn pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-2xl border border-amber-300 active:scale-95 transition-all">
-            <i data-lucide="maximize" class="w-4 h-4"></i>
+            ${iconSvg('maximize', 'w-4 h-4')}
             <span>⛶ Tonton Mode Lanskap Penuh</span>
           </button>
         </div>
@@ -1695,7 +1851,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
         
         <!-- Suka Episode Ini (❤️) -->
         <div class="flex flex-col items-center gap-1">
-          <button class="reel-like-ep-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all">
+          <button class="reel-like-ep-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all" aria-label="Suka Episode">
             <svg class="ep-heart-svg w-6 h-6 transition-all duration-200 ${isLiked ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-white'}" viewBox="0 0 24 24" fill="${isLiked ? '#f43f5e' : 'none'}" stroke="${isLiked ? '#f43f5e' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
             </svg>
@@ -1705,24 +1861,24 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
 
         <!-- Buka Laci Episode Cepat (📑) -->
         <div class="flex flex-col items-center gap-1">
-          <button class="reel-ep-list-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all">
-            <i data-lucide="list-video" class="w-5 h-5 text-amber-400"></i>
+          <button class="reel-ep-list-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all" aria-label="Daftar Episode">
+            ${iconSvg('list-video', 'w-5 h-5 text-amber-400')}
           </button>
           <span class="text-[10px] font-semibold text-zinc-300">Ep ${ep.ep}</span>
         </div>
 
         <!-- Kirim ke Chat Bot -->
         <div class="flex flex-col items-center gap-1">
-          <button class="reel-chat-btn w-11 h-11 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg active:scale-75 transition-all">
-            <i data-lucide="send" class="w-4 h-4 text-white -mr-0.5"></i>
+          <button class="reel-chat-btn w-11 h-11 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg active:scale-75 transition-all" aria-label="Bagikan ke Chat">
+            ${iconSvg('send', 'w-4 h-4 text-white -mr-0.5')}
           </button>
           <span class="text-[9px] font-bold text-rose-300 uppercase">Chat</span>
         </div>
 
         <!-- Mute Audio -->
         <div class="flex flex-col items-center gap-1">
-          <button class="reel-mute-btn w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all">
-            <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}" class="w-4 h-4 text-zinc-300"></i>
+          <button class="reel-mute-btn w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-75 transition-all" aria-label="Toggle Suara">
+            ${iconSvg(isMuted ? 'volume-x' : 'volume-2', 'w-4 h-4 text-zinc-300')}
           </button>
         </div>
 
@@ -1735,19 +1891,19 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
             Episode ${ep.ep}
           </span>
           <span class="text-xs font-bold text-white drop-shadow">
-            ${drama.title}
+            ${safeDramaTitle}
           </span>
         </div>
 
         <p class="text-xs text-zinc-200 font-medium line-clamp-1 drop-shadow">
-          ${ep.title} • <span class="text-zinc-400">${ep.duration}</span>
+          ${safeEpTitle} • <span class="text-zinc-400">${safeDuration}</span>
         </p>
 
         <!-- Interactive Scrubber Progress Bar for Drama Reel (Bisa Diputar & Digeser) -->
         <div class="reel-scrubber relative w-full py-1.5 cursor-pointer touch-none pointer-events-auto group">
           <!-- Floating Time Bubble while dragging -->
           <div class="reel-scrub-bubble hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-md border border-amber-400/40 text-amber-300 font-mono text-xs px-3 py-1 rounded-full shadow-2xl pointer-events-none z-50 whitespace-nowrap">
-            <span class="reel-bubble-time">00:00</span> / <span class="reel-bubble-total">${ep.duration || '00:00'}</span>
+            <span class="reel-bubble-time">00:00</span> / <span class="reel-bubble-total">${safeDuration}</span>
           </div>
 
           <!-- Progress Track -->
@@ -1763,7 +1919,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
           <div class="flex items-center gap-1 font-semibold text-zinc-300">
             <span class="reel-time-now text-amber-300">00:00</span>
             <span>/</span>
-            <span class="reel-time-total text-zinc-400">${ep.duration || '00:00'}</span>
+            <span class="reel-time-total text-zinc-400">${safeDuration}</span>
           </div>
           <span class="text-[9px] text-zinc-400">⬇️ Scroll: Ep ${idx + 2 <= drama.episodes.length ? idx + 2 : 'Tamat'}</span>
         </div>
@@ -1771,10 +1927,11 @@ function renderDramaReelSlides(drama, startEpIndex = 0) {
     `;
 
     setupDramaSlideGestures(slide, drama, ep, idx);
-    dramaEpisodesReel.appendChild(slide);
+    frag.appendChild(slide);
   });
 
-  setupDramaReelObserver();
+  dramaEpisodesReel.appendChild(frag);
+  if (initObserver) setupDramaReelObserver();
 }
 
 function setupDramaSlideGestures(slide, drama, ep, idx) {
@@ -1925,16 +2082,14 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       e.preventDefault();
       isScrubbing = true;
       if (scrubKnob) scrubKnob.classList.remove('scale-0');
-      const seekTime = seekDramaPosition(e.clientX);
-      video.currentTime = seekTime;
+      seekDramaPosition(e.clientX);
       triggerHaptic('light');
 
       const onPointerMove = (ev) => {
         if (!isScrubbing) return;
         ev.stopPropagation();
         ev.preventDefault();
-        const curSeek = seekDramaPosition(ev.clientX);
-        video.currentTime = curSeek;
+        seekDramaPosition(ev.clientX);
       };
 
       const onPointerUp = (ev) => {
@@ -1942,7 +2097,9 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
         isScrubbing = false;
         ev.stopPropagation();
         const finalSeek = seekDramaPosition(ev.clientX);
-        video.currentTime = finalSeek;
+        if (Number.isFinite(video.duration) && video.duration > 0) {
+          video.currentTime = finalSeek;
+        }
         if (scrubKnob) scrubKnob.classList.add('scale-0');
         if (scrubBubble) scrubBubble.classList.add('hidden');
         video.play().catch(() => {});
@@ -2067,18 +2224,16 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     if (tg?.openTelegramLink) {
       tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('ep_' + ep.message_id)}`);
     } else {
-      alert(`Mengirim Drama "${drama.title}" Ep #${ep.ep} ke chat bot!`);
+      navigator.clipboard?.writeText(`${drama.title} - Ep ${ep.ep}: ${window.location.href}`).catch(() => {});
+      showToast(`Info Ep #${ep.ep} "${drama.title}" disalin! 📋`, 'send', 'amber');
     }
   };
 
-  // 8. Mute Audio
+  // 8. Mute Audio (Null-safe inline SVG toggle)
   muteBtn.onclick = (e) => {
     e.stopPropagation();
     triggerHaptic('light');
-    isMuted = !isMuted;
-    document.querySelectorAll('video').forEach(v => v.muted = isMuted);
-    muteBtn.querySelector('i').setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
-    lucide.createIcons();
+    setGlobalMuted(!isMuted);
   };
 
   // 9. Tombol Tonton Mode Lanskap di Layar Slide
@@ -2103,10 +2258,8 @@ function setupDramaReelObserver() {
         currentReelEpisodeIndex = idx;
         updateReelEpBadge(idx);
         syncDramaSlideSources(idx);
-        video.muted = isMuted;
-        const p = video.play();
-        if (p) p.catch(() => {});
-      } else {
+        if (video) playVideoSafely(video);
+      } else if (video) {
         video.pause();
         if (video.readyState > 0) video.currentTime = 0;
       }
@@ -2159,6 +2312,10 @@ function renderReelSheetGrid() {
 
 function closeDramaReel() {
   triggerHaptic('light');
+  if (dramaReelObserver) {
+    dramaReelObserver.disconnect();
+    dramaReelObserver = null;
+  }
   if (reelSpeedBadge) reelSpeedBadge.classList.add('hidden');
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => {
     v.playbackRate = 1.0;
@@ -2168,12 +2325,14 @@ function closeDramaReel() {
       v.load();
     }
   });
+  dramaEpisodesReel.innerHTML = '';
+  reelSheetGrid.innerHTML = '';
   dramaReelModal.classList.add('hidden');
   reelEpSheet.classList.add('hidden');
 
   // Resume shorts if active
   if (activeView === 'shorts' && currentPlayingShortVideo) {
-    currentPlayingShortVideo.play().catch(() => {});
+    playVideoSafely(currentPlayingShortVideo);
   }
 }
 
@@ -2241,17 +2400,17 @@ function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
 
   dramaLandscapeTheater.classList.remove('hidden');
   playLandscapeEpisode(startEpIdx, startTime);
-  lucide.createIcons();
 }
 
 function playLandscapeEpisode(epIdx, startTime = 0) {
   if (!currentLandscapeDrama) return;
-  const ep = currentLandscapeDrama.episodes[epIdx];
+  const activeDrama = currentLandscapeDrama;
+  const ep = activeDrama.episodes[epIdx];
   if (!ep) return;
 
   currentLandscapeEpIndex = epIdx;
-  landscapeDramaTitle.textContent = currentLandscapeDrama.title;
-  landscapeEpBadge.textContent = `Episode ${ep.ep} / ${currentLandscapeDrama.total_episodes}`;
+  landscapeDramaTitle.textContent = activeDrama.title;
+  landscapeEpBadge.textContent = `Episode ${ep.ep} / ${activeDrama.total_episodes}`;
 
   // Stream URL with proxy
   const streamSrc = ep.gdrive_file_id 
@@ -2266,7 +2425,9 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
 
   let landscapeRetried = false;
   landscapeVideo.onloadedmetadata = () => {
-    if (startTime > 0) landscapeVideo.currentTime = startTime;
+    if (startTime > 0 && Number.isFinite(landscapeVideo.duration) && startTime < landscapeVideo.duration) {
+      landscapeVideo.currentTime = startTime;
+    }
     landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration || 0);
   };
   landscapeVideo.onloadeddata = () => {
@@ -2274,42 +2435,37 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   };
   landscapeVideo.onerror = () => {
     if (!landscapeVideo.getAttribute('src') || dramaLandscapeTheater.classList.contains('hidden')) return;
+    if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
     if (!landscapeRetried) {
       landscapeRetried = true;
       if (landscapeLoadingIndicator) landscapeLoadingIndicator.classList.remove('hidden');
       setTimeout(() => {
         if (dramaLandscapeTheater.classList.contains('hidden')) return;
+        if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
         landscapeVideo.src = streamSrc;
         landscapeVideo.load();
-        landscapeVideo.play().catch(() => {});
+        playVideoSafely(landscapeVideo, (ok) => updateLandscapePlayBtn(ok));
       }, 1200);
     } else {
       showToast('Gagal memutar episode, coba pilih ulang atau periksa koneksi.', 'alert-circle', 'rose', 3500);
     }
   };
 
-  const playPromise = landscapeVideo.play();
-  if (playPromise) {
-    playPromise
-      .then(() => updateLandscapePlayBtn(true))
-      .catch(() => updateLandscapePlayBtn(false));
-  }
+  playVideoSafely(landscapeVideo, (ok) => updateLandscapePlayBtn(ok));
 
   // Update prev / next buttons state
   landscapePrevEpBtn.style.opacity = epIdx > 0 ? '1' : '0.4';
-  landscapeNextEpBtn.style.opacity = epIdx < currentLandscapeDrama.episodes.length - 1 ? '1' : '0.4';
+  landscapeNextEpBtn.style.opacity = epIdx < activeDrama.episodes.length - 1 ? '1' : '0.4';
 }
 
 function updateLandscapePlayBtn(isPlaying) {
-  if (!landscapePlayBtnIcon) return;
-  landscapePlayBtnIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
-  lucide.createIcons();
+  if (!landscapeTogglePlayBtn) return;
+  landscapeTogglePlayBtn.innerHTML = iconSvg(isPlaying ? 'pause' : 'play', 'w-5 h-5 fill-black');
 }
 
 function updateLandscapeMuteBtn() {
-  if (!landscapeMuteIcon) return;
-  landscapeMuteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
-  lucide.createIcons();
+  if (!landscapeMuteBtn) return;
+  landscapeMuteBtn.innerHTML = iconSvg(isMuted ? 'volume-x' : 'volume-2', 'w-5 h-5');
 }
 
 function closeLandscapeTheater() {
@@ -2412,11 +2568,12 @@ function renderProfileContent() {
     }
     const grid = document.createElement('div');
     grid.className = 'grid grid-cols-3 gap-1 p-1';
+    const frag = document.createDocumentFragment();
     targetVideos.forEach(v => {
       const card = document.createElement('div');
       card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity group';
       card.innerHTML = `
-        <img src="https://lh3.googleusercontent.com/d/${v.gdrive_file_id}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" alt="${v.title}">
+        <img src="${thumbUrl(v.gdrive_file_id, 480)}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" alt="${escapeHtml(v.title)}">
         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
         <div class="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
           <svg class="w-3.5 h-3.5 text-rose-500 fill-rose-500 drop-shadow" viewBox="0 0 24 24">
@@ -2431,8 +2588,9 @@ function renderProfileContent() {
         currentTopicId = 0;
         renderShortsFeed(v.id);
       };
-      grid.appendChild(card);
+      frag.appendChild(card);
     });
+    grid.appendChild(frag);
     profileContentArea.appendChild(grid);
 
   } else if (profileTab === 'shorts') {
@@ -2450,13 +2608,13 @@ function renderProfileContent() {
       topBar.innerHTML = `
         <div>
           <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
-            <i data-lucide="folder" class="w-4 h-4 text-amber-400"></i>
+            ${iconSvg('folder', 'w-4 h-4 text-amber-400')}
             <span>Koleksi Saya (${customCollections.length})</span>
           </h4>
           <p class="text-[10px] text-zinc-400">Atur dan kelompokkan video favoritmu</p>
         </div>
         <button id="btn-create-col-profile" class="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-rose-900/30 active:scale-95 transition-all">
-          <i data-lucide="plus" class="w-3.5 h-3.5 stroke-[3]"></i>
+          ${iconSvg('plus', 'w-3.5 h-3.5 stroke-[3]')}
           <span>Buat Koleksi</span>
         </button>
       `;
@@ -2472,6 +2630,7 @@ function renderProfileContent() {
       customCollections.forEach(col => {
         const card = document.createElement('div');
         card.className = 'relative bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer active:scale-95 transition-all group flex flex-col';
+        const safeColName = escapeHtml(col.name);
 
         // Ambil thumbnail dari video terakhir di koleksi ini
         let coverUrl = '';
@@ -2479,33 +2638,33 @@ function renderProfileContent() {
           const lastVidId = col.videoIds[col.videoIds.length - 1];
           const foundVid = allVideos.find(v => v.id === lastVidId);
           if (foundVid && foundVid.gdrive_file_id) {
-            coverUrl = `https://lh3.googleusercontent.com/d/${foundVid.gdrive_file_id}`;
+            coverUrl = thumbUrl(foundVid.gdrive_file_id, 480);
           }
         }
 
         card.innerHTML = `
           <div class="relative aspect-video w-full bg-zinc-950 overflow-hidden flex items-center justify-center">
             ${coverUrl ? `
-              <img src="${coverUrl}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="${col.name}">
+              <img src="${coverUrl}" loading="lazy" decoding="async" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="${safeColName}">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
             ` : `
               <div class="w-full h-full bg-zinc-800/80 flex flex-col items-center justify-center text-zinc-600 gap-1">
-                <i data-lucide="folder" class="w-7 h-7 text-zinc-500"></i>
+                ${iconSvg('folder', 'w-7 h-7 text-zinc-500')}
                 <span class="text-[9px] font-semibold text-zinc-500">Kosong</span>
               </div>
             `}
             <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400 flex items-center gap-1">
-              <i data-lucide="${col.isDefault ? 'bookmark' : 'folder'}" class="w-3 h-3 ${col.isDefault ? 'fill-amber-400' : ''}"></i>
+              ${iconSvg(col.isDefault ? 'bookmark' : 'folder', `w-3 h-3 ${col.isDefault ? 'fill-amber-400' : ''}`)}
               <span>${col.isDefault ? 'Semua' : 'Koleksi'}</span>
             </span>
             ${!col.isDefault ? `
-              <button class="btn-delete-col absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-md text-zinc-400 hover:text-rose-400 flex items-center justify-center active:scale-90 transition-all z-10" title="Hapus Koleksi">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <button class="btn-delete-col absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-md text-zinc-400 hover:text-rose-400 flex items-center justify-center active:scale-90 transition-all z-10" title="Hapus Koleksi" aria-label="Hapus Koleksi">
+                ${iconSvg('trash-2', 'w-3.5 h-3.5')}
               </button>
             ` : ''}
           </div>
           <div class="p-2.5 flex flex-col justify-between flex-1 bg-zinc-900/90">
-            <h5 class="text-xs font-bold text-white line-clamp-1">${col.name}</h5>
+            <h5 class="text-xs font-bold text-white line-clamp-1">${safeColName}</h5>
             <div class="flex items-center justify-between text-[10px] text-zinc-400 mt-1">
               <span>${col.videoIds.length} video</span>
               <span class="text-amber-400 font-semibold flex items-center gap-0.5">Buka →</span>
@@ -2548,17 +2707,18 @@ function renderProfileContent() {
 
       const container = document.createElement('div');
       container.className = 'p-3 space-y-3';
+      const safeColName = escapeHtml(col.name);
 
       // Navigasi Kembali & Judul Folder
       const navHeader = document.createElement('div');
       navHeader.className = 'flex items-center justify-between pb-2 border-b border-zinc-800';
       navHeader.innerHTML = `
         <button id="btn-back-collections" class="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 active:scale-95 transition-all">
-          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          ${iconSvg('arrow-left', 'w-4 h-4')}
           <span>Kembali ke Koleksi</span>
         </button>
         <span class="text-[11px] font-semibold text-zinc-300">
-          ${col.name} (${col.videoIds.length} video)
+          ${safeColName} (${col.videoIds.length} video)
         </span>
       `;
       navHeader.querySelector('#btn-back-collections').onclick = () => {
@@ -2574,10 +2734,10 @@ function renderProfileContent() {
         emptyState.className = 'flex flex-col items-center justify-center py-16 text-center px-4';
         emptyState.innerHTML = `
           <div class="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
-            <i data-lucide="bookmark-x" class="w-6 h-6"></i>
+            ${iconSvg('bookmark-x', 'w-6 h-6')}
           </div>
           <h5 class="text-xs font-bold text-white mb-1">Folder Koleksi Kosong</h5>
-          <p class="text-[11px] text-zinc-400 max-w-xs">Simpan video dengan tombol Bookmark 🔖 di Shorts lalu masukkan ke folder "${col.name}"!</p>
+          <p class="text-[11px] text-zinc-400 max-w-xs">Simpan video dengan tombol Bookmark 🔖 di Shorts lalu masukkan ke folder "${safeColName}"!</p>
           <button id="btn-explore-shorts-empty" class="mt-4 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs active:scale-95 transition-all shadow-lg shadow-rose-900/30">
             Jelajahi Shorts 🎬
           </button>
@@ -2590,17 +2750,18 @@ function renderProfileContent() {
       } else {
         const grid = document.createElement('div');
         grid.className = 'grid grid-cols-3 gap-1';
+        const frag = document.createDocumentFragment();
         targetVideos.forEach(v => {
           const card = document.createElement('div');
           card.className = 'relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:opacity-75 transition-opacity group';
           card.innerHTML = `
-            <img src="https://lh3.googleusercontent.com/d/${v.gdrive_file_id}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" alt="${v.title}">
+            <img src="${thumbUrl(v.gdrive_file_id, 480)}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" alt="${escapeHtml(v.title)}">
             <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
             <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] font-bold text-white drop-shadow">
               <span class="flex items-center gap-0.5 text-amber-400">
-                <i data-lucide="bookmark" class="w-3 h-3 fill-amber-400"></i>
+                ${iconSvg('bookmark', 'w-3 h-3 fill-amber-400')}
               </span>
-              <span class="text-[9px] text-zinc-200 line-clamp-1">${v.topic_name}</span>
+              <span class="text-[9px] text-zinc-200 line-clamp-1">${escapeHtml(v.topic_name)}</span>
             </div>
           `;
           card.onclick = () => {
@@ -2609,8 +2770,9 @@ function renderProfileContent() {
             currentTopicId = 0;
             renderShortsFeed(v.id);
           };
-          grid.appendChild(card);
+          frag.appendChild(card);
         });
+        grid.appendChild(frag);
         container.appendChild(grid);
       }
 
@@ -2625,6 +2787,7 @@ function renderProfileContent() {
     }
     const grid = document.createElement('div');
     grid.className = 'grid grid-cols-2 gap-2.5 p-1';
+    const frag = document.createDocumentFragment();
     targetDramas.forEach(drm => {
       const card = document.createElement('div');
       card.className = 'bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col cursor-pointer active:scale-95 transition-all';
@@ -2638,9 +2801,9 @@ function renderProfileContent() {
 
       card.innerHTML = `
         <div class="relative aspect-[3/4] w-full bg-zinc-800">
-          <img src="${drm.poster}" alt="${drm.title}" class="w-full h-full object-cover">
+          <img src="${drm.poster}" alt="${escapeHtml(drm.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover">
           <span class="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-sky-400">
-            <i data-lucide="bookmark" class="w-3.5 h-3.5 fill-sky-400"></i>
+            ${iconSvg('bookmark', 'w-3.5 h-3.5 fill-sky-400')}
           </span>
           <div class="absolute top-1.5 left-1.5 flex items-center gap-1">
             <span class="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black tracking-wider shadow">🔞 18+</span>
@@ -2651,8 +2814,8 @@ function renderProfileContent() {
             ` : ''}
           </div>
           <div class="absolute bottom-1.5 left-1.5 right-1.5">
-            <span class="text-[9px] font-bold text-amber-400">${drm.genre}</span>
-            <h5 class="text-xs font-bold text-white line-clamp-1">${drm.title}</h5>
+            <span class="text-[9px] font-bold text-amber-400">${escapeHtml(drm.genre)}</span>
+            <h5 class="text-xs font-bold text-white line-clamp-1">${escapeHtml(drm.title)}</h5>
           </div>
         </div>
         <div class="p-2 flex items-center justify-between text-[10px] text-zinc-400">
@@ -2663,23 +2826,21 @@ function renderProfileContent() {
       card.onclick = () => {
         openDramaDetailModal(drm);
       };
-      grid.appendChild(card);
+      frag.appendChild(card);
     });
+    grid.appendChild(frag);
     profileContentArea.appendChild(grid);
   }
-
-  lucide.createIcons();
 }
 
 function renderEmptyState(icon, title, desc) {
   profileContentArea.innerHTML = `
     <div class="py-16 px-4 flex flex-col items-center justify-center text-center text-zinc-500">
-      <i data-lucide="${icon}" class="w-10 h-10 mb-2 text-zinc-700"></i>
-      <h5 class="text-xs font-bold text-zinc-300">${title}</h5>
-      <p class="text-[11px] text-zinc-500 mt-1 max-w-xs leading-relaxed">${desc}</p>
+      ${iconSvg(icon, 'w-10 h-10 mb-2 text-zinc-700')}
+      <h5 class="text-xs font-bold text-zinc-300">${escapeHtml(title)}</h5>
+      <p class="text-[11px] text-zinc-500 mt-1 max-w-xs leading-relaxed">${escapeHtml(desc)}</p>
     </div>
   `;
-  lucide.createIcons();
 }
 
 // ============================================================
@@ -2687,6 +2848,7 @@ function renderEmptyState(icon, title, desc) {
 // ============================================================
 function renderDrawerTopics() {
   drawerTopicsList.innerHTML = '';
+  const frag = document.createDocumentFragment();
   allTopics.forEach(topic => {
     const isSelected = topic.id === currentTopicId;
     const btn = document.createElement('button');
@@ -2699,14 +2861,14 @@ function renderDrawerTopics() {
     btn.innerHTML = `
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400'}">
-          <i data-lucide="${topic.id === 0 ? 'flame' : 'folder-heart'}" class="w-4 h-4"></i>
+          ${iconSvg(topic.id === 0 ? 'flame' : 'folder-heart', 'w-4 h-4')}
         </div>
         <div>
-          <div class="text-sm font-semibold">${topic.name}</div>
-          <div class="text-[11px] text-zinc-400">${topic.count || '~200 video'}</div>
+          <div class="text-sm font-semibold">${escapeHtml(topic.name)}</div>
+          <div class="text-[11px] text-zinc-400">${escapeHtml(topic.count || '~200 video')}</div>
         </div>
       </div>
-      ${isSelected ? '<i data-lucide="check" class="w-5 h-5 text-rose-500"></i>' : '<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-600"></i>'}
+      ${isSelected ? iconSvg('check', 'w-5 h-5 text-rose-500') : iconSvg('chevron-right', 'w-4 h-4 text-zinc-600')}
     `;
 
     btn.onclick = () => {
@@ -2718,9 +2880,9 @@ function renderDrawerTopics() {
       renderDrawerTopics();
     };
 
-    drawerTopicsList.appendChild(btn);
+    frag.appendChild(btn);
   });
-  lucide.createIcons();
+  drawerTopicsList.appendChild(frag);
 }
 
 function openDrawer() {
@@ -2782,18 +2944,32 @@ function hideUnmuteBanner() {
   if (b) b.classList.add('hidden');
 }
 
-function enableGlobalSound() {
-  if (!isMuted) return;
-  isMuted = false;
-  localStorage.setItem('teleshorts_unmuted', '1');
-  hideUnmuteBanner();
+function syncMuteButtonsUI() {
+  const iconName = isMuted ? 'volume-x' : 'volume-2';
+  if (globalMuteBtn) {
+    globalMuteBtn.innerHTML = iconSvg(iconName, 'w-4 h-4 text-white');
+  }
+  updateLandscapeMuteBtn();
+  document.querySelectorAll('#drama-episodes-reel .reel-mute-btn').forEach(btn => {
+    btn.innerHTML = iconSvg(iconName, 'w-4 h-4 text-zinc-300');
+  });
+}
 
-  if (currentPlayingShortVideo) {
-    currentPlayingShortVideo.muted = false;
+function setGlobalMuted(muted, persist = true) {
+  isMuted = Boolean(muted);
+  if (persist) {
+    localStorage.setItem('teleshorts_unmuted', isMuted ? '0' : '1');
   }
   document.querySelectorAll('video').forEach(v => {
-    v.muted = false;
+    v.muted = isMuted;
   });
+  syncMuteButtonsUI();
+  if (!isMuted) hideUnmuteBanner();
+}
+
+function enableGlobalSound() {
+  if (!isMuted) return;
+  setGlobalMuted(false, true);
 }
 
 // ============================================================
@@ -2893,6 +3069,19 @@ function updateGoogleSyncUI() {
   } else {
     if (loggedInState) loggedInState.classList.add('hidden');
     if (loggedOutState) loggedOutState.classList.remove('hidden');
+
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tgUser) {
+      const displayName = tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
+      const username = tgUser.username ? '@' + tgUser.username : '@' + tgUser.first_name.toLowerCase();
+      if (profileName) profileName.textContent = displayName;
+      if (profileHandle) profileHandle.textContent = username;
+      if (profileAvatar && tgUser.photo_url) profileAvatar.src = tgUser.photo_url;
+    } else {
+      if (profileName) profileName.textContent = 'Mommy Video';
+      if (profileHandle) profileHandle.textContent = '@teleuser';
+      if (profileAvatar) profileAvatar.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
+    }
   }
 }
 
@@ -3119,14 +3308,31 @@ function setupEvents() {
     btnManualSync.onclick = () => syncUserDataToCloud(true);
   }
 
+  // Share Profile button
+  const btnShareProfile = document.getElementById('btn-share-profile');
+  if (btnShareProfile) {
+    btnShareProfile.onclick = () => {
+      triggerHaptic('light');
+      const url = window.location.href;
+      const copyProfileFallback = () => {
+        navigator.clipboard?.writeText(url).catch(() => {});
+        showToast('Tautan profil disalin! 📋', 'check', 'emerald');
+      };
+      if (navigator.share) {
+        navigator.share({ title: 'appVideo', text: 'Tonton koleksi drama & video favoritku di appVideo!', url }).catch((err) => {
+          if (err?.name !== 'AbortError') copyProfileFallback();
+        });
+      } else {
+        copyProfileFallback();
+      }
+    };
+  }
+
   // Mute audio
   if (globalMuteBtn) {
     globalMuteBtn.onclick = () => {
       triggerHaptic('light');
-      isMuted = !isMuted;
-      document.querySelectorAll('video').forEach(v => v.muted = isMuted);
-      if (muteIcon) muteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
-      lucide.createIcons();
+      setGlobalMuted(!isMuted);
     };
   }
 
@@ -3161,13 +3367,16 @@ function setupEvents() {
     };
   });
 
-  // Drama Search Input
+  // Drama Search Input (Debounced 120ms for smooth typing)
+  let dramaSearchTimer = null;
   dramaSearchInput.addEventListener('input', () => {
-    filterAndRenderDramas();
+    clearTimeout(dramaSearchTimer);
+    dramaSearchTimer = setTimeout(filterAndRenderDramas, 120);
   });
 
   dramaSearchClear.onclick = () => {
     triggerHaptic('light');
+    clearTimeout(dramaSearchTimer);
     dramaSearchInput.value = '';
     filterAndRenderDramas();
     dramaSearchInput.focus();
@@ -3182,14 +3391,18 @@ function setupEvents() {
   modalBookmarkDramaBtn.onclick = () => {
     if (!selectedDrama) return;
     triggerHaptic('success');
-    if (savedDramaIds.has(selectedDrama.id)) {
-      savedDramaIds.delete(selectedDrama.id);
-    } else {
+    const nowSaved = !savedDramaIds.has(selectedDrama.id);
+    if (nowSaved) {
       savedDramaIds.add(selectedDrama.id);
+    } else {
+      savedDramaIds.delete(selectedDrama.id);
     }
     persistStorage();
     updateModalBookmarkBtn();
-    filterAndRenderDramas();
+    const cardQuickSave = dramaListGrid?.querySelector(`[data-drama-id="${selectedDrama.id}"] .drama-quick-save`);
+    if (cardQuickSave) {
+      cardQuickSave.innerHTML = iconSvg('bookmark', `w-3.5 h-3.5 ${nowSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`);
+    }
   };
 
   // Drama Reel Close
@@ -3284,14 +3497,7 @@ function setupEvents() {
     landscapeMuteBtn.onclick = (e) => {
       e.stopPropagation();
       triggerHaptic('light');
-      isMuted = !isMuted;
-      if (landscapeVideo) landscapeVideo.muted = isMuted;
-      document.querySelectorAll('video').forEach(v => v.muted = isMuted);
-      updateLandscapeMuteBtn();
-      if (globalMuteBtn && muteIcon) {
-        muteIcon.setAttribute('data-lucide', isMuted ? 'volume-x' : 'volume-2');
-        lucide.createIcons();
-      }
+      setGlobalMuted(!isMuted);
     };
   }
 
@@ -3660,6 +3866,32 @@ function setupEvents() {
   [backdropManageCol, btnCloseManageCol].forEach(btn => {
     btn?.addEventListener('click', closeManageCollectionsModal);
   });
+
+  // Pause active video playback when app/tab loses visibility
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      document.querySelectorAll('video').forEach(v => {
+        if (!v.paused) v.pause();
+      });
+    }
+  });
+
+  // Escape key closes topmost open sheet/modal/drawer
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modalCreate = document.getElementById('modal-create-collection');
+    const modalManage = document.getElementById('modal-manage-collections');
+    const sortSheet = document.getElementById('drama-sort-sheet');
+    if (modalCreate && !modalCreate.classList.contains('hidden')) { closeCreateCollectionModal(); return; }
+    if (modalManage && !modalManage.classList.contains('hidden')) { closeManageCollectionsModal(); return; }
+    if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) { landscapeEpSheet.classList.add('hidden'); return; }
+    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) { closeLandscapeTheater(); return; }
+    if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) { reelEpSheet.classList.add('hidden'); return; }
+    if (dramaReelModal && !dramaReelModal.classList.contains('hidden')) { closeDramaReel(); return; }
+    if (dramaDetailModal && !dramaDetailModal.classList.contains('hidden')) { dramaDetailModal.classList.add('hidden'); return; }
+    if (sortSheet && !sortSheet.classList.contains('hidden')) { closeDramaSortSheet(); return; }
+    if (topicDrawer && !topicDrawer.classList.contains('hidden')) { closeDrawer(); }
+  });
 }
 
 // ============================================================
@@ -3672,9 +3904,8 @@ function showManageCollectionFeedback(message, color = 'amber') {
   const txt = document.getElementById('modal-manage-feedback-text');
   if (!box || !txt) return;
   txt.textContent = message;
-  box.className = `flex items-center justify-between px-3.5 py-2 rounded-xl bg-${color === 'amber' ? 'amber-500/15 border-amber-500/30 text-amber-300' : 'zinc-800 border-zinc-700 text-zinc-300'} border text-xs font-semibold animate-slide-up transition-all`;
+  box.className = `flex items-center justify-between px-3.5 py-2 rounded-xl ${color === 'amber' ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : 'bg-zinc-800 border-zinc-700 text-zinc-300'} border text-xs font-semibold animate-slide-up transition-all`;
   box.classList.remove('hidden');
-  lucide.createIcons();
 }
 
 function openCreateCollectionModal(initialVideoId = null) {
@@ -3726,15 +3957,15 @@ function renderManageCollectionsList(videoId) {
     row.innerHTML = `
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-amber-400">
-          <i data-lucide="${col.isDefault ? 'bookmark' : 'folder'}" class="w-4 h-4 ${col.isDefault ? 'fill-amber-400' : ''}"></i>
+          ${iconSvg(col.isDefault ? 'bookmark' : 'folder', `w-4 h-4 ${col.isDefault ? 'fill-amber-400' : ''}`)}
         </div>
         <div>
-          <div class="text-xs font-bold text-white">${col.name}</div>
+          <div class="text-xs font-bold text-white">${escapeHtml(col.name)}</div>
           <div class="text-[10px] text-zinc-400">${col.videoIds.length} video</div>
         </div>
       </div>
       <div class="w-6 h-6 rounded-full border ${isChecked ? 'bg-amber-500 border-amber-500 text-black' : 'border-zinc-600 bg-transparent'} flex items-center justify-center transition-all">
-        ${isChecked ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ''}
+        ${isChecked ? iconSvg('check', 'w-3.5 h-3.5 stroke-[3]') : ''}
       </div>
     `;
     row.onclick = () => {
@@ -3755,7 +3986,6 @@ function renderManageCollectionsList(videoId) {
     };
     list.appendChild(row);
   });
-  lucide.createIcons();
 }
 
 function updateProfileTabHeaders() {
@@ -3779,9 +4009,14 @@ function formatCount(num) {
 }
 
 function formatTime(seconds) {
-  if (isNaN(seconds)) return "00:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
+  if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+  const totalSec = Math.floor(seconds);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  }
   return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
