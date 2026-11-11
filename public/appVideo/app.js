@@ -61,7 +61,8 @@ const SVG_ICONS = {
   'link': '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   'lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-  'unlock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>'
+  'unlock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  'shuffle': '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>'
 };
 
 function iconSvg(name, cls = 'w-4 h-4') {
@@ -100,6 +101,7 @@ let allTopics = [];
 let allDramas = [];
 let allAdultVideos = [];
 let currentTopicId = 0;
+let isTopicShuffled = localStorage.getItem('teleshorts_topic_shuffle') !== '0';
 
 function getAllCatalogMedia() {
   return [...allDramas, ...allAdultVideos];
@@ -441,6 +443,7 @@ const feedContainer = document.getElementById('feed-container');
 // Top bar shorts
 const openTopicDrawerBtn = document.getElementById('open-topic-drawer-btn');
 const activeTopicBadge = document.getElementById('active-topic-badge');
+const topicShuffleBtn = document.getElementById('topic-shuffle-btn');
 const globalMuteBtn = document.getElementById('global-mute-btn');
 const muteIcon = document.getElementById('mute-icon');
 
@@ -589,6 +592,7 @@ async function initApp() {
   if (dramaCountLabel) dramaCountLabel.textContent = `${allDramas.length} Drama`;
   if (adult18CountLabel) adult18CountLabel.textContent = `${allAdultVideos.length} Video`;
   updateGoogleSyncUI();
+  updateTopicShuffleUI();
   updateDramaSortUI();
   updateAdultSortUI();
   setupEvents();
@@ -747,19 +751,41 @@ let currentFeedVideos = [];
 let currentRenderedFeedCount = 0;
 const FEED_BATCH_SIZE = 12;
 
+function updateTopicShuffleUI() {
+  if (!topicShuffleBtn) return;
+  if (isTopicShuffled) {
+    topicShuffleBtn.innerHTML = `${iconSvg('shuffle', 'w-3 h-3')}<span>Acak</span>`;
+    topicShuffleBtn.className = 'flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-500 text-black border border-amber-300 text-[11px] font-extrabold shadow-lg active:scale-95 transition-all shrink-0 whitespace-nowrap';
+    topicShuffleBtn.title = 'Urutan acak aktif (ketuk untuk tampil urut)';
+    topicShuffleBtn.setAttribute('aria-pressed', 'true');
+  } else {
+    topicShuffleBtn.innerHTML = `${iconSvg('arrow-down-up', 'w-3 h-3 text-zinc-300')}<span>Urut</span>`;
+    topicShuffleBtn.className = 'flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-zinc-200 text-[11px] font-bold active:scale-95 transition-all shrink-0 whitespace-nowrap';
+    topicShuffleBtn.title = 'Urutan normal (ketuk untuk tampil acak)';
+    topicShuffleBtn.setAttribute('aria-pressed', 'false');
+  }
+}
+
 function renderShortsFeed(targetVideoId = null) {
+  if (currentPlayingShortVideo) {
+    currentPlayingShortVideo.pause();
+    currentPlayingShortVideo = null;
+  }
   feedContainer.innerHTML = '';
   currentRenderedFeedCount = 0;
-  
-  // Jika "Untuk Anda" (currentTopicId === 0): Benar-benar diacak dari SEMUA topik!
-  const filtered = currentTopicId === 0
-    ? shuffleArray(allVideos)
+
+  const topicVideos = currentTopicId === 0
+    ? allVideos
     : allVideos.filter(v => v.topic_id === currentTopicId);
+
+  const filtered = isTopicShuffled
+    ? shuffleArray(topicVideos)
+    : [...topicVideos];
 
   const currentTopicObj = allTopics.find(t => t.id === currentTopicId);
   if (currentTopicObj) {
-    activeTopicBadge.textContent = currentTopicId === 0 
-      ? "Topik: Semua Video (Acak)" 
+    activeTopicBadge.textContent = currentTopicId === 0
+      ? "Topik: Semua Video"
       : `Topik: ${currentTopicObj.name.split('-')[0].trim()}`;
   }
 
@@ -3191,8 +3217,11 @@ function renderDrawerTopics() {
   drawerTopicsList.appendChild(frag);
 }
 
+let topicDrawerCloseTimer = null;
+
 function openDrawer() {
   triggerHaptic('light');
+  clearTimeout(topicDrawerCloseTimer);
   topicDrawer.classList.remove('hidden');
   requestAnimationFrame(() => {
     drawerBackdrop.classList.remove('opacity-0');
@@ -3204,11 +3233,12 @@ function openDrawer() {
 
 function closeDrawer() {
   triggerHaptic('light');
+  clearTimeout(topicDrawerCloseTimer);
   drawerBackdrop.classList.remove('opacity-100');
   drawerBackdrop.classList.add('opacity-0');
   drawerContent.classList.remove('translate-y-0');
   drawerContent.classList.add('translate-y-full');
-  setTimeout(() => {
+  topicDrawerCloseTimer = setTimeout(() => {
     topicDrawer.classList.add('hidden');
   }, 350);
 }
@@ -3873,12 +3903,27 @@ function setupEvents() {
     };
   }
 
-  // Tombol "Untuk Anda" (Klik untuk Mengacak Ulang Feed Video)
+  // Tombol "Untuk Anda" (Klik untuk Mengacak Ulang Feed Semua Topik)
   const titleUntukAndaBtn = document.getElementById('title-untuk-anda-btn');
   if (titleUntukAndaBtn) {
     titleUntukAndaBtn.onclick = () => {
       triggerHaptic('medium');
       currentTopicId = 0;
+      isTopicShuffled = true;
+      localStorage.setItem('teleshorts_topic_shuffle', '1');
+      updateTopicShuffleUI();
+      renderShortsFeed();
+      renderDrawerTopics();
+    };
+  }
+
+  // Tombol Pilihan Acak / Urut di Navbar Atas (berlaku saat membuka topik maupun feed)
+  if (topicShuffleBtn) {
+    topicShuffleBtn.onclick = () => {
+      triggerHaptic('light');
+      isTopicShuffled = !isTopicShuffled;
+      localStorage.setItem('teleshorts_topic_shuffle', isTopicShuffled ? '1' : '0');
+      updateTopicShuffleUI();
       renderShortsFeed();
     };
   }
