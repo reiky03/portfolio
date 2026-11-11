@@ -34,6 +34,7 @@ const SVG_ICONS = {
   'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
   'rotate-cw': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
   'maximize': '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  'minimize': '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
   'list-video': '<path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/>',
   'send': '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
   'folder': '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
@@ -2477,13 +2478,16 @@ function closeDramaReel() {
 // 3B. LANDSCAPE THEATER PLAYER (UNTUK DRAMA HORIZONTAL 16:9)
 // ============================================================
 const dramaLandscapeTheater = document.getElementById('drama-landscape-theater');
+const landscapeHeader = document.getElementById('landscape-header');
 const landscapeVideo = document.getElementById('landscape-video');
 const landscapeVideoContainer = document.getElementById('landscape-video-container');
 const exitLandscapeBackBtn = document.getElementById('exit-landscape-back-btn');
 const exitLandscapeBtn = document.getElementById('exit-landscape-btn');
 const landscapeLoadingIndicator = document.getElementById('landscape-loading-indicator');
 const landscapeDramaTitle = document.getElementById('landscape-drama-title');
+const landscapeAdultBadge = document.getElementById('landscape-adult-badge');
 const landscapeEpBadge = document.getElementById('landscape-ep-badge');
+const landscapeFitBtn = document.getElementById('landscape-fit-btn');
 const landscapeEpListBtn = document.getElementById('landscape-ep-list-btn');
 const landscapePlayIndicator = document.getElementById('landscape-play-indicator');
 const landscapeSeekLeft = document.getElementById('landscape-seek-left');
@@ -2508,34 +2512,148 @@ const closeLandscapeEpSheet = document.getElementById('close-landscape-ep-sheet'
 const landscapeSheetGrid = document.getElementById('landscape-sheet-grid');
 const landscapeSpeedBadge = document.getElementById('landscape-speed-badge');
 
+const LANDSCAPE_IDLE_HIDE_MS = 2800;
 let currentLandscapeDrama = null;
 let currentLandscapeEpIndex = 0;
 let lastLandscapeTapTime = 0;
 let landscapeTapTimer = null;
+let landscapeFitMode = 'auto'; // 'auto' | 'cover' | 'contain'
+let landscapeControlsTimer = null;
+let isLandscapeScrubbing = false;
+
+function syncLandscapeViewport() {
+  if (!dramaLandscapeTheater || dramaLandscapeTheater.classList.contains('hidden')) return;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (vh > vw) {
+    dramaLandscapeTheater.style.setProperty('--theater-vw', `${vw}px`);
+    dramaLandscapeTheater.style.setProperty('--theater-vh', `${vh}px`);
+    dramaLandscapeTheater.classList.add('rotate-mobile');
+  } else {
+    dramaLandscapeTheater.style.removeProperty('--theater-vw');
+    dramaLandscapeTheater.style.removeProperty('--theater-vh');
+    dramaLandscapeTheater.classList.remove('rotate-mobile');
+  }
+}
+
+function getEffectiveLandscapeCover() {
+  if (landscapeFitMode === 'cover') return true;
+  if (landscapeFitMode === 'contain') return false;
+  if (landscapeVideo && landscapeVideo.videoWidth > 0 && landscapeVideo.videoHeight > 0) {
+    // Auto fill edge-to-edge on landscape/near-square videos; contain tall vertical videos so faces aren't cropped
+    return landscapeVideo.videoHeight <= landscapeVideo.videoWidth * 1.15;
+  }
+  return true;
+}
+
+function applyLandscapeVideoFit() {
+  if (!landscapeVideo) return;
+  const useCover = getEffectiveLandscapeCover();
+  landscapeVideo.classList.toggle('object-cover', useCover);
+  landscapeVideo.classList.toggle('object-contain', !useCover);
+  if (landscapeFitBtn) {
+    landscapeFitBtn.innerHTML = `${iconSvg(useCover ? 'maximize' : 'minimize', 'w-3.5 h-3.5 text-amber-300')}<span>${useCover ? 'Penuh' : 'Pas'}</span>`;
+    landscapeFitBtn.className = useCover
+      ? 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 backdrop-blur-md border border-amber-400/50 text-amber-300 text-xs font-bold active:scale-95 transition-all'
+      : 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold active:scale-95 transition-all';
+  }
+}
+
+function isLandscapeControlsHidden() {
+  return Boolean(dramaLandscapeTheater && dramaLandscapeTheater.classList.contains('landscape-controls-hidden'));
+}
+
+function clearLandscapeControlsTimer() {
+  if (landscapeControlsTimer) {
+    clearTimeout(landscapeControlsTimer);
+    landscapeControlsTimer = null;
+  }
+}
+
+function hideLandscapeControls() {
+  if (!dramaLandscapeTheater || dramaLandscapeTheater.classList.contains('hidden')) return false;
+  if (!landscapeVideo || landscapeVideo.paused || landscapeVideo.ended) return false;
+  if (isLandscapeScrubbing) return false;
+  if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) return false;
+  clearLandscapeControlsTimer();
+  dramaLandscapeTheater.classList.add('landscape-controls-hidden');
+  return true;
+}
+
+function resetLandscapeControlsTimer(delay = LANDSCAPE_IDLE_HIDE_MS) {
+  clearLandscapeControlsTimer();
+  if (!dramaLandscapeTheater || dramaLandscapeTheater.classList.contains('hidden')) return;
+  if (!landscapeVideo || landscapeVideo.paused || landscapeVideo.ended) return;
+  if (isLandscapeScrubbing) return;
+  if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) return;
+  landscapeControlsTimer = setTimeout(() => {
+    hideLandscapeControls();
+  }, delay);
+}
+
+function showLandscapeControls(autoSchedule = true) {
+  if (!dramaLandscapeTheater) return;
+  dramaLandscapeTheater.classList.remove('landscape-controls-hidden');
+  if (autoSchedule) {
+    resetLandscapeControlsTimer();
+  } else {
+    clearLandscapeControlsTimer();
+  }
+}
+
+function getLandscapeNormalizedAxis(rect, clientX, clientY) {
+  if (dramaLandscapeTheater && dramaLandscapeTheater.classList.contains('rotate-mobile')) {
+    return (clientY - rect.top) / Math.max(1, rect.height);
+  }
+  return (clientX - rect.left) / Math.max(1, rect.width);
+}
+
+function toggleLandscapePlayState() {
+  if (!landscapeVideo) return;
+  if (landscapeVideo.paused) {
+    landscapeVideo.play()
+      .then(() => {
+        updateLandscapePlayBtn(true);
+        resetLandscapeControlsTimer();
+      })
+      .catch(() => updateLandscapePlayBtn(false));
+  } else {
+    landscapeVideo.pause();
+    updateLandscapePlayBtn(false);
+    showLandscapeControls(false);
+  }
+}
 
 function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
   triggerHaptic('medium');
   currentLandscapeDrama = drama;
   currentLandscapeEpIndex = startEpIdx;
+  landscapeFitMode = 'auto';
 
   // Pause all portrait videos
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => v.pause());
 
-  // Check orientation and apply mobile rotation if device is portrait
-  if (window.innerHeight > window.innerWidth) {
-    dramaLandscapeTheater.classList.add('rotate-mobile');
-  } else {
-    dramaLandscapeTheater.classList.remove('rotate-mobile');
-  }
+  dramaLandscapeTheater.classList.remove('hidden');
+  syncLandscapeViewport();
+  showLandscapeControls(false);
+  applyLandscapeVideoFit();
 
-  // Try screen orientation lock and fullscreen
+  // Request native fullscreen (allows Chrome Android orientation lock & hides browser bars)
+  try {
+    const reqFs = dramaLandscapeTheater.requestFullscreen
+      || dramaLandscapeTheater.webkitRequestFullscreen
+      || dramaLandscapeTheater.msRequestFullscreen;
+    if (reqFs && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      Promise.resolve(reqFs.call(dramaLandscapeTheater)).catch(() => {});
+    }
+  } catch (e) {}
+
   try {
     if (screen.orientation && screen.orientation.lock) {
       screen.orientation.lock('landscape').catch(() => {});
     }
   } catch (e) {}
 
-  dramaLandscapeTheater.classList.remove('hidden');
   playLandscapeEpisode(startEpIdx, startTime);
 }
 
@@ -2547,6 +2665,9 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
 
   currentLandscapeEpIndex = epIdx;
   landscapeDramaTitle.textContent = activeDrama.title;
+  if (landscapeAdultBadge) {
+    landscapeAdultBadge.classList.toggle('hidden', !isAdult18Item(activeDrama));
+  }
   landscapeEpBadge.textContent = activeDrama.total_episodes === 1
     ? (ep.duration || activeDrama.duration || 'Full Video')
     : `Episode ${ep.ep} / ${activeDrama.total_episodes}`;
@@ -2561,9 +2682,12 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   landscapeVideo.playbackRate = 1.0;
   if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
   updateLandscapeMuteBtn();
+  applyLandscapeVideoFit();
+  showLandscapeControls(true);
 
   let landscapeRetried = false;
   landscapeVideo.onloadedmetadata = () => {
+    applyLandscapeVideoFit();
     if (startTime > 0 && Number.isFinite(landscapeVideo.duration) && startTime < landscapeVideo.duration) {
       landscapeVideo.currentTime = startTime;
     }
@@ -2583,14 +2707,20 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
         if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
         landscapeVideo.src = streamSrc;
         landscapeVideo.load();
-        playVideoSafely(landscapeVideo, (ok) => updateLandscapePlayBtn(ok));
+        playVideoSafely(landscapeVideo, (ok) => {
+          updateLandscapePlayBtn(ok);
+          if (ok) resetLandscapeControlsTimer();
+        });
       }, 1200);
     } else {
       showToast('Gagal memutar episode, coba pilih ulang atau periksa koneksi.', 'alert-circle', 'rose', 3500);
     }
   };
 
-  playVideoSafely(landscapeVideo, (ok) => updateLandscapePlayBtn(ok));
+  playVideoSafely(landscapeVideo, (ok) => {
+    updateLandscapePlayBtn(ok);
+    if (ok) resetLandscapeControlsTimer();
+  });
 
   // Update prev / next buttons state
   landscapePrevEpBtn.style.opacity = epIdx > 0 ? '1' : '0.4';
@@ -2609,6 +2739,8 @@ function updateLandscapeMuteBtn() {
 
 function closeLandscapeTheater() {
   triggerHaptic('light');
+  clearLandscapeControlsTimer();
+  dramaLandscapeTheater.classList.remove('landscape-controls-hidden');
   if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
   const savedTime = landscapeVideo ? landscapeVideo.currentTime : 0;
   if (landscapeVideo) {
@@ -2620,6 +2752,16 @@ function closeLandscapeTheater() {
 
   dramaLandscapeTheater.classList.add('hidden');
   dramaLandscapeTheater.classList.remove('rotate-mobile');
+  dramaLandscapeTheater.style.removeProperty('--theater-vw');
+  dramaLandscapeTheater.style.removeProperty('--theater-vh');
+
+  try {
+    if (document.fullscreenElement === dramaLandscapeTheater && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitFullscreenElement === dramaLandscapeTheater && document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  } catch (e) {}
 
   try {
     if (screen.orientation && screen.orientation.unlock) {
@@ -2648,6 +2790,7 @@ function closeLandscapeTheater() {
 // In-Landscape Episode Sheet Drawer
 function openLandscapeEpisodeSheet() {
   if (!currentLandscapeDrama) return;
+  showLandscapeControls(false);
   landscapeSheetGrid.innerHTML = '';
 
   currentLandscapeDrama.episodes.forEach((ep, idx) => {
@@ -3976,12 +4119,44 @@ function setupEvents() {
   if (exitLandscapeBackBtn) {
     exitLandscapeBackBtn.onclick = closeLandscapeTheater;
   }
+  if (landscapeFitBtn) {
+    landscapeFitBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      const nextIsCover = !getEffectiveLandscapeCover();
+      landscapeFitMode = nextIsCover ? 'cover' : 'contain';
+      applyLandscapeVideoFit();
+      showToast(
+        nextIsCover ? 'Tampilan Layar Penuh (Isi Layar)' : 'Tampilan Pas (Rasio Asli)',
+        nextIsCover ? 'maximize' : 'minimize',
+        'amber',
+        1800
+      );
+      showLandscapeControls(true);
+    };
+  }
   if (landscapeEpListBtn) {
-    landscapeEpListBtn.onclick = openLandscapeEpisodeSheet;
+    landscapeEpListBtn.onclick = (e) => {
+      e.stopPropagation();
+      openLandscapeEpisodeSheet();
+    };
   }
   if (closeLandscapeEpSheet) {
-    closeLandscapeEpSheet.onclick = () => landscapeEpSheet.classList.add('hidden');
+    closeLandscapeEpSheet.onclick = () => {
+      landscapeEpSheet.classList.add('hidden');
+      resetLandscapeControlsTimer();
+    };
   }
+
+  // Keep controls visible while user actively touches/hovers top header or bottom bar
+  [landscapeHeader, landscapeFooter].forEach((bar) => {
+    if (!bar) return;
+    ['pointerdown', 'touchstart', 'pointermove'].forEach((evt) => {
+      bar.addEventListener(evt, () => {
+        if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
+      }, { passive: true });
+    });
+  });
 
   // Wire loading indicator di mode lanskap
   if (landscapeVideo && landscapeLoadingIndicator) {
@@ -3993,15 +4168,7 @@ function setupEvents() {
     landscapeTogglePlayBtn.onclick = (e) => {
       e.stopPropagation();
       triggerHaptic('light');
-      if (!landscapeVideo) return;
-      if (landscapeVideo.paused) {
-        landscapeVideo.play()
-          .then(() => updateLandscapePlayBtn(true))
-          .catch(() => updateLandscapePlayBtn(false));
-      } else {
-        landscapeVideo.pause();
-        updateLandscapePlayBtn(false);
-      }
+      toggleLandscapePlayState();
     };
   }
 
@@ -4017,6 +4184,7 @@ function setupEvents() {
         showToast(`Episode ${currentLandscapeDrama.episodes[nextIdx].ep} 🎬`, 'play', 'amber');
       } else {
         showToast('Ini episode terakhir beb! 🎉', 'check', 'amber');
+        showLandscapeControls(true);
       }
     };
   }
@@ -4033,6 +4201,7 @@ function setupEvents() {
         showToast(`Episode ${currentLandscapeDrama.episodes[prevIdx].ep} 🎬`, 'skip-back', 'amber');
       } else {
         showToast('Ini episode pertama beb!', 'alert-circle', 'zinc');
+        showLandscapeControls(true);
       }
     };
   }
@@ -4043,17 +4212,17 @@ function setupEvents() {
       e.stopPropagation();
       triggerHaptic('light');
       setGlobalMuted(!isMuted);
+      showLandscapeControls(true);
     };
   }
 
   // Interactive Scrubbing on Landscape Progress Bar (Click & Drag Timeline with Time Bubble)
   if (landscapeProgressTrack) {
-    let isLandscapeScrubbing = false;
-
-    function updateLandscapeScrub(clientX) {
+    function updateLandscapeScrub(clientX, clientY) {
       if (!landscapeVideo || !landscapeVideo.duration) return 0;
       const rect = landscapeProgressTrack.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const rawAxis = getLandscapeNormalizedAxis(rect, clientX, clientY);
+      const pct = Math.max(0, Math.min(1, rawAxis));
       if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct * 100}%`;
       const seekTime = pct * landscapeVideo.duration;
       if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(seekTime);
@@ -4070,15 +4239,16 @@ function setupEvents() {
       e.stopPropagation();
       if (!landscapeVideo || !landscapeVideo.duration) return;
       isLandscapeScrubbing = true;
+      clearLandscapeControlsTimer();
       if (landscapeScrubKnob) landscapeScrubKnob.classList.remove('scale-0');
-      const seekTime = updateLandscapeScrub(e.clientX);
+      const seekTime = updateLandscapeScrub(e.clientX, e.clientY);
       landscapeVideo.currentTime = seekTime;
       triggerHaptic('light');
 
       const onPointerMove = (ev) => {
         if (!isLandscapeScrubbing) return;
         ev.stopPropagation();
-        const curSeek = updateLandscapeScrub(ev.clientX);
+        const curSeek = updateLandscapeScrub(ev.clientX, ev.clientY);
         landscapeVideo.currentTime = curSeek;
       };
 
@@ -4086,11 +4256,13 @@ function setupEvents() {
         if (!isLandscapeScrubbing) return;
         isLandscapeScrubbing = false;
         ev.stopPropagation();
-        const finalSeek = updateLandscapeScrub(ev.clientX);
+        const finalSeek = updateLandscapeScrub(ev.clientX, ev.clientY);
         landscapeVideo.currentTime = finalSeek;
         if (landscapeScrubKnob) landscapeScrubKnob.classList.add('scale-0');
         if (landscapeScrubBubble) landscapeScrubBubble.classList.add('hidden');
-        landscapeVideo.play().catch(() => {});
+        landscapeVideo.play()
+          .then(() => resetLandscapeControlsTimer())
+          .catch(() => showLandscapeControls(false));
         triggerHaptic('light');
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
@@ -4116,15 +4288,26 @@ function setupEvents() {
     }
   }
 
-  // Landscape Video Listeners (Play, Pause, Auto-Next Ended)
+  // Landscape Video Listeners (Play, Playing, Waiting/Buffering, Pause, Auto-Next Ended)
   if (landscapeVideo) {
     landscapeVideo.addEventListener('play', () => {
       updateLandscapePlayBtn(true);
       if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '0';
+      if (landscapeVideo.readyState >= 3) resetLandscapeControlsTimer();
+    });
+    landscapeVideo.addEventListener('playing', () => {
+      updateLandscapePlayBtn(true);
+      if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '0';
+      resetLandscapeControlsTimer();
+    });
+    landscapeVideo.addEventListener('waiting', () => {
+      // Keep HUD available if user is currently seeing controls while buffering
+      if (!isLandscapeControlsHidden()) clearLandscapeControlsTimer();
     });
     landscapeVideo.addEventListener('pause', () => {
       updateLandscapePlayBtn(false);
       if (landscapePlayIndicator) landscapePlayIndicator.style.opacity = '1';
+      showLandscapeControls(false);
     });
 
     // OTOMATIS LANJUT KE EPISODE BERIKUTNYA SAAT EPISODE SELESAI
@@ -4139,11 +4322,12 @@ function setupEvents() {
       } else {
         showToast('Drama telah tamat! Selamat menonton 🎉', 'check', 'amber', 4000);
         updateLandscapePlayBtn(false);
+        showLandscapeControls(false);
       }
     });
   }
 
-  // Long Press (Hold 2X Speed) & Single Tap (Jeda / Putar) di Landscape Theater
+  // Long Press (Hold 2X Speed), Single Tap (Auto-Hide HUD Toggle / Resume), & Double Tap (-10s/+10s)
   if (landscapeVideoContainer && landscapeVideo) {
     let longPressTimer = null;
     let isHolding2x = false;
@@ -4187,6 +4371,9 @@ function setupEvents() {
     });
 
     landscapeVideoContainer.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' && (e.movementX || e.movementY) && !isHolding2x && !isLandscapeScrubbing) {
+        showLandscapeControls(true);
+      }
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
       if (dx > 12 || dy > 12) {
@@ -4211,7 +4398,7 @@ function setupEvents() {
     landscapeVideoContainer.addEventListener('pointercancel', stopLandscapeLongPress);
     landscapeVideoContainer.addEventListener('pointerleave', stopLandscapeLongPress);
 
-    // 2. TEKAN 1X -> JEDA / PUTAR VIDEO LANGSUNG (Dan Double Tap Seek -10s / +10s)
+    // 2. TEKAN 1X -> Tampilkan / Sembunyikan Kontrol HUD (atau Putar jika Jeda) + Double Tap Seek -10s / +10s
     landscapeVideoContainer.addEventListener('click', (e) => {
       if (justFinishedHold || isHolding2x || hasMoved) return;
       if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
@@ -4220,8 +4407,7 @@ function setupEvents() {
 
       const now = Date.now();
       const rect = landscapeVideoContainer.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const width = rect.width;
+      const axisRatio = getLandscapeNormalizedAxis(rect, e.clientX, e.clientY);
       const tapInterval = now - lastTapTime;
 
       if (tapInterval < 260 && tapInterval > 0) {
@@ -4229,36 +4415,30 @@ function setupEvents() {
         clearTimeout(tapTimeout);
         triggerHaptic('medium');
 
-        if (clickX < width * 0.35) {
+        if (axisRatio < 0.35) {
           // Mundur 10 detik
           landscapeVideo.currentTime = Math.max(0, landscapeVideo.currentTime - 10);
           flashFeedback(landscapeSeekLeft);
-        } else if (clickX > width * 0.65) {
+          if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
+        } else if (axisRatio > 0.65) {
           // Maju 10 detik
           landscapeVideo.currentTime = Math.min(landscapeVideo.duration || 9999, landscapeVideo.currentTime + 10);
           flashFeedback(landscapeSeekRight);
+          if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
         } else {
           // Tengah: Toggle play / pause
-          if (landscapeVideo.paused) {
-            landscapeVideo.play()
-              .then(() => updateLandscapePlayBtn(true))
-              .catch(() => updateLandscapePlayBtn(false));
-          } else {
-            landscapeVideo.pause();
-            updateLandscapePlayBtn(false);
-          }
+          toggleLandscapePlayState();
         }
       } else {
-        // SINGLE TAP: Jeda / Putar Video langsung!
+        // SINGLE TAP: Reveal HUD if hidden, toggle HUD off while playing, or resume if paused
         tapTimeout = setTimeout(() => {
           triggerHaptic('light');
-          if (landscapeVideo.paused) {
-            landscapeVideo.play()
-              .then(() => updateLandscapePlayBtn(true))
-              .catch(() => updateLandscapePlayBtn(false));
+          if (isLandscapeControlsHidden()) {
+            showLandscapeControls(true);
+          } else if (landscapeVideo.paused) {
+            toggleLandscapePlayState();
           } else {
-            landscapeVideo.pause();
-            updateLandscapePlayBtn(false);
+            hideLandscapeControls();
           }
         }, 180);
       }
@@ -4266,16 +4446,10 @@ function setupEvents() {
     });
   }
 
-  // Auto handle orientation resize
-  window.addEventListener('resize', () => {
-    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
-      if (window.innerHeight > window.innerWidth) {
-        dramaLandscapeTheater.classList.add('rotate-mobile');
-      } else {
-        dramaLandscapeTheater.classList.remove('rotate-mobile');
-      }
-    }
-  });
+  // Auto handle orientation resize / fullscreen change
+  window.addEventListener('resize', syncLandscapeViewport);
+  window.addEventListener('orientationchange', syncLandscapeViewport);
+  document.addEventListener('fullscreenchange', syncLandscapeViewport);
 
   // Profile Tab Buttons
   profileTabLikes.onclick = () => {

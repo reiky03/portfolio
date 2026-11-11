@@ -85,17 +85,40 @@
       background: #000;
     }
 
-    /* Mobile Rotate for Landscape Theater if phone held in portrait */
+    /* Mobile Rotate & Full-Bleed Cinema Controls for Landscape Theater */
+    #drama-landscape-theater:fullscreen {
+      width: 100% !important;
+      height: 100% !important;
+      inset: 0 !important;
+    }
     @media (orientation: portrait) {
       #drama-landscape-theater.rotate-mobile {
         transform: rotate(90deg);
         transform-origin: center center;
-        width: 100dvh !important;
-        height: 100dvw !important;
+        width: var(--theater-vh, 100dvh) !important;
+        height: var(--theater-vw, 100dvw) !important;
+        max-width: none !important;
+        max-height: none !important;
         position: fixed !important;
-        top: calc((100dvh - 100dvw) / 2) !important;
-        left: calc((100dvw - 100dvh) / 2) !important;
+        top: calc((var(--theater-vh, 100dvh) - var(--theater-vw, 100dvw)) / 2) !important;
+        left: calc((var(--theater-vw, 100dvw) - var(--theater-vh, 100dvh)) / 2) !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin: 0 !important;
       }
+    }
+    #drama-landscape-theater.landscape-controls-hidden #landscape-header {
+      opacity: 0;
+      transform: translateY(-14px);
+      pointer-events: none;
+    }
+    #drama-landscape-theater.landscape-controls-hidden #landscape-footer {
+      opacity: 0;
+      transform: translateY(14px);
+      pointer-events: none;
+    }
+    #drama-landscape-theater.landscape-controls-hidden #landscape-video-container {
+      cursor: none;
     }
 
     .top-gradient {
@@ -806,30 +829,34 @@
   <!-- ============================================================ -->
   <!-- 8. DRAMA LANDSCAPE THEATER (UNTUK VIDEO HORIZONTAL 16:9) -->
   <!-- ============================================================ -->
-  <div id="drama-landscape-theater" class="hidden fixed inset-0 z-[70] bg-black flex flex-col justify-between select-none overflow-hidden">
+  <div id="drama-landscape-theater" class="hidden fixed inset-0 w-screen h-[100dvh] z-[70] bg-black flex flex-col justify-between select-none overflow-hidden">
     
     <!-- Top Bar Controls -->
-    <header class="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/90 via-black/40 to-transparent p-4 flex items-center justify-between text-white pointer-events-auto transition-opacity duration-300">
-      <div class="flex items-center gap-3">
+    <header id="landscape-header" class="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/85 via-black/35 to-transparent px-3 py-2.5 sm:p-4 flex items-center justify-between text-white pointer-events-auto transition-all duration-300 ease-out">
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <!-- Tombol Panah Kembali di Pojok Kiri Atas Lanskap -->
-        <button id="exit-landscape-back-btn" class="w-10 h-10 rounded-full bg-black/65 hover:bg-black/90 active:scale-75 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-xl transition-all cursor-pointer" aria-label="Kembali" title="Kembali ke Tampilan Utama">
+        <button id="exit-landscape-back-btn" class="w-10 h-10 rounded-full bg-black/65 hover:bg-black/90 active:scale-75 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-xl transition-all cursor-pointer shrink-0" aria-label="Kembali" title="Kembali ke Tampilan Utama">
           <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
         </button>
 
-        <button id="exit-landscape-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs font-bold active:scale-95 transition-all">
+        <button id="exit-landscape-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs font-bold active:scale-95 transition-all shrink-0">
           <i data-lucide="minimize-2" class="w-4 h-4"></i>
-          <span>Keluar Lanskap</span>
+          <span>Keluar</span>
         </button>
-        <div>
+        <div class="min-w-0">
           <div class="flex items-center gap-1.5">
-            <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1 max-w-[200px]">Judul Drama</h3>
-            <span class="px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
+            <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1 max-w-[180px] sm:max-w-[260px]">Judul Drama</h3>
+            <span id="landscape-adult-badge" class="hidden px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
           </div>
           <span id="landscape-ep-badge" class="text-xs text-amber-400 font-semibold">Episode 1 / 50</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="landscape-fit-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 backdrop-blur-md border border-amber-400/50 text-amber-300 text-xs font-bold active:scale-95 transition-all" aria-label="Ubah Ukuran Layar" title="Penuh / Pas Layar">
+          <i data-lucide="maximize" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span>Penuh</span>
+        </button>
         <button id="landscape-ep-list-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
           <i data-lucide="list-video" class="w-4 h-4"></i>
           <span>Daftar Ep</span>
@@ -847,7 +874,7 @@
     <div id="landscape-video-container" class="relative w-full h-full flex items-center justify-center bg-black overflow-hidden cursor-pointer">
       <video 
         id="landscape-video" 
-        class="w-full h-full object-contain"
+        class="w-full h-full object-cover"
         playsinline
         webkit-playsinline
         preload="auto"
@@ -882,7 +909,7 @@
     </div>
 
     <!-- Bottom Controls Overlay -->
-    <footer id="landscape-footer" class="absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pb-safe space-y-2 pointer-events-auto transition-opacity duration-300">
+    <footer id="landscape-footer" class="absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-3 pb-3 pb-safe space-y-2 pointer-events-auto transition-all duration-300 ease-out">
       <!-- Progress Bar & Scrubbing (Interactive Timeline with Time Bubble) -->
       <div class="relative flex items-center gap-3 py-1">
         <!-- Floating Time Bubble while dragging in Landscape -->
@@ -1129,6 +1156,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=3.2.0"></script>
+  <script src="app.js?v=3.3.0"></script>
 </body>
 </html>
