@@ -1555,8 +1555,9 @@ function openDramaReel(drama, startEpIndex = 0) {
   reelDramaTitle.textContent = drama.title;
   updateReelEpBadge(startEpIndex);
 
-  // Buat vertical slides untuk SEMUA episode di drama ini!
-  renderDramaReelSlides(drama);
+  // Buat vertical slides untuk SEMUA episode (lazy hydrate window di sekitar episode awal)
+  renderDramaReelSlides(drama, startEpIndex);
+  syncDramaSlideSources(startEpIndex);
 
   // Buka modal reel
   dramaReelModal.classList.remove('hidden');
@@ -1584,7 +1585,29 @@ function updateReelEpBadge(epIdx) {
   reelCurrentEpBadge.textContent = `Episode ${epNum} / ${currentPlayingDrama.total_episodes}`;
 }
 
-function renderDramaReelSlides(drama) {
+function syncDramaSlideSources(centerIdx) {
+  if (!dramaEpisodesReel) return;
+  const slides = Array.from(dramaEpisodesReel.children);
+  slides.forEach((slide, idx) => {
+    const video = slide.querySelector('video');
+    if (!video || !video.dataset.src) return;
+    const dist = Math.abs(idx - centerIdx);
+    const hasSrc = Boolean(video.getAttribute('src'));
+
+    if (dist <= 2) {
+      if (!hasSrc) {
+        video.src = video.dataset.src;
+      }
+      video.preload = idx === centerIdx || idx === centerIdx + 1 ? 'auto' : 'metadata';
+    } else if (dist > 5 && hasSrc) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
+  });
+}
+
+function renderDramaReelSlides(drama, startEpIndex = 0) {
   dramaEpisodesReel.innerHTML = '';
 
   const isHorizontal = drama.orientation === 'horizontal';
@@ -1610,14 +1633,16 @@ function renderDramaReelSlides(drama) {
     const streamSrc = ep.gdrive_file_id 
       ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
       : ep.video_url;
+    const shouldHydrateNow = Math.abs(idx - startEpIndex) <= 2;
 
     slide.innerHTML = `
       <video 
         class="video-player ${isHorizontal ? 'fit-contain' : ''}"
-        src="${streamSrc}"
+        data-src="${streamSrc}"
+        ${shouldHydrateNow ? `src="${streamSrc}"` : ''}
         playsinline
         webkit-playsinline
-        preload="${idx <= 1 ? 'auto' : 'metadata'}"
+        preload="${idx === startEpIndex || idx === startEpIndex + 1 ? 'auto' : 'metadata'}"
         ${isMuted ? 'muted' : ''}
       ></video>
 
@@ -1629,6 +1654,19 @@ function renderDramaReelSlides(drama) {
           <svg class="w-5 h-5 text-amber-400 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/></svg>
         </div>
         <span class="mt-3 text-xs font-semibold text-zinc-200 tracking-wide drop-shadow">Memuat episode...</span>
+      </div>
+
+      <!-- Error / Retry Overlay for Drama Slide -->
+      <div class="reel-error-overlay hidden absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm z-30 px-6 text-center">
+        <div class="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-400 mb-3">
+          <i data-lucide="wifi-off" class="w-6 h-6"></i>
+        </div>
+        <p class="text-sm font-bold text-white mb-1">Video gagal dimuat</p>
+        <p class="text-[11px] text-zinc-400 mb-4 max-w-xs">Koneksi ke server video sempat terputus. Coba muat ulang episode ini.</p>
+        <button class="reel-retry-btn px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          <span>Coba Lagi</span>
+        </button>
       </div>
 
       <!-- Gradient Overlay -->
@@ -1742,6 +1780,8 @@ function renderDramaReelSlides(drama) {
 function setupDramaSlideGestures(slide, drama, ep, idx) {
   const video = slide.querySelector('video');
   const loaderEl = slide.querySelector('.reel-loading-indicator');
+  const errorOverlay = slide.querySelector('.reel-error-overlay');
+  const retryBtn = slide.querySelector('.reel-retry-btn');
   const playIndicator = slide.querySelector('.play-indicator');
   const likeBtn = slide.querySelector('.reel-like-ep-btn');
   const heartIcon = slide.querySelector('.ep-heart-svg');
@@ -1771,9 +1811,53 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // Video Buffering / Loading Indicator
+  // Video Buffering / Loading Indicator & Auto-Retry Error Handling
+  let autoRetried = false;
   if (video && loaderEl) {
     wireVideoLoadingIndicator(video, loaderEl);
+  }
+  if (video) {
+    const hideError = () => {
+      if (errorOverlay) errorOverlay.classList.add('hidden');
+      autoRetried = false;
+    };
+    video.addEventListener('loadeddata', hideError);
+    video.addEventListener('canplay', hideError);
+    video.addEventListener('playing', hideError);
+    video.addEventListener('error', () => {
+      if (!video.getAttribute('src')) return;
+      if (!autoRetried) {
+        autoRetried = true;
+        if (loaderEl) loaderEl.classList.remove('hidden');
+        setTimeout(() => {
+          if (dramaReelModal.classList.contains('hidden')) return;
+          const src = video.dataset.src;
+          if (!src) return;
+          video.src = src;
+          video.load();
+          video.play().catch(() => {});
+        }, 1200);
+        return;
+      }
+      if (loaderEl) loaderEl.classList.add('hidden');
+      if (errorOverlay) errorOverlay.classList.remove('hidden');
+    });
+  }
+  if (retryBtn && video) {
+    retryBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('medium');
+      if (errorOverlay) errorOverlay.classList.add('hidden');
+      if (loaderEl) loaderEl.classList.remove('hidden');
+      autoRetried = true;
+      const src = video.dataset.src;
+      if (src) {
+        video.src = src;
+        video.load();
+        video.muted = isMuted;
+        video.play().catch(() => {});
+      }
+    };
   }
 
   // 1. Duration & Progress Bar Updates
@@ -1879,6 +1963,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     return target.closest('button') || 
            target.closest('.z-20') || 
            target.closest('.reel-scrubber') ||
+           target.closest('.reel-error-overlay') ||
            target.closest('.open-landscape-slide-btn');
   }
 
@@ -2017,12 +2102,13 @@ function setupDramaReelObserver() {
       if (entry.isIntersecting && !dramaReelModal.classList.contains('hidden')) {
         currentReelEpisodeIndex = idx;
         updateReelEpBadge(idx);
+        syncDramaSlideSources(idx);
         video.muted = isMuted;
         const p = video.play();
         if (p) p.catch(() => {});
       } else {
         video.pause();
-        video.currentTime = 0;
+        if (video.readyState > 0) video.currentTime = 0;
       }
     });
   }, { root: dramaEpisodesReel, threshold: 0.65 });
@@ -2060,6 +2146,7 @@ function renderReelSheetGrid() {
 
     btn.onclick = () => {
       reelEpSheet.classList.add('hidden');
+      syncDramaSlideSources(idx);
       const targetSlide = dramaEpisodesReel.children[idx];
       if (targetSlide) {
         targetSlide.scrollIntoView({ behavior: 'smooth' });
@@ -2076,7 +2163,10 @@ function closeDramaReel() {
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => {
     v.playbackRate = 1.0;
     v.pause();
-    v.currentTime = 0;
+    if (v.getAttribute('src')) {
+      v.removeAttribute('src');
+      v.load();
+    }
   });
   dramaReelModal.classList.add('hidden');
   reelEpSheet.classList.add('hidden');
@@ -2174,9 +2264,28 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
   updateLandscapeMuteBtn();
 
+  let landscapeRetried = false;
   landscapeVideo.onloadedmetadata = () => {
     if (startTime > 0) landscapeVideo.currentTime = startTime;
     landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration || 0);
+  };
+  landscapeVideo.onloadeddata = () => {
+    landscapeRetried = false;
+  };
+  landscapeVideo.onerror = () => {
+    if (!landscapeVideo.getAttribute('src') || dramaLandscapeTheater.classList.contains('hidden')) return;
+    if (!landscapeRetried) {
+      landscapeRetried = true;
+      if (landscapeLoadingIndicator) landscapeLoadingIndicator.classList.remove('hidden');
+      setTimeout(() => {
+        if (dramaLandscapeTheater.classList.contains('hidden')) return;
+        landscapeVideo.src = streamSrc;
+        landscapeVideo.load();
+        landscapeVideo.play().catch(() => {});
+      }, 1200);
+    } else {
+      showToast('Gagal memutar episode, coba pilih ulang atau periksa koneksi.', 'alert-circle', 'rose', 3500);
+    }
   };
 
   const playPromise = landscapeVideo.play();
@@ -2227,6 +2336,7 @@ function closeLandscapeTheater() {
   if (currentLandscapeDrama && !dramaReelModal.classList.contains('hidden')) {
     currentReelEpisodeIndex = currentLandscapeEpIndex;
     updateReelEpBadge(currentLandscapeEpIndex);
+    syncDramaSlideSources(currentLandscapeEpIndex);
     const targetSlide = dramaEpisodesReel.children[currentLandscapeEpIndex];
     if (targetSlide) {
       targetSlide.scrollIntoView({ behavior: 'auto' });
