@@ -30,6 +30,7 @@ const SVG_ICONS = {
   'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
   'pause': '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
   'skip-back': '<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>',
+  'skip-forward': '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
   'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
   'volume-x': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
   'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
@@ -58,7 +59,9 @@ const SVG_ICONS = {
   'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
   'link': '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-  'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'
+  'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  'lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  'unlock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>'
 };
 
 function iconSvg(name, cls = 'w-4 h-4') {
@@ -495,8 +498,8 @@ const modalEpisodeList = document.getElementById('modal-episode-list');
 const dramaReelModal = document.getElementById('drama-reel-modal');
 const closeDramaReelBtn = document.getElementById('close-drama-reel-btn');
 const reelDramaTitle = document.getElementById('reel-drama-title');
+const reelAdultBadge = document.getElementById('reel-adult-badge');
 const reelCurrentEpBadge = document.getElementById('reel-current-ep-badge');
-const reelOpenEpSheetBtn = document.getElementById('reel-open-ep-sheet-btn');
 const reelSpeedBadge = document.getElementById('reel-speed-badge');
 const reelSeekLeft = document.getElementById('reel-seek-left');
 const reelSeekRight = document.getElementById('reel-seek-right');
@@ -1853,6 +1856,9 @@ function openDramaReel(drama, startEpIndex = 0) {
   if (currentPlayingShortVideo) currentPlayingShortVideo.pause();
 
   reelDramaTitle.textContent = drama.title;
+  if (reelAdultBadge) {
+    reelAdultBadge.classList.toggle('hidden', !isAdult18Item(drama));
+  }
   updateReelEpBadge(startEpIndex);
 
   // Buat vertical slides untuk semua episode tanpa mengaktifkan observer dulu (cegah ep 1 sempat autoplay)
@@ -1883,7 +1889,7 @@ function updateReelEpBadge(epIdx) {
   const epNum = ep ? ep.ep : epIdx + 1;
   reelCurrentEpBadge.textContent = currentPlayingDrama.total_episodes === 1
     ? (ep?.duration || currentPlayingDrama.duration || 'Full Video')
-    : `Episode ${epNum} / ${currentPlayingDrama.total_episodes}`;
+    : `${epNum} / ${currentPlayingDrama.total_episodes}`;
 }
 
 function syncDramaSlideSources(centerIdx) {
@@ -1982,16 +1988,6 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
         </div>
       </div>
 
-      <!-- Floating Center Landscape Button for Horizontal Video -->
-      ${isHorizontal ? `
-        <div class="absolute inset-x-0 bottom-36 flex items-center justify-center pointer-events-none z-30">
-          <button class="open-landscape-slide-btn pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-2xl border border-amber-300 active:scale-95 transition-all">
-            ${iconSvg('maximize', 'w-4 h-4')}
-            <span>⛶ Tonton Mode Lanskap Penuh</span>
-          </button>
-        </div>
-      ` : ''}
-
       <!-- RIGHT ACTION SIDEBAR (PERSIS TIKTOK/MELOLO) -->
       <div class="absolute right-3 bottom-12 flex flex-col items-center gap-4 z-20">
         
@@ -2013,12 +2009,12 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
           <span class="text-[10px] font-semibold text-zinc-300">Ep ${ep.ep}</span>
         </div>
 
-        <!-- Kirim ke Chat Bot -->
+        <!-- Mode Lanskap -->
         <div class="flex flex-col items-center gap-1">
-          <button class="reel-chat-btn w-11 h-11 rounded-full bg-rose-600/90 backdrop-blur-md border border-rose-400/40 flex items-center justify-center text-white shadow-lg active:scale-75 transition-all" aria-label="Bagikan ke Chat">
-            ${iconSvg('send', 'w-4 h-4 text-white -mr-0.5')}
+          <button class="reel-landscape-slide-btn w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-amber-400/40 flex items-center justify-center text-amber-400 shadow-lg active:scale-75 transition-all" aria-label="Mode Lanskap" title="Mode Lanskap">
+            ${iconSvg('maximize', 'w-5 h-5 text-amber-400')}
           </button>
-          <span class="text-[9px] font-bold text-rose-300 uppercase">Chat</span>
+          <span class="text-[10px] font-semibold text-amber-300">Lanskap</span>
         </div>
 
         <!-- Mute Audio -->
@@ -2032,11 +2028,11 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
 
       <!-- BOTTOM METADATA & INTERACTIVE PROGRESS -->
       <div class="absolute left-4 right-20 bottom-8 z-20 space-y-2 pointer-events-auto">
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] font-extrabold bg-amber-500 text-black px-2 py-0.5 rounded uppercase">
-            Episode ${ep.ep}
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-[10px] font-extrabold bg-amber-500 text-black min-w-[22px] text-center px-1.5 py-0.5 rounded shrink-0">
+            ${ep.ep}
           </span>
-          <span class="text-xs font-bold text-white drop-shadow">
+          <span class="text-xs font-bold text-white drop-shadow truncate">
             ${safeDramaTitle}
           </span>
         </div>
@@ -2090,7 +2086,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   const heartIcon = slide.querySelector('.ep-heart-svg');
   const likeLabel = slide.querySelector('.ep-like-label');
   const epListBtn = slide.querySelector('.reel-ep-list-btn');
-  const chatBtn = slide.querySelector('.reel-chat-btn');
+  const landscapeSlideBtn = slide.querySelector('.reel-landscape-slide-btn');
   const muteBtn = slide.querySelector('.reel-mute-btn');
 
   // Interactive Scrubber Elements
@@ -2266,8 +2262,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     return target.closest('button') || 
            target.closest('.z-20') || 
            target.closest('.reel-scrubber') ||
-           target.closest('.reel-error-overlay') ||
-           target.closest('.open-landscape-slide-btn');
+           target.closest('.reel-error-overlay');
   }
 
   slide.addEventListener('pointerdown', (e) => {
@@ -2363,17 +2358,13 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     openReelEpisodeSheet();
   };
 
-  // 7. Chat Bot
-  chatBtn.onclick = (e) => {
-    e.stopPropagation();
-    triggerHaptic('medium');
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('ep_' + ep.message_id)}`);
-    } else {
-      navigator.clipboard?.writeText(`${drama.title} - Ep ${ep.ep}: ${window.location.href}`).catch(() => {});
-      showToast(`Info Ep #${ep.ep} "${drama.title}" disalin! 📋`, 'send', 'amber');
-    }
-  };
+  // 7. Tombol Mode Lanskap di Sidebar Kanan Slide
+  if (landscapeSlideBtn) {
+    landscapeSlideBtn.onclick = (e) => {
+      e.stopPropagation();
+      openLandscapeTheater(drama, idx, video.currentTime);
+    };
+  }
 
   // 8. Mute Audio (Null-safe inline SVG toggle)
   muteBtn.onclick = (e) => {
@@ -2381,15 +2372,6 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     triggerHaptic('light');
     setGlobalMuted(!isMuted);
   };
-
-  // 9. Tombol Tonton Mode Lanskap di Layar Slide
-  const openLandscapeSlideBtn = slide.querySelector('.open-landscape-slide-btn');
-  if (openLandscapeSlideBtn) {
-    openLandscapeSlideBtn.onclick = (e) => {
-      e.stopPropagation();
-      openLandscapeTheater(drama, idx, video.currentTime);
-    };
-  }
 }
 
 function setupDramaReelObserver() {
@@ -2495,6 +2477,9 @@ const landscapeLoadingIndicator = document.getElementById('landscape-loading-ind
 const landscapeDramaTitle = document.getElementById('landscape-drama-title');
 const landscapeAdultBadge = document.getElementById('landscape-adult-badge');
 const landscapeEpBadge = document.getElementById('landscape-ep-badge');
+const landscapeLockBtn = document.getElementById('landscape-lock-btn');
+const landscapeUnlockPill = document.getElementById('landscape-unlock-pill');
+const landscapeUnlockBtn = document.getElementById('landscape-unlock-btn');
 const landscapeFitBtn = document.getElementById('landscape-fit-btn');
 const landscapeEpListBtn = document.getElementById('landscape-ep-list-btn');
 const landscapePlayIndicator = document.getElementById('landscape-play-indicator');
@@ -2525,9 +2510,11 @@ let currentLandscapeDrama = null;
 let currentLandscapeEpIndex = 0;
 let lastLandscapeTapTime = 0;
 let landscapeTapTimer = null;
-let landscapeFitMode = 'auto'; // 'auto' | 'cover' | 'contain'
+let landscapeFitMode = 'contain'; // 'contain' (Pas) | 'cover' (Penuh)
 let landscapeControlsTimer = null;
 let isLandscapeScrubbing = false;
+let isLandscapeLocked = false;
+let landscapeUnlockHintTimer = null;
 
 function syncLandscapeViewport() {
   if (!dramaLandscapeTheater || dramaLandscapeTheater.classList.contains('hidden')) return;
@@ -2545,13 +2532,7 @@ function syncLandscapeViewport() {
 }
 
 function getEffectiveLandscapeCover() {
-  if (landscapeFitMode === 'cover') return true;
-  if (landscapeFitMode === 'contain') return false;
-  if (landscapeVideo && landscapeVideo.videoWidth > 0 && landscapeVideo.videoHeight > 0) {
-    // Auto fill edge-to-edge on landscape/near-square videos; contain tall vertical videos so faces aren't cropped
-    return landscapeVideo.videoHeight <= landscapeVideo.videoWidth * 1.15;
-  }
-  return true;
+  return landscapeFitMode === 'cover';
 }
 
 function applyLandscapeVideoFit() {
@@ -2588,8 +2569,52 @@ function hideLandscapeControls() {
   return true;
 }
 
+function clearLandscapeUnlockHintTimer() {
+  if (landscapeUnlockHintTimer) {
+    clearTimeout(landscapeUnlockHintTimer);
+    landscapeUnlockHintTimer = null;
+  }
+}
+
+function revealLandscapeUnlockHint(autoHideMs = 2400) {
+  if (!landscapeUnlockPill || !isLandscapeLocked) return;
+  clearLandscapeUnlockHintTimer();
+  landscapeUnlockPill.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+  landscapeUnlockPill.classList.add('opacity-100');
+  if (autoHideMs > 0) {
+    landscapeUnlockHintTimer = setTimeout(() => {
+      if (!landscapeUnlockPill) return;
+      landscapeUnlockPill.classList.remove('opacity-100');
+      landscapeUnlockPill.classList.add('opacity-0', 'pointer-events-none');
+    }, autoHideMs);
+  }
+}
+
+function setLandscapeLocked(locked) {
+  isLandscapeLocked = Boolean(locked);
+  clearLandscapeUnlockHintTimer();
+  if (dramaLandscapeTheater) {
+    dramaLandscapeTheater.classList.toggle('landscape-locked', isLandscapeLocked);
+  }
+  if (landscapeLockBtn) {
+    landscapeLockBtn.innerHTML = iconSvg(isLandscapeLocked ? 'unlock' : 'lock', 'w-4 h-4');
+  }
+  if (isLandscapeLocked) {
+    clearLandscapeControlsTimer();
+    if (landscapeEpSheet) landscapeEpSheet.classList.add('hidden');
+    revealLandscapeUnlockHint(2200);
+  } else {
+    if (landscapeUnlockPill) {
+      landscapeUnlockPill.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+      landscapeUnlockPill.classList.remove('opacity-100');
+    }
+    showLandscapeControls(true);
+  }
+}
+
 function resetLandscapeControlsTimer(delay = LANDSCAPE_IDLE_HIDE_MS) {
   clearLandscapeControlsTimer();
+  if (isLandscapeLocked) return;
   if (!dramaLandscapeTheater || dramaLandscapeTheater.classList.contains('hidden')) return;
   if (!landscapeVideo || landscapeVideo.paused || landscapeVideo.ended) return;
   if (isLandscapeScrubbing) return;
@@ -2600,7 +2625,7 @@ function resetLandscapeControlsTimer(delay = LANDSCAPE_IDLE_HIDE_MS) {
 }
 
 function showLandscapeControls(autoSchedule = true) {
-  if (!dramaLandscapeTheater) return;
+  if (!dramaLandscapeTheater || isLandscapeLocked) return;
   dramaLandscapeTheater.classList.remove('landscape-controls-hidden');
   if (autoSchedule) {
     resetLandscapeControlsTimer();
@@ -2617,7 +2642,7 @@ function getLandscapeNormalizedAxis(rect, clientX, clientY) {
 }
 
 function toggleLandscapePlayState() {
-  if (!landscapeVideo) return;
+  if (!landscapeVideo || isLandscapeLocked) return;
   if (landscapeVideo.paused) {
     landscapeVideo.play()
       .then(() => {
@@ -2636,7 +2661,8 @@ function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
   triggerHaptic('medium');
   currentLandscapeDrama = drama;
   currentLandscapeEpIndex = startEpIdx;
-  landscapeFitMode = 'auto';
+  landscapeFitMode = 'contain';
+  setLandscapeLocked(false);
 
   // Pause all portrait videos
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => v.pause());
@@ -2645,16 +2671,6 @@ function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
   syncLandscapeViewport();
   showLandscapeControls(false);
   applyLandscapeVideoFit();
-
-  // Request native fullscreen (allows Chrome Android orientation lock & hides browser bars)
-  try {
-    const reqFs = dramaLandscapeTheater.requestFullscreen
-      || dramaLandscapeTheater.webkitRequestFullscreen
-      || dramaLandscapeTheater.msRequestFullscreen;
-    if (reqFs && !document.fullscreenElement && !document.webkitFullscreenElement) {
-      Promise.resolve(reqFs.call(dramaLandscapeTheater)).catch(() => {});
-    }
-  } catch (e) {}
 
   try {
     if (screen.orientation && screen.orientation.lock) {
@@ -2678,7 +2694,7 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   }
   landscapeEpBadge.textContent = activeDrama.total_episodes === 1
     ? (ep.duration || activeDrama.duration || 'Full Video')
-    : `Episode ${ep.ep} / ${activeDrama.total_episodes}`;
+    : `${ep.ep} / ${activeDrama.total_episodes}`;
 
   // Stream URL with proxy
   const streamSrc = ep.gdrive_file_id 
@@ -2747,6 +2763,7 @@ function updateLandscapeMuteBtn() {
 
 function closeLandscapeTheater() {
   triggerHaptic('light');
+  setLandscapeLocked(false);
   clearLandscapeControlsTimer();
   dramaLandscapeTheater.classList.remove('landscape-controls-hidden');
   if (landscapeSpeedBadge) landscapeSpeedBadge.classList.add('hidden');
@@ -2762,14 +2779,6 @@ function closeLandscapeTheater() {
   dramaLandscapeTheater.classList.remove('rotate-mobile');
   dramaLandscapeTheater.style.removeProperty('--theater-vw');
   dramaLandscapeTheater.style.removeProperty('--theater-vh');
-
-  try {
-    if (document.fullscreenElement === dramaLandscapeTheater && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
-    } else if (document.webkitFullscreenElement === dramaLandscapeTheater && document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    }
-  } catch (e) {}
 
   try {
     if (screen.orientation && screen.orientation.unlock) {
@@ -3975,7 +3984,6 @@ function setupEvents() {
 
   // Drama Reel Close
   closeDramaReelBtn.onclick = closeDramaReel;
-  reelOpenEpSheetBtn.onclick = openReelEpisodeSheet;
   closeReelEpSheet.onclick = () => reelEpSheet.classList.add('hidden');
 
   // Header Landscape Toggle Button in Drama Reel
@@ -3999,25 +4007,35 @@ function setupEvents() {
   if (exitLandscapeBackBtn) {
     exitLandscapeBackBtn.onclick = closeLandscapeTheater;
   }
+  if (landscapeLockBtn) {
+    landscapeLockBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      setLandscapeLocked(!isLandscapeLocked);
+    };
+  }
+  if (landscapeUnlockBtn) {
+    landscapeUnlockBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      setLandscapeLocked(false);
+    };
+  }
   if (landscapeFitBtn) {
     landscapeFitBtn.onclick = (e) => {
       e.stopPropagation();
+      if (isLandscapeLocked) return;
       triggerHaptic('light');
       const nextIsCover = !getEffectiveLandscapeCover();
       landscapeFitMode = nextIsCover ? 'cover' : 'contain';
       applyLandscapeVideoFit();
-      showToast(
-        nextIsCover ? 'Tampilan Layar Penuh (Isi Layar)' : 'Tampilan Pas (Rasio Asli)',
-        nextIsCover ? 'maximize' : 'minimize',
-        'amber',
-        1800
-      );
       showLandscapeControls(true);
     };
   }
   if (landscapeEpListBtn) {
     landscapeEpListBtn.onclick = (e) => {
       e.stopPropagation();
+      if (isLandscapeLocked) return;
       openLandscapeEpisodeSheet();
     };
   }
@@ -4033,7 +4051,7 @@ function setupEvents() {
     if (!bar) return;
     ['pointerdown', 'touchstart', 'pointermove'].forEach((evt) => {
       bar.addEventListener(evt, () => {
-        if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
+        if (!isLandscapeLocked && !isLandscapeControlsHidden()) resetLandscapeControlsTimer();
       }, { passive: true });
     });
   });
@@ -4047,6 +4065,7 @@ function setupEvents() {
   if (landscapeTogglePlayBtn) {
     landscapeTogglePlayBtn.onclick = (e) => {
       e.stopPropagation();
+      if (isLandscapeLocked) return;
       triggerHaptic('light');
       toggleLandscapePlayState();
     };
@@ -4056,14 +4075,12 @@ function setupEvents() {
   if (landscapeNextEpBtn) {
     landscapeNextEpBtn.onclick = (e) => {
       e.stopPropagation();
-      if (!currentLandscapeDrama) return;
+      if (isLandscapeLocked || !currentLandscapeDrama) return;
       if (currentLandscapeEpIndex < currentLandscapeDrama.episodes.length - 1) {
         triggerHaptic('medium');
         const nextIdx = currentLandscapeEpIndex + 1;
         playLandscapeEpisode(nextIdx, 0);
-        showToast(`Episode ${currentLandscapeDrama.episodes[nextIdx].ep} 🎬`, 'play', 'amber');
       } else {
-        showToast('Ini episode terakhir beb! 🎉', 'check', 'amber');
         showLandscapeControls(true);
       }
     };
@@ -4073,14 +4090,12 @@ function setupEvents() {
   if (landscapePrevEpBtn) {
     landscapePrevEpBtn.onclick = (e) => {
       e.stopPropagation();
-      if (!currentLandscapeDrama) return;
+      if (isLandscapeLocked || !currentLandscapeDrama) return;
       if (currentLandscapeEpIndex > 0) {
         triggerHaptic('medium');
         const prevIdx = currentLandscapeEpIndex - 1;
         playLandscapeEpisode(prevIdx, 0);
-        showToast(`Episode ${currentLandscapeDrama.episodes[prevIdx].ep} 🎬`, 'skip-back', 'amber');
       } else {
-        showToast('Ini episode pertama beb!', 'alert-circle', 'zinc');
         showLandscapeControls(true);
       }
     };
@@ -4090,6 +4105,7 @@ function setupEvents() {
   if (landscapeMuteBtn) {
     landscapeMuteBtn.onclick = (e) => {
       e.stopPropagation();
+      if (isLandscapeLocked) return;
       triggerHaptic('light');
       setGlobalMuted(!isMuted);
       showLandscapeControls(true);
@@ -4117,7 +4133,7 @@ function setupEvents() {
 
     landscapeProgressTrack.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
-      if (!landscapeVideo || !landscapeVideo.duration) return;
+      if (isLandscapeLocked || !landscapeVideo || !landscapeVideo.duration) return;
       isLandscapeScrubbing = true;
       clearLandscapeControlsTimer();
       if (landscapeScrubKnob) landscapeScrubKnob.classList.remove('scale-0');
@@ -4195,12 +4211,9 @@ function setupEvents() {
       if (!currentLandscapeDrama) return;
       if (currentLandscapeEpIndex < currentLandscapeDrama.episodes.length - 1) {
         const nextIdx = currentLandscapeEpIndex + 1;
-        const nextEpNum = currentLandscapeDrama.episodes[nextIdx]?.ep || nextIdx + 1;
-        showToast(`Lanjut otomatis ke Episode ${nextEpNum} 🎬✨`, 'play', 'amber', 3500);
         triggerHaptic('success');
         playLandscapeEpisode(nextIdx, 0);
       } else {
-        showToast('Drama telah tamat! Selamat menonton 🎉', 'check', 'amber', 4000);
         updateLandscapePlayBtn(false);
         showLandscapeControls(false);
       }
@@ -4234,7 +4247,8 @@ function setupEvents() {
 
     // 1. TAHAN LAYAR -> 2X SPEED (Long Press Hold)
     landscapeVideoContainer.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
+      if (isLandscapeLocked) return;
+      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet') || e.target.closest('#landscape-unlock-pill')) {
         return;
       }
       startX = e.clientX;
@@ -4251,6 +4265,7 @@ function setupEvents() {
     });
 
     landscapeVideoContainer.addEventListener('pointermove', (e) => {
+      if (isLandscapeLocked) return;
       if (e.pointerType === 'mouse' && (e.movementX || e.movementY) && !isHolding2x && !isLandscapeScrubbing) {
         showLandscapeControls(true);
       }
@@ -4278,10 +4293,14 @@ function setupEvents() {
     landscapeVideoContainer.addEventListener('pointercancel', stopLandscapeLongPress);
     landscapeVideoContainer.addEventListener('pointerleave', stopLandscapeLongPress);
 
-    // 2. TEKAN 1X -> Tampilkan / Sembunyikan Kontrol HUD (atau Putar jika Jeda) + Double Tap Seek -10s / +10s
+    // 2. TEKAN 1X -> Jeda / Putar Video (atau tampilkan tombol buka kunci jika terkunci) + Double Tap Seek -10s / +10s
     landscapeVideoContainer.addEventListener('click', (e) => {
       if (justFinishedHold || isHolding2x || hasMoved) return;
-      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet')) {
+      if (e.target.closest('header') || e.target.closest('footer') || e.target.closest('#landscape-ep-sheet') || e.target.closest('#landscape-unlock-pill')) {
+        return;
+      }
+      if (isLandscapeLocked) {
+        revealLandscapeUnlockHint(2500);
         return;
       }
 
@@ -4290,46 +4309,38 @@ function setupEvents() {
       const axisRatio = getLandscapeNormalizedAxis(rect, e.clientX, e.clientY);
       const tapInterval = now - lastTapTime;
 
-      if (tapInterval < 260 && tapInterval > 0) {
-        // Double tap!
+      if (tapInterval < 240 && tapInterval > 0 && (axisRatio < 0.30 || axisRatio > 0.70)) {
+        // Double tap kiri/kanan -> -10s / +10s
         clearTimeout(tapTimeout);
         triggerHaptic('medium');
 
-        if (axisRatio < 0.35) {
-          // Mundur 10 detik
+        if (axisRatio < 0.30) {
           landscapeVideo.currentTime = Math.max(0, landscapeVideo.currentTime - 10);
           flashFeedback(landscapeSeekLeft);
-          if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
-        } else if (axisRatio > 0.65) {
-          // Maju 10 detik
+        } else {
           landscapeVideo.currentTime = Math.min(landscapeVideo.duration || 9999, landscapeVideo.currentTime + 10);
           flashFeedback(landscapeSeekRight);
-          if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
-        } else {
-          // Tengah: Toggle play / pause
-          toggleLandscapePlayState();
         }
+        if (!isLandscapeControlsHidden()) resetLandscapeControlsTimer();
+      } else if (axisRatio >= 0.30 && axisRatio <= 0.70) {
+        // Single tap tengah -> langsung Jeda / Putar
+        clearTimeout(tapTimeout);
+        triggerHaptic('light');
+        toggleLandscapePlayState();
       } else {
-        // SINGLE TAP: Reveal HUD if hidden, toggle HUD off while playing, or resume if paused
+        // Single tap sisi kiri/kanan -> Jeda / Putar jika bukan double-tap
         tapTimeout = setTimeout(() => {
           triggerHaptic('light');
-          if (isLandscapeControlsHidden()) {
-            showLandscapeControls(true);
-          } else if (landscapeVideo.paused) {
-            toggleLandscapePlayState();
-          } else {
-            hideLandscapeControls();
-          }
-        }, 180);
+          toggleLandscapePlayState();
+        }, 200);
       }
       lastTapTime = now;
     });
   }
 
-  // Auto handle orientation resize / fullscreen change
+  // Auto handle orientation resize
   window.addEventListener('resize', syncLandscapeViewport);
   window.addEventListener('orientationchange', syncLandscapeViewport);
-  document.addEventListener('fullscreenchange', syncLandscapeViewport);
 
   // Profile Tab Buttons
   profileTabLikes.onclick = () => {
@@ -4486,7 +4497,11 @@ function setupEvents() {
     if (modalCreate && !modalCreate.classList.contains('hidden')) { closeCreateCollectionModal(); return; }
     if (modalManage && !modalManage.classList.contains('hidden')) { closeManageCollectionsModal(); return; }
     if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) { landscapeEpSheet.classList.add('hidden'); return; }
-    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) { closeLandscapeTheater(); return; }
+    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
+      if (isLandscapeLocked) { setLandscapeLocked(false); return; }
+      closeLandscapeTheater();
+      return;
+    }
     if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) { reelEpSheet.classList.add('hidden'); return; }
     if (dramaReelModal && !dramaReelModal.classList.contains('hidden')) { closeDramaReel(); return; }
     if (dramaDetailModal && !dramaDetailModal.classList.contains('hidden')) { dramaDetailModal.classList.add('hidden'); return; }

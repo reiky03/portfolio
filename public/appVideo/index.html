@@ -107,17 +107,20 @@
         margin: 0 !important;
       }
     }
-    #drama-landscape-theater.landscape-controls-hidden #landscape-header {
+    #drama-landscape-theater.landscape-controls-hidden #landscape-header,
+    #drama-landscape-theater.landscape-locked #landscape-header {
       opacity: 0;
       transform: translateY(-14px);
       pointer-events: none;
     }
-    #drama-landscape-theater.landscape-controls-hidden #landscape-footer {
+    #drama-landscape-theater.landscape-controls-hidden #landscape-footer,
+    #drama-landscape-theater.landscape-locked #landscape-footer {
       opacity: 0;
       transform: translateY(14px);
       pointer-events: none;
     }
-    #drama-landscape-theater.landscape-controls-hidden #landscape-video-container {
+    #drama-landscape-theater.landscape-controls-hidden #landscape-video-container,
+    #drama-landscape-theater.landscape-locked #landscape-video-container {
       cursor: none;
     }
 
@@ -687,31 +690,25 @@
   <div id="drama-reel-modal" class="hidden fixed inset-0 z-50 bg-black flex flex-col justify-between overflow-hidden select-none">
     
     <!-- Top Bar Overlay -->
-    <header class="absolute top-0 left-0 right-0 z-40 top-gradient pb-2 px-3 flex items-center justify-between pointer-events-auto" style="padding-top: max(12px, env(safe-area-inset-top));">
-      <div class="flex items-center gap-2.5">
-        <button id="close-drama-reel-btn" class="w-10 h-10 rounded-full bg-black/65 hover:bg-black/90 active:scale-75 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-xl transition-all cursor-pointer" aria-label="Kembali" title="Kembali ke Daftar Drama">
+    <header class="absolute top-0 left-0 right-0 z-40 top-gradient pb-2 px-3 flex items-center justify-between gap-2 pointer-events-auto" style="padding-top: max(12px, env(safe-area-inset-top));">
+      <div class="flex items-center gap-2.5 min-w-0 flex-1">
+        <button id="close-drama-reel-btn" class="w-10 h-10 rounded-full bg-black/65 hover:bg-black/90 active:scale-75 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-xl transition-all cursor-pointer shrink-0" aria-label="Kembali" title="Kembali ke Daftar Drama">
           <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
         </button>
-        <div>
-          <div class="flex items-center gap-1.5">
-            <h3 id="reel-drama-title" class="text-xs font-bold text-white line-clamp-1 max-w-[150px]">Judul Drama</h3>
-            <span class="px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <h3 id="reel-drama-title" class="text-xs font-bold text-white truncate">Judul Drama</h3>
+            <span id="reel-adult-badge" class="hidden px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
           </div>
-          <span id="reel-current-ep-badge" class="text-[10px] text-amber-400 font-semibold">Episode 1 / 16</span>
+          <span id="reel-current-ep-badge" class="text-[10px] text-amber-400 font-semibold">1 / 16</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center shrink-0">
         <!-- Landscape Mode Switcher Button -->
-        <button id="reel-landscape-toggle-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-extrabold shadow-lg active:scale-95 transition-all">
+        <button id="reel-landscape-toggle-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-extrabold shadow-lg active:scale-95 transition-all whitespace-nowrap">
           <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
           <span>Mode Lanskap</span>
-        </button>
-
-        <!-- Quick Episode Drawer Trigger -->
-        <button id="reel-open-ep-sheet-btn" class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
-          <i data-lucide="list-video" class="w-3.5 h-3.5"></i>
-          <span>Pilih Ep</span>
         </button>
       </div>
     </header>
@@ -779,14 +776,17 @@
             <h3 id="landscape-drama-title" class="text-sm font-bold text-white line-clamp-1 max-w-[180px] sm:max-w-[260px]">Judul Drama</h3>
             <span id="landscape-adult-badge" class="hidden px-1.5 py-0.5 rounded bg-rose-600 text-[9px] font-black text-white shrink-0 tracking-wider">18+</span>
           </div>
-          <span id="landscape-ep-badge" class="text-xs text-amber-400 font-semibold">Episode 1 / 50</span>
+          <span id="landscape-ep-badge" class="text-xs text-amber-400 font-semibold">1 / 50</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <button id="landscape-fit-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 backdrop-blur-md border border-amber-400/50 text-amber-300 text-xs font-bold active:scale-95 transition-all" aria-label="Ubah Ukuran Layar" title="Penuh / Pas Layar">
-          <i data-lucide="maximize" class="w-3.5 h-3.5 text-amber-300"></i>
-          <span>Penuh</span>
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button id="landscape-lock-btn" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-95 transition-all" aria-label="Kunci Layar" title="Kunci Layar">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+        </button>
+        <button id="landscape-fit-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold active:scale-95 transition-all" aria-label="Ubah Ukuran Layar" title="Pas / Penuh Layar">
+          <i data-lucide="minimize" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span>Pas</span>
         </button>
         <button id="landscape-ep-list-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold active:scale-95 transition-all">
           <i data-lucide="list-video" class="w-4 h-4"></i>
@@ -794,6 +794,14 @@
         </button>
       </div>
     </header>
+
+    <!-- Floating Unlock Pill (Visible briefly / on tap while Screen Lock is active) -->
+    <div id="landscape-unlock-pill" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-50 transition-opacity duration-200">
+      <button id="landscape-unlock-btn" class="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 hover:bg-black/95 backdrop-blur-md border border-amber-400/50 text-amber-300 text-xs font-bold shadow-2xl active:scale-95 transition-all" aria-label="Buka Kunci Layar" title="Buka Kunci Layar">
+        <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span>Terkunci • Ketuk untuk buka</span>
+      </button>
+    </div>
 
     <!-- FLOATING 2X SPEED BADGE ON LONG PRESS IN LANDSCAPE -->
     <div id="landscape-speed-badge" class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-xs shadow-2xl flex items-center gap-1.5 speed-badge pointer-events-none">
@@ -805,7 +813,7 @@
     <div id="landscape-video-container" class="relative w-full h-full flex items-center justify-center bg-black overflow-hidden cursor-pointer">
       <video 
         id="landscape-video" 
-        class="w-full h-full object-cover"
+        class="w-full h-full object-contain"
         playsinline
         webkit-playsinline
         preload="auto"
@@ -858,30 +866,25 @@
         <span id="landscape-time-total" class="text-xs font-mono text-zinc-400 select-none">00:00</span>
       </div>
 
-      <!-- Playback Control Buttons -->
-      <div class="flex items-center justify-between pt-1">
-        <div class="flex items-center gap-3">
-          <button id="landscape-prev-ep-btn" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1 active:scale-95 transition-all">
+      <!-- Playback Control Buttons (Centered Directly Below Duration Bar) -->
+      <div class="relative flex items-center justify-center pt-1 min-h-[44px]">
+        <div class="flex items-center justify-center gap-5">
+          <button id="landscape-prev-ep-btn" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-90 transition-all" aria-label="Episode Sebelumnya" title="Episode Sebelumnya">
             <i data-lucide="skip-back" class="w-4 h-4"></i>
-            <span>Ep Sebelumnya</span>
           </button>
-          
-          <button id="landscape-toggle-play-btn" class="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center active:scale-90 transition-all shadow-lg">
+
+          <button id="landscape-toggle-play-btn" class="w-11 h-11 rounded-full bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center active:scale-90 transition-all shadow-lg" aria-label="Putar / Jeda" title="Putar / Jeda">
             <i id="landscape-play-btn-icon" data-lucide="pause" class="w-5 h-5 fill-black"></i>
           </button>
 
-          <button id="landscape-next-ep-btn" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1 active:scale-95 transition-all shadow-lg">
-            <span>Ep Berikutnya</span>
-            <i data-lucide="skip-forward" class="w-4 h-4 fill-black"></i>
+          <button id="landscape-next-ep-btn" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-90 transition-all" aria-label="Episode Berikutnya" title="Episode Berikutnya">
+            <i data-lucide="skip-forward" class="w-4 h-4"></i>
           </button>
         </div>
 
-        <div class="flex items-center gap-3">
-          <button id="landscape-mute-btn" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white active:scale-90 transition-all">
-            <i id="landscape-mute-icon" data-lucide="volume-2" class="w-5 h-5"></i>
-          </button>
-          <span class="text-xs text-zinc-400 hidden sm:inline">Lanjut otomatis ke episode berikutnya ✨</span>
-        </div>
+        <button id="landscape-mute-btn" class="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-90 transition-all" aria-label="Toggle Suara" title="Suara">
+          <i id="landscape-mute-icon" data-lucide="volume-2" class="w-5 h-5"></i>
+        </button>
       </div>
     </footer>
 
@@ -1087,6 +1090,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=3.5.0"></script>
+  <script src="app.js?v=3.6.0"></script>
 </body>
 </html>
