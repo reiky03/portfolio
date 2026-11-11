@@ -11,7 +11,7 @@
   <link rel="dns-prefetch" href="https://test-worker.big-marigold.workers.dev">
   
   <!-- Telegram WebApp SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js" async></script>
   
   <!-- Google Identity Services (GIS) for Google Login -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -363,6 +363,54 @@
   </div>
 
   <!-- ============================================================ -->
+  <!-- 2B. VIEW 18+ HUB (KOLEKSI 18+ DARI iQOO ALA DRAMA HUB) -->
+  <!-- ============================================================ -->
+  <div id="view-adult18" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-zinc-950 overflow-y-auto pb-24">
+    <div class="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-900 pt-safe px-4 pb-3 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black tracking-wider shadow-sm shrink-0">18+</span>
+          <h2 class="font-bold text-sm text-white truncate">Koleksi 18+</h2>
+          <span id="adult18-count-label" class="text-[10px] text-rose-300 font-mono bg-rose-950/60 border border-rose-800/60 px-2 py-0.5 rounded-full shrink-0">0 Video</span>
+        </div>
+
+        <button id="adult18-sort-btn" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-semibold text-zinc-300 hover:text-rose-400 active:scale-95 transition-all shadow-sm shrink-0" title="Ubah Urutan 18+">
+          <i data-lucide="arrow-down-up" class="w-3.5 h-3.5 text-rose-400"></i>
+          <span id="adult18-sort-label">Acak</span>
+        </button>
+      </div>
+
+      <div class="relative flex items-center">
+        <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3"></i>
+        <input
+          id="adult18-search-input"
+          type="text"
+          placeholder="Cari judul 18+, kategori, resolusi (720p/1080p)..."
+          class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500/80 transition-colors"
+        />
+        <button id="adult18-search-clear" class="hidden absolute right-2.5 text-zinc-500 hover:text-white p-0.5" aria-label="Hapus Pencarian">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <div id="adult18-search-feedback" class="hidden text-[11px] text-rose-400/90 font-medium px-0.5"></div>
+
+      <div id="adult18-category-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-bold bg-rose-600 text-white shadow-sm whitespace-nowrap active:scale-95 transition-all" data-category="all">Semua</button>
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-category="K-MIB Series">K-MIB</button>
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-category="SEX-DATER Series">SEX-DATER</button>
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-category="Korean & Asian 18+">Korean &amp; Asian</button>
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-category="POV & Fetish 18+">POV &amp; Fetish</button>
+        <button class="adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all" data-category="hd">HD 720p/1080p</button>
+      </div>
+    </div>
+
+    <div class="p-4">
+      <div id="adult18-list-grid" class="grid grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
   <!-- 3. VIEW PROFIL: DUA JENIS KOLEKSI & EPISODE DISUKAI -->
   <!-- ============================================================ -->
   <div id="view-profile" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-black overflow-y-auto pb-24 select-text">
@@ -399,7 +447,7 @@
         </div>
         <div class="flex flex-col items-center">
           <span id="stat-drama-count" class="font-extrabold text-sm text-sky-400">0</span>
-          <span class="text-[10px] text-zinc-400 mt-0.5">Drama 🎬</span>
+          <span class="text-[10px] text-zinc-400 mt-0.5">Drama &amp; 18+</span>
         </div>
       </div>
 
@@ -477,12 +525,12 @@
 
       <button id="profile-tab-shorts" class="flex-1 py-3 flex items-center justify-center gap-1 text-[11px] font-bold text-zinc-400 border-b-2 border-transparent transition-all">
         <i data-lucide="bookmark" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span>Shorts (<span id="tab-shorts-num">0</span>)</span>
+        <span>Koleksi (<span id="tab-shorts-num">0</span>)</span>
       </button>
 
       <button id="profile-tab-drama" class="flex-1 py-3 flex items-center justify-center gap-1 text-[11px] font-bold text-zinc-400 border-b-2 border-transparent transition-all">
         <i data-lucide="clapperboard" class="w-3.5 h-3.5 text-sky-400"></i>
-        <span>Drama (<span id="tab-drama-num">0</span>)</span>
+        <span>Drama &amp; 18+ (<span id="tab-drama-num">0</span>)</span>
       </button>
     </div>
 
@@ -501,7 +549,7 @@
 
     <button id="nav-btn-topics" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-white transition-all">
       <i data-lucide="layout-grid" class="w-5 h-5"></i>
-      <span class="text-[10px] font-semibold">Topik (6)</span>
+      <span id="nav-topics-label" class="text-[10px] font-semibold">Topik (7)</span>
     </button>
 
     <button id="nav-btn-drama" class="flex flex-col items-center gap-1 py-1 px-3 text-zinc-400 hover:text-white transition-all relative">
@@ -512,9 +560,11 @@
       <span class="text-[10px] font-bold text-amber-400">Drama</span>
     </button>
 
-    <button id="nav-btn-saved" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-white transition-all">
-      <i data-lucide="bookmark" class="w-5 h-5"></i>
-      <span class="text-[10px] font-semibold">Koleksi</span>
+    <button id="nav-btn-adult18" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-rose-400 transition-all relative" aria-label="Koleksi 18+">
+      <div class="relative flex items-center justify-center h-5">
+        <span id="nav-adult18-badge" class="px-1.5 py-0.5 rounded-md border border-rose-500/60 bg-rose-600/20 text-rose-400 text-[10px] font-black tracking-tight leading-none transition-all">18+</span>
+      </div>
+      <span class="text-[10px] font-bold text-rose-400/90">18+</span>
     </button>
 
     <button id="nav-btn-profile" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-white transition-all">
@@ -524,7 +574,7 @@
   </nav>
 
   <!-- ============================================================ -->
-  <!-- 5. MODAL 6 TOPIK -->
+  <!-- 5. MODAL TOPIK VIDEO -->
   <!-- ============================================================ -->
   <div id="topic-drawer" class="hidden fixed inset-0 z-50">
     <div id="drawer-backdrop" class="drawer-backdrop absolute inset-0 bg-black/75 backdrop-blur-sm opacity-0"></div>
@@ -533,9 +583,9 @@
       <div class="flex items-center justify-between mb-3">
         <div>
           <h3 class="font-bold text-base text-white flex items-center gap-2">
-            <span>🎭</span> Kategori 6 Topik Video
+            <span>🎭</span> <span id="drawer-topics-title">Kategori Topik Video</span>
           </h3>
-          <p class="text-xs text-zinc-400">Pilih topik video pendek dari grup Telegram-mu</p>
+          <p class="text-xs text-zinc-400">Pilih folder video pendek dari Google Drive (Pixel &amp; iQOO)</p>
         </div>
         <button id="close-drawer-btn" class="p-1.5 rounded-full bg-zinc-900 text-zinc-400 hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -583,7 +633,7 @@
           <!-- Tombol Mulai Nonton Episode 1 -->
           <button id="modal-start-watch-btn" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 shadow-lg shadow-rose-600/30 active:scale-95 transition-all">
             <i data-lucide="play" class="w-4 h-4 fill-white"></i>
-            <span>Mulai Nonton (Ep 1)</span>
+            <span id="modal-start-watch-label">Mulai Nonton (Ep 1)</span>
           </button>
           <button id="modal-landscape-watch-btn" class="hidden py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-black text-black flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/30 active:scale-95 transition-all">
             <i data-lucide="maximize" class="w-4 h-4"></i>
@@ -1011,6 +1061,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=3.0.0"></script>
+  <script src="app.js?v=3.1.0"></script>
 </body>
 </html>

@@ -49,7 +49,8 @@ const SVG_ICONS = {
   'cloud': '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
   'cloud-check': '<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m9 15 2 2 4-4"/>',
   'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
-  'arrow-down-up': '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>'
+  'arrow-down-up': '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>',
+  'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'
 };
 
 function iconSvg(name, cls = 'w-4 h-4') {
@@ -86,11 +87,16 @@ function playVideoSafely(video, onPlaying = null) {
 let allVideos = [];
 let allTopics = [];
 let allDramas = [];
+let allAdultVideos = [];
 let currentTopicId = 0;
+
+function getAllCatalogMedia() {
+  return [...allDramas, ...allAdultVideos];
+}
 
 // Default suara: Jika pernah diaktifkan sebelumnya, langsung putar dengan suara!
 let isMuted = localStorage.getItem('teleshorts_unmuted') === '1' ? false : true;
-let activeView = 'shorts'; // 'shorts' | 'drama' | 'profile'
+let activeView = 'shorts'; // 'shorts' | 'drama' | 'adult18' | 'profile'
 let profileTab = 'likes';   // 'likes' | 'shorts' | 'drama'
 
 let currentPlayingShortVideo = null;
@@ -101,9 +107,11 @@ let currentPlayingDrama = null;
 let currentReelEpisodeIndex = 0;
 let dramaReelObserver = null;
 let currentGenreFilter = 'all';
+let currentAdultCategoryFilter = 'all';
 
-// Urutan Drama: 'random' | 'az' | 'za' | 'rating' | 'eps'
+// Urutan Drama & 18+
 let currentDramaSort = localStorage.getItem('teleshorts_drama_sort') || 'random';
+let currentAdultSort = localStorage.getItem('teleshorts_adult_sort') || 'random';
 
 // Akun Google & Cloud Sync
 let currentUser = JSON.parse(localStorage.getItem('teleshorts_google_user') || 'null');
@@ -259,25 +267,36 @@ function toggleEpisodeLike(dramaId, epNum, heartIconEl = null, labelEl = null) {
   if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) {
     renderReelSheetGrid();
   }
-  const card = dramaListGrid?.querySelector(`[data-drama-id="${dramaId}"]`);
-  const targetDrm = allDramas.find(d => d.id === dramaId);
-  if (card && targetDrm) {
+  const targetDrm = getAllCatalogMedia().find(d => d.id === dramaId);
+  if (targetDrm) {
     let likedEpCount = 0;
     if (targetDrm.episodes) {
       targetDrm.episodes.forEach(e => {
         if (isEpisodeLiked(targetDrm.id, e.ep)) likedEpCount++;
       });
     }
-    const badgeEl = card.querySelector('.drama-liked-ep-badge');
-    if (badgeEl) {
-      if (likedEpCount > 0) {
-        badgeEl.classList.remove('hidden');
-        badgeEl.innerHTML = `<span>❤️</span> ${likedEpCount} Ep Disukai`;
-      } else {
-        badgeEl.classList.add('hidden');
+    [dramaListGrid, adult18ListGrid].forEach(grid => {
+      const card = grid?.querySelector(`[data-drama-id="${dramaId}"]`);
+      const badgeEl = card?.querySelector('.drama-liked-ep-badge');
+      if (badgeEl) {
+        if (likedEpCount > 0) {
+          badgeEl.classList.remove('hidden');
+          badgeEl.innerHTML = `<span>❤️</span> ${likedEpCount} ${targetDrm.total_episodes === 1 ? 'Disukai' : 'Ep Disukai'}`;
+        } else {
+          badgeEl.classList.add('hidden');
+        }
       }
-    }
+    });
   }
+}
+
+function syncCatalogBookmarkIcons(itemId, isSaved) {
+  [dramaListGrid, adult18ListGrid].forEach(grid => {
+    const btn = grid?.querySelector(`[data-drama-id="${itemId}"] .drama-quick-save`);
+    if (btn) {
+      btn.innerHTML = iconSvg('bookmark', `w-3.5 h-3.5 ${isSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`);
+    }
+  });
 }
 
 // ============================================================
@@ -403,6 +422,7 @@ const FALLBACK_DATA = {
 // ============================================================
 const viewShorts = document.getElementById('view-shorts');
 const viewDrama = document.getElementById('view-drama');
+const viewAdult18 = document.getElementById('view-adult18');
 const viewProfile = document.getElementById('view-profile');
 const feedContainer = document.getElementById('feed-container');
 
@@ -412,18 +432,21 @@ const activeTopicBadge = document.getElementById('active-topic-badge');
 const globalMuteBtn = document.getElementById('global-mute-btn');
 const muteIcon = document.getElementById('mute-icon');
 
-// Drawer 6 Topik
+// Drawer Topik
 const topicDrawer = document.getElementById('topic-drawer');
 const drawerBackdrop = document.getElementById('drawer-backdrop');
 const drawerContent = document.getElementById('drawer-content');
 const closeDrawerBtn = document.getElementById('close-drawer-btn');
 const drawerTopicsList = document.getElementById('drawer-topics-list');
+const drawerTopicsTitle = document.getElementById('drawer-topics-title');
 
 // Nav buttons
 const navBtnShorts = document.getElementById('nav-btn-shorts');
 const navBtnTopics = document.getElementById('nav-btn-topics');
+const navTopicsLabel = document.getElementById('nav-topics-label');
 const navBtnDrama = document.getElementById('nav-btn-drama');
-const navBtnSaved = document.getElementById('nav-btn-saved');
+const navBtnAdult18 = document.getElementById('nav-btn-adult18');
+const navAdult18Badge = document.getElementById('nav-adult18-badge');
 const navBtnProfile = document.getElementById('nav-btn-profile');
 
 // Drama catalog
@@ -433,6 +456,16 @@ const dramaSearchClear = document.getElementById('drama-search-clear');
 const searchFeedback = document.getElementById('search-feedback');
 const dramaGenrePills = document.querySelectorAll('.genre-pill');
 const dramaCountLabel = document.getElementById('drama-count-label');
+
+// 18+ catalog (iQOO)
+const adult18ListGrid = document.getElementById('adult18-list-grid');
+const adult18SearchInput = document.getElementById('adult18-search-input');
+const adult18SearchClear = document.getElementById('adult18-search-clear');
+const adult18SearchFeedback = document.getElementById('adult18-search-feedback');
+const adult18CategoryPills = document.querySelectorAll('.adult18-pill');
+const adult18CountLabel = document.getElementById('adult18-count-label');
+const adult18SortBtn = document.getElementById('adult18-sort-btn');
+const adult18SortLabel = document.getElementById('adult18-sort-label');
 
 // Drama detail modal
 const dramaDetailModal = document.getElementById('drama-detail-modal');
@@ -475,6 +508,12 @@ const tabShortsNum = document.getElementById('tab-shorts-num');
 const tabDramaNum = document.getElementById('tab-drama-num');
 const profileContentArea = document.getElementById('profile-content-area');
 
+function updateTopicCountLabels() {
+  const realCount = allTopics.filter(t => t.id !== 0).length;
+  if (navTopicsLabel) navTopicsLabel.textContent = `Topik (${realCount})`;
+  if (drawerTopicsTitle) drawerTopicsTitle.textContent = `Kategori ${realCount} Topik Video`;
+}
+
 // ============================================================
 // APP INIT
 // ============================================================
@@ -495,16 +534,18 @@ async function initApp() {
     allTopics = data.topics || FALLBACK_DATA.topics;
     allVideos = data.videos || FALLBACK_DATA.videos;
     allDramas = data.dramas || FALLBACK_DATA.dramas;
+    allAdultVideos = data.adult_videos || [];
   } catch (err) {
     allTopics = FALLBACK_DATA.topics;
     allVideos = FALLBACK_DATA.videos;
     allDramas = FALLBACK_DATA.dramas;
+    allAdultVideos = [];
   }
 
-  // Precompute searchable lowercase corpus per drama once at startup
-  allDramas.forEach(d => {
+  // Precompute searchable lowercase corpus per drama and 18+ item once at startup
+  getAllCatalogMedia().forEach(d => {
     const eps = d.episodes ? d.episodes.map(e => e.title || '').join(' ') : '';
-    d._searchCorpus = `${d.title || ''} ${d.genre || ''} ${d.synopsis || ''} ${eps}`.toLowerCase();
+    d._searchCorpus = `${d.title || ''} ${d.category || ''} ${d.genre || ''} ${d.quality || ''} ${d.synopsis || ''} ${eps}`.toLowerCase();
   });
 
   if (initialLoaderText) initialLoaderText.textContent = "Menyiapkan hiburan terbaik...";
@@ -531,9 +572,12 @@ async function initApp() {
 
   // Critical path first: Shorts feed, UI states, event bindings
   renderShortsFeed();
+  updateTopicCountLabels();
   if (dramaCountLabel) dramaCountLabel.textContent = `${allDramas.length} Drama`;
+  if (adult18CountLabel) adult18CountLabel.textContent = `${allAdultVideos.length} Video`;
   updateGoogleSyncUI();
   updateDramaSortUI();
+  updateAdultSortUI();
   setupEvents();
 
   // Fade out splash loader immediately on next animation frame
@@ -550,6 +594,7 @@ async function initApp() {
   setTimeout(() => {
     renderDrawerTopics();
     filterAndRenderDramas();
+    filterAndRenderAdult18();
     if (activeView === 'profile') renderProfileContent();
   }, 0);
 }
@@ -1408,21 +1453,76 @@ function setupShortsObserver() {
 }
 
 // ============================================================
-// 2. DRAMA HUB (KATALOG & FILTER)
+// 2. DRAMA HUB & 18+ HUB (KATALOG & FILTER TERPADU)
 // ============================================================
-function searchDramasWordByWord(query, dramas) {
+function searchDramasWordByWord(query, items) {
   const rawWords = query.toLowerCase().split(/\s+/).filter(w => w.trim().length > 0);
-  if (rawWords.length === 0) return dramas;
+  if (rawWords.length === 0) return items;
 
-  return dramas.filter(drm => {
-    const searchableCorpus = drm._searchCorpus || `${drm.title} ${drm.genre} ${drm.synopsis}`.toLowerCase();
+  return items.filter(drm => {
+    const searchableCorpus = drm._searchCorpus || `${drm.title} ${drm.category || ''} ${drm.genre} ${drm.synopsis}`.toLowerCase();
     return rawWords.every(word => searchableCorpus.includes(word));
   });
 }
 
+function getAdultSortLabel(sortType) {
+  switch (sortType) {
+    case 'duration_desc': return 'Terlama';
+    case 'hd': return 'Resolusi HD';
+    case 'az': return 'Abjad A - Z';
+    case 'za': return 'Abjad Z - A';
+    default: return 'Acak';
+  }
+}
+
+function updateAdultSortUI() {
+  if (adult18SortLabel) adult18SortLabel.textContent = getAdultSortLabel(currentAdultSort);
+}
+
+function filterAndRenderAdult18() {
+  if (!adult18ListGrid) return;
+  const query = (adult18SearchInput?.value || '').trim();
+  let results = [...allAdultVideos];
+
+  if (currentAdultCategoryFilter !== 'all') {
+    if (currentAdultCategoryFilter === 'hd') {
+      results = results.filter(d => d.quality === '1080p' || d.quality === '720p');
+    } else {
+      results = results.filter(d => d.category === currentAdultCategoryFilter);
+    }
+  }
+
+  if (query.length > 0) {
+    adult18SearchClear?.classList.remove('hidden');
+    results = searchDramasWordByWord(query, results);
+    const words = query.split(/\s+/).filter(Boolean);
+    if (adult18SearchFeedback) {
+      adult18SearchFeedback.classList.remove('hidden');
+      adult18SearchFeedback.textContent = `Mencari: "${words.join('", "')}" • Ditemukan: ${results.length} video`;
+    }
+  } else {
+    adult18SearchClear?.classList.add('hidden');
+    adult18SearchFeedback?.classList.add('hidden');
+  }
+
+  if (currentAdultSort === 'az') {
+    results.sort((a, b) => a.title.localeCompare(b.title, 'id', { sensitivity: 'base' }));
+  } else if (currentAdultSort === 'za') {
+    results.sort((a, b) => b.title.localeCompare(a.title, 'id', { sensitivity: 'base' }));
+  } else if (currentAdultSort === 'duration_desc') {
+    results.sort((a, b) => (b.duration_sec || 0) - (a.duration_sec || 0));
+  } else if (currentAdultSort === 'hd') {
+    const rank = q => (q === '1080p' ? 3 : q === '720p' ? 2 : q === '480p' ? 1 : 0);
+    results.sort((a, b) => rank(b.quality) - rank(a.quality) || (b.duration_sec || 0) - (a.duration_sec || 0));
+  }
+
+  if (adult18CountLabel) adult18CountLabel.textContent = `${results.length} Video`;
+  renderCatalogGrid(adult18ListGrid, results, 'Tidak ada video 18+ yang cocok', 'Coba gunakan kata kunci atau kategori lain');
+}
+
 function filterAndRenderDramas() {
   const query = dramaSearchInput.value.trim();
-  let results = allDramas;
+  let results = [...allDramas];
 
   if (currentGenreFilter !== 'all') {
     const f = currentGenreFilter.toLowerCase();
@@ -1482,27 +1582,33 @@ function filterAndRenderDramas() {
   renderDramaList(results);
 }
 
-function renderDramaList(dramas) {
-  dramaListGrid.innerHTML = '';
+function isAdult18Item(item) {
+  return Boolean(item && (item.source === 'iQOO' || String(item.id || '').startsWith('ph_')));
+}
 
-  if (dramas.length === 0) {
-    dramaListGrid.innerHTML = `
+function renderCatalogGrid(gridEl, items, emptyTitle = 'Tidak ada yang cocok', emptyDesc = 'Coba gunakan kata kunci lain') {
+  if (!gridEl) return;
+  gridEl.innerHTML = '';
+
+  if (items.length === 0) {
+    gridEl.innerHTML = `
       <div class="col-span-2 py-12 text-center text-zinc-500">
         ${iconSvg('search-x', 'w-8 h-8 mx-auto mb-2 text-zinc-700')}
-        <p class="text-xs font-semibold text-zinc-300">Tidak ada drama yang cocok</p>
-        <p class="text-[11px] text-zinc-500 mt-0.5">Coba gunakan kata kunci lain</p>
+        <p class="text-xs font-semibold text-zinc-300">${escapeHtml(emptyTitle)}</p>
+        <p class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(emptyDesc)}</p>
       </div>
     `;
     return;
   }
 
   const frag = document.createDocumentFragment();
-  dramas.forEach(drm => {
+  items.forEach(drm => {
     const isSaved = savedDramaIds.has(drm.id);
+    const isAdultItem = isAdult18Item(drm);
     const card = document.createElement('div');
     card.dataset.dramaId = drm.id;
     card.className = 'bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col group cursor-pointer active:scale-95 transition-all shadow-lg';
-    
+
     let likedEpCount = 0;
     if (drm.episodes) {
       drm.episodes.forEach(e => {
@@ -1511,20 +1617,27 @@ function renderDramaList(dramas) {
     }
 
     const safeTitle = escapeHtml(drm.title);
-    const safeGenre = escapeHtml(drm.genre);
-    const epFooter = drm.total_episodes === 1
-      ? '🎬 Full Movie (' + escapeHtml(drm.episodes[0]?.duration || 'Lengkap') + ')'
-      : drm.total_episodes + ' Episode';
+    const safeGenre = escapeHtml(isAdultItem ? (drm.category || '18+ iQOO') : drm.genre);
+    const durationText = isAdultItem
+      ? (drm.duration || drm.episodes?.[0]?.duration || 'Lengkap')
+      : (drm.episodes?.[0]?.duration || drm.duration || 'Lengkap');
+    const epFooter = isAdultItem
+      ? ('⏱ ' + escapeHtml(durationText) + (drm.total_episodes > 1 ? ` (${drm.total_episodes} Part)` : ''))
+      : (drm.total_episodes === 1
+          ? '🎬 Full Movie (' + escapeHtml(durationText) + ')'
+          : drm.total_episodes + ' Episode');
+
+    const topMetricBadge = isAdultItem
+      ? `<span class="px-1.5 py-0.5 rounded bg-black/65 backdrop-blur-md text-[9px] font-black ${drm.quality === '1080p' ? 'text-emerald-400' : 'text-amber-400'}">${escapeHtml(drm.quality || 'HD')}</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400">★ ${escapeHtml(drm.rating || '4.9')}</span>`;
 
     card.innerHTML = `
       <div class="relative aspect-[3/4] w-full overflow-hidden bg-zinc-800">
         <img src="${drm.poster}" alt="${safeTitle}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-        
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent"></div>
+
         <div class="absolute top-2 left-2 flex items-center gap-1">
-          <span class="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400">
-            ★ ${drm.rating}
-          </span>
+          ${topMetricBadge}
           <span class="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black tracking-wider shadow flex items-center gap-0.5">
             🔞 18+
           </span>
@@ -1539,22 +1652,22 @@ function renderDramaList(dramas) {
             📱 Vertikal
           </span>
         `}
-        
-        <button class="drama-quick-save absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 active:scale-75 transition-all" aria-label="Simpan Drama">
+
+        <button class="drama-quick-save absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 active:scale-75 transition-all" aria-label="Simpan Koleksi">
           ${iconSvg('bookmark', `w-3.5 h-3.5 ${isSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`)}
         </button>
 
         <div class="drama-liked-ep-badge ${likedEpCount > 0 ? '' : 'hidden'} absolute top-9 left-2 px-1.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9px] font-bold flex items-center gap-1 shadow-md">
-          <span>❤️</span> ${likedEpCount} Ep Disukai
+          <span>❤️</span> ${likedEpCount} ${isAdultItem ? 'Disukai' : 'Ep Disukai'}
         </div>
 
         <div class="absolute bottom-2 left-2 right-2">
           <span class="text-[9px] font-bold uppercase tracking-wider text-rose-400">${safeGenre}</span>
-          <h4 class="text-xs font-bold text-white line-clamp-1 leading-snug">${safeTitle}</h4>
+          <h4 class="text-xs font-bold text-white ${isAdultItem ? 'line-clamp-2' : 'line-clamp-1'} leading-snug">${safeTitle}</h4>
         </div>
       </div>
       <div class="p-2.5 flex items-center justify-between bg-zinc-900/90 text-[10px] text-zinc-400 border-t border-zinc-800/60">
-        <span class="${drm.total_episodes === 1 ? 'text-amber-300 font-bold flex items-center gap-1' : ''}">
+        <span class="${(drm.total_episodes === 1 || isAdultItem) ? 'text-amber-300 font-bold flex items-center gap-1' : ''}">
           ${epFooter}
         </span>
         <span class="font-bold text-amber-400 flex items-center gap-1">
@@ -1570,12 +1683,12 @@ function renderDramaList(dramas) {
       const nowSaved = !savedDramaIds.has(drm.id);
       if (nowSaved) {
         savedDramaIds.add(drm.id);
-        showToast('Drama disimpan ke profil ✓', 'bookmark', 'amber', 1800);
+        showToast(isAdultItem ? 'Video 18+ disimpan ke profil ✓' : 'Drama disimpan ke profil ✓', 'bookmark', 'amber', 1800);
       } else {
         savedDramaIds.delete(drm.id);
-        showToast('Dihapus dari drama tersimpan', 'bookmark', 'zinc', 1800);
+        showToast('Dihapus dari tersimpan', 'bookmark', 'zinc', 1800);
       }
-      quickSaveBtn.innerHTML = iconSvg('bookmark', `w-3.5 h-3.5 ${nowSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`);
+      syncCatalogBookmarkIcons(drm.id, nowSaved);
       persistStorage();
     };
 
@@ -1585,20 +1698,32 @@ function renderDramaList(dramas) {
 
     frag.appendChild(card);
   });
-  dramaListGrid.appendChild(frag);
+  gridEl.appendChild(frag);
+}
+
+function renderDramaList(dramas) {
+  renderCatalogGrid(dramaListGrid, dramas, 'Tidak ada drama yang cocok', 'Coba gunakan kata kunci lain');
 }
 
 function openDramaDetailModal(drm) {
   triggerHaptic('light');
   selectedDrama = drm;
+  const isAdultItem = isAdult18Item(drm);
   modalDramaPoster.src = drm.poster;
   modalDramaTitle.textContent = drm.title;
   modalDramaGenre.textContent = drm.genre;
-  modalDramaRating.textContent = `★ ${drm.rating}`;
+  modalDramaRating.textContent = drm.quality ? `★ ${drm.rating || '4.9'} • ${drm.quality}` : `★ ${drm.rating || '4.9'}`;
   modalDramaEpsCount.textContent = drm.total_episodes === 1 
-    ? `Full Movie • ${drm.episodes[0]?.duration || 'Lengkap'}`
-    : `${drm.total_episodes} Episode`;
+    ? `${isAdultItem ? 'Full Video' : 'Full Movie'} • ${drm.episodes[0]?.duration || drm.duration || 'Lengkap'}`
+    : (isAdultItem ? `${drm.total_episodes} Part HD • ${drm.duration || 'Lengkap'}` : `${drm.total_episodes} Episode`);
   modalDramaSynopsis.textContent = drm.synopsis;
+
+  const modalStartWatchLabel = document.getElementById('modal-start-watch-label');
+  if (modalStartWatchLabel) {
+    modalStartWatchLabel.textContent = drm.total_episodes === 1
+      ? 'Putar Video'
+      : (isAdultItem ? 'Mulai Nonton (Part 1)' : 'Mulai Nonton (Ep 1)');
+  }
 
   updateModalBookmarkBtn();
   renderModalEpisodes(drm);
@@ -1637,9 +1762,11 @@ function updateModalBookmarkBtn() {
 
 function renderModalEpisodes(drm) {
   modalEpisodeList.innerHTML = '';
+  const isAdultItem = isAdult18Item(drm);
   const frag = document.createDocumentFragment();
   drm.episodes.forEach((ep, idx) => {
     const isLiked = isEpisodeLiked(drm.id, ep.ep);
+    const epLabel = isAdultItem ? `Part ${ep.ep}` : `Ep ${ep.ep}`;
     const item = document.createElement('div');
     item.className = 'flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 transition-all';
     
@@ -1650,7 +1777,7 @@ function renderModalEpisodes(drm) {
         </div>
         <div>
           <div class="flex items-center gap-1.5">
-            <h5 class="text-xs font-bold text-white line-clamp-1">Ep ${ep.ep}: ${escapeHtml(ep.title)}</h5>
+            <h5 class="text-xs font-bold text-white line-clamp-1">${epLabel}: ${escapeHtml(ep.title)}</h5>
             ${isLiked ? '<span class="text-[10px] text-rose-500 font-bold flex items-center gap-0.5">❤️ Disukai</span>' : ''}
           </div>
           <span class="text-[10px] text-zinc-500">${escapeHtml(ep.duration)}</span>
@@ -1737,7 +1864,9 @@ function updateReelEpBadge(epIdx) {
   if (!currentPlayingDrama) return;
   const ep = currentPlayingDrama.episodes[epIdx];
   const epNum = ep ? ep.ep : epIdx + 1;
-  reelCurrentEpBadge.textContent = `Episode ${epNum} / ${currentPlayingDrama.total_episodes}`;
+  reelCurrentEpBadge.textContent = currentPlayingDrama.total_episodes === 1
+    ? (ep?.duration || currentPlayingDrama.duration || 'Full Video')
+    : `Episode ${epNum} / ${currentPlayingDrama.total_episodes}`;
 }
 
 function syncDramaSlideSources(centerIdx) {
@@ -2410,7 +2539,9 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
 
   currentLandscapeEpIndex = epIdx;
   landscapeDramaTitle.textContent = activeDrama.title;
-  landscapeEpBadge.textContent = `Episode ${ep.ep} / ${activeDrama.total_episodes}`;
+  landscapeEpBadge.textContent = activeDrama.total_episodes === 1
+    ? (ep.duration || activeDrama.duration || 'Full Video')
+    : `Episode ${ep.ep} / ${activeDrama.total_episodes}`;
 
   // Stream URL with proxy
   const streamSrc = ep.gdrive_file_id 
@@ -2780,9 +2911,9 @@ function renderProfileContent() {
     }
 
   } else if (profileTab === 'drama') {
-    const targetDramas = allDramas.filter(d => savedDramaIds.has(d.id));
+    const targetDramas = getAllCatalogMedia().filter(d => savedDramaIds.has(d.id));
     if (targetDramas.length === 0) {
-      renderEmptyState('clapperboard', 'Koleksi Drama Masih Kosong', 'Buka menu Drama lalu simpan drama yang ingin kamu tonton nanti!');
+      renderEmptyState('clapperboard', 'Koleksi Drama & 18+ Kosong', 'Buka menu Drama atau 18+ lalu simpan judul favoritmu!');
       return;
     }
     const grid = document.createElement('div');
@@ -2799,6 +2930,10 @@ function renderProfileContent() {
         });
       }
 
+      const footerCount = drm.total_episodes === 1
+        ? escapeHtml(drm.episodes?.[0]?.duration || drm.duration || 'Full Video')
+        : `${drm.total_episodes} Ep`;
+
       card.innerHTML = `
         <div class="relative aspect-[3/4] w-full bg-zinc-800">
           <img src="${drm.poster}" alt="${escapeHtml(drm.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover">
@@ -2814,12 +2949,12 @@ function renderProfileContent() {
             ` : ''}
           </div>
           <div class="absolute bottom-1.5 left-1.5 right-1.5">
-            <span class="text-[9px] font-bold text-amber-400">${escapeHtml(drm.genre)}</span>
+            <span class="text-[9px] font-bold text-amber-400">${escapeHtml(drm.category || drm.genre)}</span>
             <h5 class="text-xs font-bold text-white line-clamp-1">${escapeHtml(drm.title)}</h5>
           </div>
         </div>
         <div class="p-2 flex items-center justify-between text-[10px] text-zinc-400">
-          <span>${drm.total_episodes} Ep</span>
+          <span>${footerCount}</span>
           <span class="text-amber-400 font-bold">Lanjut Nonton →</span>
         </div>
       `;
@@ -2851,6 +2986,7 @@ function renderDrawerTopics() {
   const frag = document.createDocumentFragment();
   allTopics.forEach(topic => {
     const isSelected = topic.id === currentTopicId;
+    const isIqoo = topic.device === 'iQOO' || /iqoo/i.test(topic.name || '');
     const btn = document.createElement('button');
     btn.className = `w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left ${
       isSelected
@@ -2858,10 +2994,12 @@ function renderDrawerTopics() {
         : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
     }`;
 
+    const topicIcon = topic.id === 0 ? 'flame' : (isIqoo ? 'smartphone' : 'folder-heart');
+
     btn.innerHTML = `
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400'}">
-          ${iconSvg(topic.id === 0 ? 'flame' : 'folder-heart', 'w-4 h-4')}
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-rose-500 text-white' : (isIqoo ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-700/40' : 'bg-zinc-800 text-zinc-400')}">
+          ${iconSvg(topicIcon, 'w-4 h-4')}
         </div>
         <div>
           <div class="text-sm font-semibold">${escapeHtml(topic.name)}</div>
@@ -2913,12 +3051,20 @@ function switchView(viewName) {
 
   viewShorts.classList.toggle('hidden', viewName !== 'shorts');
   viewDrama.classList.toggle('hidden', viewName !== 'drama');
+  viewAdult18?.classList.toggle('hidden', viewName !== 'adult18');
   viewProfile.classList.toggle('hidden', viewName !== 'profile');
 
   navBtnShorts.className = `flex flex-col items-center gap-1 py-1 px-2.5 transition-all ${viewName === 'shorts' ? 'text-white' : 'text-zinc-400'}`;
   navBtnDrama.className = `flex flex-col items-center gap-1 py-1 px-3 transition-all ${viewName === 'drama' ? 'text-amber-400 font-bold' : 'text-zinc-400'}`;
+  if (navBtnAdult18) {
+    navBtnAdult18.className = `flex flex-col items-center gap-1 py-1 px-2.5 transition-all relative ${viewName === 'adult18' ? 'text-white font-bold' : 'text-zinc-400 hover:text-rose-400'}`;
+  }
+  if (navAdult18Badge) {
+    navAdult18Badge.className = viewName === 'adult18'
+      ? 'px-1.5 py-0.5 rounded-md border border-rose-400 bg-rose-600 text-white text-[10px] font-black tracking-tight leading-none shadow-lg shadow-rose-600/40 transition-all'
+      : 'px-1.5 py-0.5 rounded-md border border-rose-500/60 bg-rose-600/20 text-rose-400 text-[10px] font-black tracking-tight leading-none transition-all';
+  }
   navBtnProfile.className = `flex flex-col items-center gap-1 py-1 px-2.5 transition-all ${viewName === 'profile' ? 'text-white' : 'text-zinc-400'}`;
-  navBtnSaved.className = `flex flex-col items-center gap-1 py-1 px-2.5 transition-all ${viewName === 'profile' && profileTab !== 'likes' ? 'text-white' : 'text-zinc-400'}`;
 
   if (viewName === 'shorts') {
     if (currentPlayingShortVideo) currentPlayingShortVideo.play().catch(() => {});
@@ -3235,13 +3381,10 @@ function setupEvents() {
   navBtnShorts.onclick = () => switchView('shorts');
   navBtnTopics.onclick = openDrawer;
   navBtnDrama.onclick = () => switchView('drama');
-  navBtnSaved.onclick = () => {
-    profileTab = 'shorts';
-    updateProfileTabHeaders();
-    switchView('profile');
-  };
+  if (navBtnAdult18) {
+    navBtnAdult18.onclick = () => switchView('adult18');
+  }
   navBtnProfile.onclick = () => {
-    profileTab = 'likes';
     updateProfileTabHeaders();
     switchView('profile');
   };
@@ -3382,6 +3525,49 @@ function setupEvents() {
     dramaSearchInput.focus();
   };
 
+  // 18+ Category Pills, Search & Sort
+  adult18CategoryPills.forEach(pill => {
+    pill.onclick = () => {
+      triggerHaptic('light');
+      adult18CategoryPills.forEach(p => {
+        p.className = 'adult18-pill px-3 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-nowrap active:scale-95 transition-all';
+      });
+      pill.className = 'adult18-pill px-3 py-1 rounded-full text-[11px] font-bold bg-rose-600 text-white shadow-sm whitespace-nowrap active:scale-95 transition-all';
+      currentAdultCategoryFilter = pill.dataset.category;
+      filterAndRenderAdult18();
+    };
+  });
+
+  if (adult18SearchInput) {
+    let adultSearchTimer = null;
+    adult18SearchInput.addEventListener('input', () => {
+      clearTimeout(adultSearchTimer);
+      adultSearchTimer = setTimeout(filterAndRenderAdult18, 120);
+    });
+    if (adult18SearchClear) {
+      adult18SearchClear.onclick = () => {
+        triggerHaptic('light');
+        clearTimeout(adultSearchTimer);
+        adult18SearchInput.value = '';
+        filterAndRenderAdult18();
+        adult18SearchInput.focus();
+      };
+    }
+  }
+
+  if (adult18SortBtn) {
+    const sortCycle = ['random', 'duration_desc', 'hd', 'az', 'za'];
+    adult18SortBtn.onclick = () => {
+      triggerHaptic('light');
+      const nextIdx = (sortCycle.indexOf(currentAdultSort) + 1) % sortCycle.length;
+      currentAdultSort = sortCycle[nextIdx];
+      localStorage.setItem('teleshorts_adult_sort', currentAdultSort);
+      updateAdultSortUI();
+      showToast(`Urutan 18+: ${getAdultSortLabel(currentAdultSort)} 🔀`, 'arrow-down-up', 'rose');
+      filterAndRenderAdult18();
+    };
+  }
+
   // Drama Detail Modal
   closeDramaModal.onclick = () => {
     triggerHaptic('light');
@@ -3399,10 +3585,7 @@ function setupEvents() {
     }
     persistStorage();
     updateModalBookmarkBtn();
-    const cardQuickSave = dramaListGrid?.querySelector(`[data-drama-id="${selectedDrama.id}"] .drama-quick-save`);
-    if (cardQuickSave) {
-      cardQuickSave.innerHTML = iconSvg('bookmark', `w-3.5 h-3.5 ${nowSaved ? 'text-sky-400 fill-sky-400' : 'text-white'}`);
-    }
+    syncCatalogBookmarkIcons(selectedDrama.id, nowSaved);
   };
 
   // Drama Reel Close
