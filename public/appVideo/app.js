@@ -50,7 +50,13 @@ const SVG_ICONS = {
   'cloud-check': '<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m9 15 2 2 4-4"/>',
   'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
   'arrow-down-up': '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>',
-  'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'
+  'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+  'mail': '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  'link': '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'
 };
 
 function iconSvg(name, cls = 'w-4 h-4') {
@@ -163,6 +169,7 @@ function persistCollections() {
   });
   localStorage.setItem('teleshorts_saved_shorts', JSON.stringify(Array.from(savedShortIds)));
   updateStatsDisplay();
+  queueCloudSync();
 }
 
 function createNewCollection(name, initialVideoId = null) {
@@ -568,6 +575,7 @@ async function initApp() {
     localStorage.setItem('teleshorts_seeded_v1', '1');
   }
   loadCollections();
+  processSyncUrlHashIfPresent();
   persistStorage();
 
   // Critical path first: Shorts feed, UI states, event bindings
@@ -3165,22 +3173,279 @@ function closeDramaSortSheet() {
 }
 
 // ============================================================
-// GOOGLE LOGIN & MULTI-DEVICE CLOUD SYNC
+// EMAIL-ONLY LOGIN & PORTABLE JSON SYNCHRONIZATION
 // ============================================================
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function normalizeEmail(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+
+function isValidEmail(raw) {
+  return EMAIL_PATTERN.test(normalizeEmail(raw));
+}
+
+function deriveUserAvatar(name, email) {
+  const seed = encodeURIComponent(name || email || 'appVideo');
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
+}
+
+function copyTextSafely(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(() => copyTextFallback(text));
+  }
+  return copyTextFallback(text);
+}
+
+function copyTextFallback(text) {
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) resolve();
+      else reject(new Error('Clipboard unavailable'));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function resolveCatalogTitlesForIds(ids, itemsById, titleKey = 'title', limit = 15) {
+  const names = [];
+  for (const id of ids) {
+    const found = itemsById.get(id);
+    names.push(found ? (found[titleKey] || String(id)) : String(id));
+    if (names.length >= limit) break;
+  }
+  return names;
+}
+
 function buildUserSyncData() {
+  const videoMap = new Map(allVideos.map(v => [v.id, v]));
+  const mediaMap = new Map(getAllCatalogMedia().map(d => [d.id, d]));
+
+  const likedVideosArr = [...likedVideoIds];
+  const savedShortsArr = [...savedShortIds];
+  const savedDramasArr = [...savedDramaIds];
+  const likedEpisodesArr = [...likedEpisodeKeys];
+  const cleanCollections = customCollections.map(c => ({
+    id: String(c.id || ''),
+    name: String(c.name || 'Koleksi'),
+    videoIds: Array.isArray(c.videoIds) ? [...c.videoIds] : [],
+    isDefault: Boolean(c.isDefault),
+    createdAt: Number(c.createdAt) || 0
+  }));
+
   return {
-    user_email: currentUser?.email || 'guest@gmail.com',
+    app: 'appVideo',
+    version: 2,
+    user_email: currentUser?.email || '',
     user_name: currentUser?.name || 'Pengguna appVideo',
     avatar: currentUser?.avatar || '',
     device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Browser',
     last_synced: new Date().toISOString(),
     gdrive_folder_id: GDRIVE_USER_DATA_FOLDER_ID,
-    saved_dramas: [...savedDramaIds],
-    liked_episodes: [...likedEpisodeKeys],
-    saved_shorts: [...savedShortIds],
-    liked_videos: [...likedVideoIds],
-    custom_collections: customCollections
+    ringkasan: {
+      disukai_shorts: likedVideosArr.length,
+      shorts_tersimpan: savedShortsArr.length,
+      drama_dan_18_tersimpan: savedDramasArr.length,
+      episode_disukai: likedEpisodesArr.length,
+      folder_koleksi: cleanCollections.length
+    },
+    liked_videos: likedVideosArr,
+    saved_shorts: savedShortsArr,
+    saved_dramas: savedDramasArr,
+    liked_episodes: likedEpisodesArr,
+    custom_collections: cleanCollections,
+    detail_judul: {
+      shorts_disukai: resolveCatalogTitlesForIds(likedVideosArr, videoMap),
+      shorts_tersimpan: resolveCatalogTitlesForIds(savedShortsArr, videoMap),
+      drama_dan_18: resolveCatalogTitlesForIds(savedDramasArr, mediaMap),
+      koleksi: cleanCollections.map(c => ({ nama: c.name, jumlah: c.videoIds.length }))
+    }
   };
+}
+
+function buildCompactSyncLink() {
+  if (!currentUser) return window.location.href;
+  const compact = {
+    e: currentUser.email,
+    n: currentUser.name,
+    lv: [...likedVideoIds],
+    ss: [...savedShortIds],
+    sd: [...savedDramaIds],
+    le: [...likedEpisodeKeys],
+    cc: customCollections.map(c => ({
+      id: c.id,
+      name: c.name,
+      videoIds: c.videoIds,
+      isDefault: Boolean(c.isDefault),
+      createdAt: Number(c.createdAt) || 0
+    }))
+  };
+  const jsonStr = JSON.stringify(compact);
+  const b64 = btoa(unescape(encodeURIComponent(jsonStr)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${window.location.origin}${window.location.pathname}#sync=${b64}`;
+}
+
+function parseRawSyncInput(rawText) {
+  const trimmed = String(rawText || '').trim();
+  if (!trimmed || trimmed.length > 250000) {
+    throw new Error('Data sinkronisasi kosong atau terlalu besar.');
+  }
+  const hashMatch = trimmed.match(/#sync=([A-Za-z0-9\-_]+)/);
+  if (hashMatch) {
+    const b64Std = hashMatch[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64Std.length % 4 === 0 ? '' : '='.repeat(4 - (b64Std.length % 4));
+    const decoded = decodeURIComponent(escape(atob(b64Std + pad)));
+    return sanitizeSyncPayload(JSON.parse(decoded));
+  }
+  return sanitizeSyncPayload(JSON.parse(trimmed));
+}
+
+function sanitizeSyncPayload(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Format JSON tidak valid.');
+  }
+  const strList = (val) => (
+    Array.isArray(val)
+      ? [...new Set(val.filter(x => typeof x === 'string' && x.trim().length > 0 && x.length <= 140).map(x => x.trim()))]
+      : []
+  );
+
+  const rawEmail = raw.user_email || raw.email || raw.e || '';
+  const email = isValidEmail(rawEmail) ? normalizeEmail(rawEmail) : '';
+  const rawName = raw.user_name || raw.name || raw.n || '';
+  const name = typeof rawName === 'string' && rawName.trim() ? rawName.trim().slice(0, 80) : (email ? email.split('@')[0] : '');
+
+  const rawCols = Array.isArray(raw.custom_collections) ? raw.custom_collections : (Array.isArray(raw.cc) ? raw.cc : []);
+  const custom_collections = rawCols
+    .filter(c => c && typeof c === 'object' && !Array.isArray(c))
+    .slice(0, 60)
+    .map((c, idx) => ({
+      id: typeof c.id === 'string' && c.id.trim() ? c.id.trim().slice(0, 80) : `col_imp_${Date.now()}_${idx}`,
+      name: typeof c.name === 'string' && c.name.trim() ? c.name.trim().slice(0, 80) : 'Koleksi',
+      videoIds: strList(c.videoIds),
+      isDefault: Boolean(c.isDefault) || c.id === 'col_default',
+      createdAt: Number.isFinite(Number(c.createdAt)) ? Number(c.createdAt) : 0
+    }));
+
+  return {
+    user_email: email,
+    user_name: name,
+    liked_videos: strList(raw.liked_videos ?? raw.lv),
+    saved_shorts: strList(raw.saved_shorts ?? raw.ss),
+    saved_dramas: strList(raw.saved_dramas ?? raw.sd),
+    liked_episodes: strList(raw.liked_episodes ?? raw.le),
+    custom_collections
+  };
+}
+
+function mergeCollectionsList(targetCols, incomingCols) {
+  const next = targetCols.map(c => ({ ...c, videoIds: [...(c.videoIds || [])] }));
+  incomingCols.forEach(inc => {
+    const match = next.find(c => (c.isDefault && inc.isDefault) || c.id === inc.id || (!inc.isDefault && c.name.toLowerCase() === inc.name.toLowerCase()));
+    if (match) {
+      inc.videoIds.forEach(vid => {
+        if (!match.videoIds.includes(vid)) match.videoIds.push(vid);
+      });
+    } else {
+      next.push({
+        id: inc.id,
+        name: inc.name,
+        videoIds: [...inc.videoIds],
+        isDefault: Boolean(inc.isDefault),
+        createdAt: Number(inc.createdAt) || Date.now()
+      });
+    }
+  });
+  return next;
+}
+
+function applySanitizedSyncData(parsed, merge = true) {
+  if (!merge) {
+    likedVideoIds.clear();
+    savedShortIds.clear();
+    savedDramaIds.clear();
+    likedEpisodeKeys.clear();
+    customCollections = [{
+      id: 'col_default',
+      name: 'Semua Tersimpan',
+      videoIds: [],
+      isDefault: true,
+      createdAt: 0
+    }];
+  }
+
+  parsed.liked_videos.forEach(id => likedVideoIds.add(id));
+  parsed.saved_shorts.forEach(id => savedShortIds.add(id));
+  parsed.saved_dramas.forEach(id => savedDramaIds.add(id));
+  parsed.liked_episodes.forEach(key => likedEpisodeKeys.add(key));
+
+  if (parsed.custom_collections.length > 0) {
+    customCollections = mergeCollectionsList(customCollections, parsed.custom_collections);
+  }
+  const defCol = customCollections.find(c => c.id === 'col_default');
+  if (defCol) {
+    savedShortIds.forEach(id => {
+      if (!defCol.videoIds.includes(id)) defCol.videoIds.push(id);
+    });
+  }
+  persistCollections();
+  persistStorage();
+}
+
+function renderSyncSummaryBreakdown(syncData) {
+  const box = document.getElementById('sync-summary-breakdown');
+  if (!box) return;
+  const r = syncData.ringkasan;
+  const badges = [
+    { label: 'Disukai', val: r.disukai_shorts, cls: 'text-rose-400 border-rose-500/30 bg-rose-950/30' },
+    { label: 'Shorts', val: r.shorts_tersimpan, cls: 'text-amber-400 border-amber-500/30 bg-amber-950/30' },
+    { label: 'Drama/18+', val: r.drama_dan_18_tersimpan, cls: 'text-sky-400 border-sky-500/30 bg-sky-950/30' },
+    { label: 'Koleksi', val: r.folder_koleksi, cls: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/30' }
+  ];
+
+  const dramaTitles = syncData.detail_judul.drama_dan_18.slice(0, 3);
+  const colNames = syncData.detail_judul.koleksi.slice(0, 3).map(c => `${c.nama} (${c.jumlah})`);
+
+  box.innerHTML = `
+    <div class="grid grid-cols-4 gap-1.5 text-center">
+      ${badges.map(b => `
+        <div class="rounded-lg border ${b.cls} py-1 px-1">
+          <div class="text-xs font-black">${b.val}</div>
+          <div class="text-[9px] text-zinc-300 leading-tight">${b.label}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="text-[10px] text-zinc-400 space-y-0.5 pt-0.5">
+      <div><span class="text-zinc-300 font-semibold">Folder:</span> ${colNames.length ? escapeHtml(colNames.join(' • ')) : 'Belum ada folder'}</div>
+      ${dramaTitles.length ? `<div class="line-clamp-1"><span class="text-zinc-300 font-semibold">Drama &amp; 18+:</span> ${escapeHtml(dramaTitles.join(', '))}</div>` : ''}
+      <div><span class="text-zinc-300 font-semibold">Ep/Part disukai:</span> ${r.episode_disukai} item</div>
+    </div>
+  `;
+}
+
+function updateSyncDataInspector() {
+  const jsonBox = document.getElementById('sync-json-output');
+  const sizeBadge = document.getElementById('sync-json-size');
+  if (!currentUser) return;
+  const syncData = buildUserSyncData();
+  const jsonStr = JSON.stringify(syncData, null, 2);
+  if (jsonBox) jsonBox.value = jsonStr;
+  if (sizeBadge) {
+    const bytes = new Blob([jsonStr]).size;
+    sizeBadge.textContent = bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
+  }
+  renderSyncSummaryBreakdown(syncData);
 }
 
 function updateGoogleSyncUI() {
@@ -3198,20 +3463,21 @@ function updateGoogleSyncUI() {
     if (loggedOutState) loggedOutState.classList.add('hidden');
     if (loggedInState) loggedInState.classList.remove('hidden');
 
-    if (userName) userName.textContent = currentUser.name || 'Pengguna Google';
+    if (userName) userName.textContent = currentUser.name || 'Pengguna Email';
     if (userEmail) userEmail.textContent = currentUser.email || '';
-    if (userAvatar) userAvatar.src = currentUser.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name || 'U')}`;
-    
-    if (profileName) profileName.textContent = currentUser.name || 'Pengguna Google';
+    if (userAvatar) userAvatar.src = currentUser.avatar || deriveUserAvatar(currentUser.name, currentUser.email);
+
+    if (profileName) profileName.textContent = currentUser.name || 'Pengguna Email';
     if (profileHandle) profileHandle.textContent = `@${currentUser.email ? currentUser.email.split('@')[0] : 'user'}`;
     if (profileAvatar && currentUser.avatar) profileAvatar.src = currentUser.avatar;
 
     const lastSync = localStorage.getItem('teleshorts_last_sync_time');
     if (syncTime) {
-      syncTime.textContent = lastSync 
-        ? `Sinkron: ${new Date(lastSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` 
+      syncTime.textContent = lastSync
+        ? `Sinkron: ${new Date(lastSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
         : 'Sinkron: Baru saja';
     }
+    updateSyncDataInspector();
   } else {
     if (loggedInState) loggedInState.classList.add('hidden');
     if (loggedOutState) loggedOutState.classList.remove('hidden');
@@ -3237,14 +3503,13 @@ function syncUserDataToCloud(isManual = false) {
   const jsonStr = JSON.stringify(syncData, null, 2);
   const now = new Date().toISOString();
   localStorage.setItem('teleshorts_last_sync_time', now);
-  
-  // Simpan data sinkronisasi per email akun
-  localStorage.setItem(`teleshorts_cloud_backup_${currentUser.email}`, jsonStr);
+  localStorage.setItem(`teleshorts_cloud_backup_${normalizeEmail(currentUser.email)}`, jsonStr);
 
   updateGoogleSyncUI();
   if (isManual) {
     triggerHaptic('success');
-    showToast(`Data berhasil disinkronkan ke Google Drive! ☁️✨`, 'cloud-check', 'amber', 3000);
+    const r = syncData.ringkasan;
+    showToast(`JSON tersinkron! ${r.disukai_shorts} suka • ${r.shorts_tersimpan} short • ${r.drama_dan_18_tersimpan} drama/18+ ✓`, 'cloud-check', 'amber', 3200);
   }
 }
 
@@ -3253,124 +3518,119 @@ function queueCloudSync() {
   clearTimeout(syncDebounceTimer);
   syncDebounceTimer = setTimeout(() => {
     syncUserDataToCloud(false);
-  }, 1200);
+  }, 600);
 }
 
-const GOOGLE_CLIENT_ID = localStorage.getItem('teleshorts_google_client_id') || '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com';
-
-function triggerDirectGoogleLogin() {
-  triggerHaptic('medium');
-
-  if (!window.google?.accounts?.oauth2 && !window.google?.accounts?.id) {
-    showToast('Memuat Google SDK, silakan coba beberapa detik lagi... 🌐', 'alert-circle', 'rose', 3500);
-    return;
-  }
-
-  showToast('Menghubungkan ke server resmi Google... ⏳', 'cloud', 'amber', 2500);
-
-  try {
-    // Gunakan Google OAuth 2.0 Token Client Resmi (Membuka popup asli Google untuk memilih akun)
-    const tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: 'email profile openid',
-      prompt: 'select_account',
-      callback: async (tokenResponse) => {
-        if (tokenResponse?.error) {
-          if (tokenResponse.error === 'access_denied') {
-            showToast('Login Google dibatalkan', 'alert-circle', 'zinc', 2500);
-          } else {
-            showToast(`Otentikasi Google: ${tokenResponse.error}`, 'alert-circle', 'rose', 4000);
-          }
-          return;
-        }
-
-        if (tokenResponse?.access_token) {
-          try {
-            // Ambil data profil asli langsung dari server resmi Google API
-            const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-              headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const profile = await res.json();
-            handleGoogleLoginSuccess(profile.email, profile.name, profile.picture);
-          } catch (err) {
-            showToast('Gagal memuat profil dari Google API ⚠️', 'alert-circle', 'rose', 3500);
-          }
-        }
-      },
-      error_callback: (err) => {
-        showToast('Google OAuth: ' + (err?.message || err), 'alert-circle', 'rose', 4000);
-      }
-    });
-
-    tokenClient.requestAccessToken({ prompt: 'select_account' });
-  } catch (err) {
-    // Fallback ke Google Identity Services (GIS) One-Tap jika popup dicegah browser
-    if (window.google?.accounts?.id) {
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (res) => {
-          try {
-            const base64Url = res.credential.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-            const p = JSON.parse(jsonPayload);
-            handleGoogleLoginSuccess(p.email, p.name, p.picture);
-          } catch(e) {
-            showToast('Gagal memverifikasi token Google ⚠️', 'alert-circle', 'rose');
-          }
-        }
-      });
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed()) {
-          showToast('Popup Google diblokir browser, mohon izinkan popup ya beb ⚠️', 'alert-circle', 'rose', 4000);
-        }
-      });
-    } else {
-      showToast('Gagal membuka otentikasi Google: ' + err.message, 'alert-circle', 'rose', 4000);
+function handleEmailLogin(email, name = '', avatar = '') {
+  const errEl = document.getElementById('login-email-error');
+  const normEmail = normalizeEmail(email);
+  if (!isValidEmail(normEmail)) {
+    if (errEl) {
+      errEl.textContent = 'Masukkan alamat email yang valid (contoh: nama@gmail.com).';
+      errEl.classList.remove('hidden');
     }
+    showToast('Email tidak valid, coba periksa kembali ⚠️', 'alert-circle', 'rose', 2800);
+    return false;
   }
-}
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+  }
 
-function handleGoogleLoginSuccess(email, name = '', avatar = '') {
+  const prevEmail = currentUser?.email ? normalizeEmail(currentUser.email) : '';
+  const lastOwnerEmail = localStorage.getItem('teleshorts_last_email') || '';
+  if (prevEmail && prevEmail !== normEmail) {
+    syncUserDataToCloud(false);
+  }
+
+  const displayName = String(name || '').trim() || normEmail.split('@')[0];
   currentUser = {
-    email: email.trim(),
-    name: name.trim() || email.split('@')[0],
-    avatar: avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || email)}`,
+    email: normEmail,
+    name: displayName,
+    avatar: avatar || deriveUserAvatar(displayName, normEmail),
     logged_in_at: new Date().toISOString()
   };
   localStorage.setItem('teleshorts_google_user', JSON.stringify(currentUser));
+  localStorage.setItem('teleshorts_last_email', normEmail);
 
-  // Cek apakah ada data tersimpan sebelumnya dari cloud untuk email ini
-  const existingBackup = localStorage.getItem(`teleshorts_cloud_backup_${currentUser.email}`);
+  const existingBackup = localStorage.getItem(`teleshorts_cloud_backup_${normEmail}`);
+  const switchingAccounts = Boolean((prevEmail && prevEmail !== normEmail) || (lastOwnerEmail && lastOwnerEmail !== normEmail));
   if (existingBackup) {
     try {
-      const parsed = JSON.parse(existingBackup);
-      if (parsed.saved_dramas) {
-        parsed.saved_dramas.forEach(id => savedDramaIds.add(id));
-      }
-      if (parsed.liked_episodes) {
-        parsed.liked_episodes.forEach(key => likedEpisodeKeys.add(key));
-      }
-      if (parsed.saved_shorts) {
-        parsed.saved_shorts.forEach(id => savedShortIds.add(id));
-      }
-      if (parsed.liked_videos) {
-        parsed.liked_videos.forEach(id => likedVideoIds.add(id));
-      }
-      if (parsed.custom_collections && parsed.custom_collections.length > 0) {
-        customCollections = parsed.custom_collections;
-        persistCollections();
-      }
+      const parsed = sanitizeSyncPayload(JSON.parse(existingBackup));
+      applySanitizedSyncData(parsed, !switchingAccounts);
     } catch (e) {}
+  } else if (switchingAccounts) {
+    applySanitizedSyncData({ liked_videos: [], saved_shorts: [], saved_dramas: [], liked_episodes: [], custom_collections: [] }, false);
+  } else {
+    persistStorage();
   }
 
-  persistStorage();
-  updateGoogleSyncUI();
+  const importPanel = document.getElementById('sync-import-panel');
+  if (importPanel) importPanel.classList.add('hidden');
+
+  syncUserDataToCloud(false);
   updateStatsDisplay();
-  showToast(`Selamat datang, ${currentUser.name}! Akun Google terhubung ☁️`, 'check', 'amber', 3500);
+  filterAndRenderDramas();
+  filterAndRenderAdult18();
+  if (activeView === 'profile') renderProfileContent();
+
+  const summary = buildUserSyncData().ringkasan;
   triggerHaptic('success');
-  syncUserDataToCloud(true);
+  showToast(`Masuk sebagai ${normEmail} — JSON & ${summary.drama_dan_18_tersimpan + summary.shorts_tersimpan} tersimpan siap ✓`, 'cloud-check', 'amber', 3400);
+  return true;
+}
+
+function handleGoogleLoginSuccess(email, name = '', avatar = '') {
+  return handleEmailLogin(email, name, avatar);
+}
+
+function applyImportedSyncText(rawText, sourceLabel = 'JSON') {
+  const parsed = parseRawSyncInput(rawText);
+  if (parsed.user_email && (!currentUser || normalizeEmail(currentUser.email) !== parsed.user_email)) {
+    handleEmailLogin(parsed.user_email, parsed.user_name);
+  }
+  applySanitizedSyncData(parsed, true);
+  syncUserDataToCloud(false);
+  updateStatsDisplay();
+  filterAndRenderDramas();
+  filterAndRenderAdult18();
+  if (activeView === 'profile') renderProfileContent();
+
+  triggerHaptic('success');
+  showToast(`Sinkronisasi ${sourceLabel} berhasil! (${parsed.liked_videos.length} suka, ${parsed.saved_shorts.length} shorts, ${parsed.saved_dramas.length} drama/18+) ✓`, 'cloud-check', 'emerald', 3600);
+  return parsed;
+}
+
+function processSyncUrlHashIfPresent() {
+  const h = window.location.hash || '';
+  if (!h.startsWith('#sync=')) return false;
+  try {
+    const parsed = parseRawSyncInput(h);
+    if (parsed.user_email) {
+      const normEmail = normalizeEmail(parsed.user_email);
+      currentUser = {
+        email: normEmail,
+        name: parsed.user_name || normEmail.split('@')[0],
+        avatar: deriveUserAvatar(parsed.user_name, normEmail),
+        logged_in_at: new Date().toISOString()
+      };
+      localStorage.setItem('teleshorts_google_user', JSON.stringify(currentUser));
+      localStorage.setItem('teleshorts_last_email', normEmail);
+    }
+    applySanitizedSyncData(parsed, true);
+    localStorage.setItem('teleshorts_seeded_v1', '1');
+    syncUserDataToCloud(false);
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (e) {}
+    setTimeout(() => {
+      showToast(`Data akun ${parsed.user_email || ''} otomatis tersinkron dari tautan! ✨`, 'cloud-check', 'amber', 3600);
+    }, 500);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 // ============================================================
@@ -3432,23 +3692,125 @@ function setupEvents() {
     };
   });
 
-  // Google Login & Cloud Sync Controls (Direct 1-Click)
-  const btnGoogleLogin = document.getElementById('btn-google-login');
+  // Email-Only Login & Portable JSON Sync Controls
+  const emailLoginForm = document.getElementById('email-login-form');
+  const loginEmailInput = document.getElementById('login-email-input');
   const btnGoogleLogout = document.getElementById('btn-google-logout');
   const btnManualSync = document.getElementById('btn-manual-sync');
+  const btnCopySyncJson = document.getElementById('btn-copy-sync-json');
+  const btnCopySyncLink = document.getElementById('btn-copy-sync-link');
+  const btnDownloadSyncJson = document.getElementById('btn-download-sync-json');
+  const syncImportPanel = document.getElementById('sync-import-panel');
+  const btnToggleImportPanel = document.getElementById('btn-toggle-import-panel');
+  const btnToggleGuestImport = document.getElementById('btn-toggle-guest-import');
+  const btnCloseImportPanel = document.getElementById('btn-close-import-panel');
+  const btnPickImportFile = document.getElementById('btn-pick-import-file');
+  const syncImportFile = document.getElementById('sync-import-file');
+  const syncImportInput = document.getElementById('sync-import-input');
+  const btnApplyImportJson = document.getElementById('btn-apply-import-json');
 
-  if (btnGoogleLogin) btnGoogleLogin.onclick = triggerDirectGoogleLogin;
+  if (emailLoginForm) {
+    emailLoginForm.onsubmit = (e) => {
+      e.preventDefault();
+      handleEmailLogin(loginEmailInput?.value || '');
+    };
+  }
+  if (loginEmailInput) {
+    loginEmailInput.addEventListener('input', () => {
+      const errEl = document.getElementById('login-email-error');
+      if (errEl) errEl.classList.add('hidden');
+    });
+  }
   if (btnGoogleLogout) {
     btnGoogleLogout.onclick = () => {
       triggerHaptic('light');
+      if (currentUser) syncUserDataToCloud(false);
       currentUser = null;
       localStorage.removeItem('teleshorts_google_user');
+      if (loginEmailInput) loginEmailInput.value = '';
+      if (syncImportPanel) syncImportPanel.classList.add('hidden');
       updateGoogleSyncUI();
-      showToast('Berhasil keluar akun Google 👋', 'log-out', 'zinc');
+      showToast('Berhasil keluar dari akun email 👋', 'log-out', 'zinc');
     };
   }
   if (btnManualSync) {
     btnManualSync.onclick = () => syncUserDataToCloud(true);
+  }
+  if (btnCopySyncJson) {
+    btnCopySyncJson.onclick = () => {
+      triggerHaptic('medium');
+      const jsonStr = JSON.stringify(buildUserSyncData(), null, 2);
+      copyTextSafely(jsonStr)
+        .then(() => showToast('Data JSON sinkronisasi disalin! 📋', 'copy', 'amber', 2600))
+        .catch(() => showToast('Ketuk & salin langsung dari kotak JSON di atas', 'alert-circle', 'zinc', 2600));
+    };
+  }
+  if (btnCopySyncLink) {
+    btnCopySyncLink.onclick = () => {
+      triggerHaptic('medium');
+      const url = buildCompactSyncLink();
+      copyTextSafely(url)
+        .then(() => showToast('Link sinkronisasi disalin! Buka di HP/Laptop lain 🔗', 'link', 'sky', 3000))
+        .catch(() => showToast('Gagal menyalin link sinkronisasi ⚠️', 'alert-circle', 'rose'));
+    };
+  }
+  if (btnDownloadSyncJson) {
+    btnDownloadSyncJson.onclick = () => {
+      triggerHaptic('medium');
+      const data = buildUserSyncData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (data.user_email || 'akun').replace(/[^a-z0-9._-]+/gi, '_');
+      a.href = blobUrl;
+      a.download = `appVideo-sync-${safeName}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+      showToast('File JSON sinkronisasi diunduh 💾', 'download', 'emerald', 2600);
+    };
+  }
+
+  const toggleImport = (forceOpen = null) => {
+    if (!syncImportPanel) return;
+    const willOpen = forceOpen !== null ? forceOpen : syncImportPanel.classList.contains('hidden');
+    syncImportPanel.classList.toggle('hidden', !willOpen);
+    if (willOpen && syncImportInput) syncImportInput.focus();
+  };
+  if (btnToggleImportPanel) btnToggleImportPanel.onclick = () => toggleImport();
+  if (btnToggleGuestImport) btnToggleGuestImport.onclick = () => toggleImport();
+  if (btnCloseImportPanel) btnCloseImportPanel.onclick = () => toggleImport(false);
+
+  if (btnPickImportFile && syncImportFile) {
+    btnPickImportFile.onclick = () => syncImportFile.click();
+    syncImportFile.onchange = () => {
+      const file = syncImportFile.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (syncImportInput) syncImportInput.value = String(reader.result || '');
+        try {
+          applyImportedSyncText(String(reader.result || ''), file.name);
+          syncImportPanel?.classList.add('hidden');
+        } catch (err) {
+          showToast(err.message || 'File JSON tidak valid ⚠️', 'alert-circle', 'rose', 3200);
+        }
+      };
+      reader.readAsText(file);
+      syncImportFile.value = '';
+    };
+  }
+  if (btnApplyImportJson) {
+    btnApplyImportJson.onclick = () => {
+      try {
+        applyImportedSyncText(syncImportInput?.value || '', 'JSON');
+        if (syncImportInput) syncImportInput.value = '';
+        syncImportPanel?.classList.add('hidden');
+      } catch (err) {
+        showToast(err.message || 'Format JSON/Link tidak dikenali ⚠️', 'alert-circle', 'rose', 3200);
+      }
+    };
   }
 
   // Share Profile button
