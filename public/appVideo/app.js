@@ -3,6 +3,7 @@
 // ============================================================
 const STREAM_PROXY_BASE = 'https://test-worker.big-marigold.workers.dev';
 const GDRIVE_USER_DATA_FOLDER_ID = '1w3bQfcfdqc4-MfqbmHJ17JC-fhOTRR3W';
+const DEFAULT_CLOUD_SYNC_ENDPOINT = ''; // Set URL Web App Google Apps Script untuk simpan .json otomatis ke AppVideo_UserData (reikyranp@gmail.com)
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -576,7 +577,7 @@ async function initApp() {
     localStorage.setItem('teleshorts_seeded_v1', '1');
   }
   loadCollections();
-  processSyncUrlHashIfPresent();
+  processSyncEndpointHashIfPresent();
   persistStorage();
 
   // Critical path first: Shorts feed, UI states, event bindings
@@ -588,6 +589,13 @@ async function initApp() {
   updateDramaSortUI();
   updateAdultSortUI();
   setupEvents();
+
+  // Sinkronisasi otomatis di latar belakang jika akun sudah login
+  if (currentUser) {
+    setTimeout(() => {
+      syncUserDataToCloud(false, { pullFirst: true });
+    }, 120);
+  }
 
   // Fade out splash loader immediately on next animation frame
   if (initialLoader) {
@@ -3316,9 +3324,11 @@ function closeDramaSortSheet() {
 }
 
 // ============================================================
-// EMAIL-ONLY LOGIN & PORTABLE JSON SYNCHRONIZATION
+// EMAIL-ONLY LOGIN & AUTOMATIC SYNCHRONIZATION ENGINE
 // ============================================================
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const SYNC_ENDPOINT_ALLOWLIST = /^https:\/\/(script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec|[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev\/?.*)$/i;
+let isRemoteSyncBusy = false;
 
 function normalizeEmail(raw) {
   return String(raw || '').trim().toLowerCase();
@@ -3333,51 +3343,36 @@ function deriveUserAvatar(name, email) {
   return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
 }
 
-function copyTextSafely(text) {
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    return navigator.clipboard.writeText(text).catch(() => copyTextFallback(text));
-  }
-  return copyTextFallback(text);
+function isValidSyncEndpoint(url) {
+  return typeof url === 'string' && SYNC_ENDPOINT_ALLOWLIST.test(url.trim());
 }
 
-function copyTextFallback(text) {
-  return new Promise((resolve, reject) => {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if (ok) resolve();
-      else reject(new Error('Clipboard unavailable'));
-    } catch (err) {
-      reject(err);
+function getCloudSyncEndpoint() {
+  const stored = (localStorage.getItem('teleshorts_sync_endpoint') || '').trim();
+  if (isValidSyncEndpoint(stored)) return stored;
+  return isValidSyncEndpoint(DEFAULT_CLOUD_SYNC_ENDPOINT) ? DEFAULT_CLOUD_SYNC_ENDPOINT.trim() : '';
+}
+
+function processSyncEndpointHashIfPresent() {
+  const h = window.location.hash || '';
+  if (!h.startsWith('#drive-sync=')) return false;
+  try {
+    const candidate = decodeURIComponent(h.slice('#drive-sync='.length)).trim();
+    if (isValidSyncEndpoint(candidate)) {
+      localStorage.setItem('teleshorts_sync_endpoint', candidate);
+      try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch (e) {}
+      setTimeout(() => {
+        showToast('Sinkronisasi Google Drive terhubung otomatis ✓', 'cloud-check', 'emerald', 3200);
+      }, 450);
+      return true;
     }
-  });
-}
-
-function resolveCatalogTitlesForIds(ids, itemsById, titleKey = 'title', limit = 15) {
-  const names = [];
-  for (const id of ids) {
-    const found = itemsById.get(id);
-    names.push(found ? (found[titleKey] || String(id)) : String(id));
-    if (names.length >= limit) break;
-  }
-  return names;
+  } catch (e) {}
+  return false;
 }
 
 function buildUserSyncData() {
-  const videoMap = new Map(allVideos.map(v => [v.id, v]));
-  const mediaMap = new Map(getAllCatalogMedia().map(d => [d.id, d]));
-
-  const likedVideosArr = [...likedVideoIds];
-  const savedShortsArr = [...savedShortIds];
-  const savedDramasArr = [...savedDramaIds];
-  const likedEpisodesArr = [...likedEpisodeKeys];
   const cleanCollections = customCollections.map(c => ({
     id: String(c.id || ''),
     name: String(c.name || 'Koleksi'),
@@ -3395,68 +3390,17 @@ function buildUserSyncData() {
     device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Browser',
     last_synced: new Date().toISOString(),
     gdrive_folder_id: GDRIVE_USER_DATA_FOLDER_ID,
-    ringkasan: {
-      disukai_shorts: likedVideosArr.length,
-      shorts_tersimpan: savedShortsArr.length,
-      drama_dan_18_tersimpan: savedDramasArr.length,
-      episode_disukai: likedEpisodesArr.length,
-      folder_koleksi: cleanCollections.length
-    },
-    liked_videos: likedVideosArr,
-    saved_shorts: savedShortsArr,
-    saved_dramas: savedDramasArr,
-    liked_episodes: likedEpisodesArr,
-    custom_collections: cleanCollections,
-    detail_judul: {
-      shorts_disukai: resolveCatalogTitlesForIds(likedVideosArr, videoMap),
-      shorts_tersimpan: resolveCatalogTitlesForIds(savedShortsArr, videoMap),
-      drama_dan_18: resolveCatalogTitlesForIds(savedDramasArr, mediaMap),
-      koleksi: cleanCollections.map(c => ({ nama: c.name, jumlah: c.videoIds.length }))
-    }
+    liked_videos: [...likedVideoIds],
+    saved_shorts: [...savedShortIds],
+    saved_dramas: [...savedDramaIds],
+    liked_episodes: [...likedEpisodeKeys],
+    custom_collections: cleanCollections
   };
-}
-
-function buildCompactSyncLink() {
-  if (!currentUser) return window.location.href;
-  const compact = {
-    e: currentUser.email,
-    n: currentUser.name,
-    lv: [...likedVideoIds],
-    ss: [...savedShortIds],
-    sd: [...savedDramaIds],
-    le: [...likedEpisodeKeys],
-    cc: customCollections.map(c => ({
-      id: c.id,
-      name: c.name,
-      videoIds: c.videoIds,
-      isDefault: Boolean(c.isDefault),
-      createdAt: Number(c.createdAt) || 0
-    }))
-  };
-  const jsonStr = JSON.stringify(compact);
-  const b64 = btoa(unescape(encodeURIComponent(jsonStr)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${window.location.origin}${window.location.pathname}#sync=${b64}`;
-}
-
-function parseRawSyncInput(rawText) {
-  const trimmed = String(rawText || '').trim();
-  if (!trimmed || trimmed.length > 250000) {
-    throw new Error('Data sinkronisasi kosong atau terlalu besar.');
-  }
-  const hashMatch = trimmed.match(/#sync=([A-Za-z0-9\-_]+)/);
-  if (hashMatch) {
-    const b64Std = hashMatch[1].replace(/-/g, '+').replace(/_/g, '/');
-    const pad = b64Std.length % 4 === 0 ? '' : '='.repeat(4 - (b64Std.length % 4));
-    const decoded = decodeURIComponent(escape(atob(b64Std + pad)));
-    return sanitizeSyncPayload(JSON.parse(decoded));
-  }
-  return sanitizeSyncPayload(JSON.parse(trimmed));
 }
 
 function sanitizeSyncPayload(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('Format JSON tidak valid.');
+    throw new Error('Format sinkronisasi tidak valid.');
   }
   const strList = (val) => (
     Array.isArray(val)
@@ -3513,6 +3457,22 @@ function mergeCollectionsList(targetCols, incomingCols) {
   return next;
 }
 
+function saveStorageWithoutSyncLoop() {
+  localStorage.setItem('teleshorts_likes', JSON.stringify([...likedVideoIds]));
+  localStorage.setItem('teleshorts_saved_shorts', JSON.stringify([...savedShortIds]));
+  localStorage.setItem('teleshorts_saved_dramas', JSON.stringify([...savedDramaIds]));
+  localStorage.setItem('teleshorts_liked_episodes', JSON.stringify([...likedEpisodeKeys]));
+  localStorage.setItem('teleshorts_custom_collections', JSON.stringify(customCollections));
+}
+
+function refreshAllSyncedViews() {
+  updateStatsDisplay();
+  filterAndRenderDramas();
+  filterAndRenderAdult18();
+  if (activeView === 'profile') renderProfileContent();
+  updateGoogleSyncUI();
+}
+
 function applySanitizedSyncData(parsed, merge = true) {
   if (!merge) {
     likedVideoIds.clear();
@@ -3542,53 +3502,8 @@ function applySanitizedSyncData(parsed, merge = true) {
       if (!defCol.videoIds.includes(id)) defCol.videoIds.push(id);
     });
   }
-  persistCollections();
-  persistStorage();
-}
-
-function renderSyncSummaryBreakdown(syncData) {
-  const box = document.getElementById('sync-summary-breakdown');
-  if (!box) return;
-  const r = syncData.ringkasan;
-  const badges = [
-    { label: 'Disukai', val: r.disukai_shorts, cls: 'text-rose-400 border-rose-500/30 bg-rose-950/30' },
-    { label: 'Shorts', val: r.shorts_tersimpan, cls: 'text-amber-400 border-amber-500/30 bg-amber-950/30' },
-    { label: 'Drama/18+', val: r.drama_dan_18_tersimpan, cls: 'text-sky-400 border-sky-500/30 bg-sky-950/30' },
-    { label: 'Koleksi', val: r.folder_koleksi, cls: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/30' }
-  ];
-
-  const dramaTitles = syncData.detail_judul.drama_dan_18.slice(0, 3);
-  const colNames = syncData.detail_judul.koleksi.slice(0, 3).map(c => `${c.nama} (${c.jumlah})`);
-
-  box.innerHTML = `
-    <div class="grid grid-cols-4 gap-1.5 text-center">
-      ${badges.map(b => `
-        <div class="rounded-lg border ${b.cls} py-1 px-1">
-          <div class="text-xs font-black">${b.val}</div>
-          <div class="text-[9px] text-zinc-300 leading-tight">${b.label}</div>
-        </div>
-      `).join('')}
-    </div>
-    <div class="text-[10px] text-zinc-400 space-y-0.5 pt-0.5">
-      <div><span class="text-zinc-300 font-semibold">Folder:</span> ${colNames.length ? escapeHtml(colNames.join(' • ')) : 'Belum ada folder'}</div>
-      ${dramaTitles.length ? `<div class="line-clamp-1"><span class="text-zinc-300 font-semibold">Drama &amp; 18+:</span> ${escapeHtml(dramaTitles.join(', '))}</div>` : ''}
-      <div><span class="text-zinc-300 font-semibold">Ep/Part disukai:</span> ${r.episode_disukai} item</div>
-    </div>
-  `;
-}
-
-function updateSyncDataInspector() {
-  const jsonBox = document.getElementById('sync-json-output');
-  const sizeBadge = document.getElementById('sync-json-size');
-  if (!currentUser) return;
-  const syncData = buildUserSyncData();
-  const jsonStr = JSON.stringify(syncData, null, 2);
-  if (jsonBox) jsonBox.value = jsonStr;
-  if (sizeBadge) {
-    const bytes = new Blob([jsonStr]).size;
-    sizeBadge.textContent = bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
-  }
-  renderSyncSummaryBreakdown(syncData);
+  saveStorageWithoutSyncLoop();
+  updateStatsDisplay();
 }
 
 function updateGoogleSyncUI() {
@@ -3598,6 +3513,7 @@ function updateGoogleSyncUI() {
   const userName = document.getElementById('user-google-name');
   const userEmail = document.getElementById('user-google-email');
   const syncTime = document.getElementById('sync-last-time');
+  const storageMode = document.getElementById('sync-storage-mode');
   const profileAvatar = document.getElementById('profile-avatar-img');
   const profileName = document.getElementById('profile-name');
   const profileHandle = document.getElementById('profile-handle');
@@ -3620,7 +3536,11 @@ function updateGoogleSyncUI() {
         ? `Sinkron: ${new Date(lastSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
         : 'Sinkron: Baru saja';
     }
-    updateSyncDataInspector();
+    if (storageMode) {
+      const hasRemote = Boolean(getCloudSyncEndpoint());
+      storageMode.textContent = hasRemote ? 'Google Drive Aktif' : 'Otomatis di Perangkat';
+      storageMode.className = hasRemote ? 'text-emerald-400 font-semibold' : 'text-zinc-500 font-medium';
+    }
   } else {
     if (loggedInState) loggedInState.classList.add('hidden');
     if (loggedOutState) loggedOutState.classList.remove('hidden');
@@ -3640,19 +3560,66 @@ function updateGoogleSyncUI() {
   }
 }
 
-function syncUserDataToCloud(isManual = false) {
-  if (!currentUser) return;
-  const syncData = buildUserSyncData();
-  const jsonStr = JSON.stringify(syncData, null, 2);
-  const now = new Date().toISOString();
-  localStorage.setItem('teleshorts_last_sync_time', now);
-  localStorage.setItem(`teleshorts_cloud_backup_${normalizeEmail(currentUser.email)}`, jsonStr);
+async function pullRemoteCloudBackup(email) {
+  const endpoint = getCloudSyncEndpoint();
+  const normEmail = normalizeEmail(email);
+  if (!endpoint || !isValidEmail(normEmail)) return false;
+  try {
+    const res = await fetch(`${endpoint}?email=${encodeURIComponent(normEmail)}`, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const payload = await res.json();
+    if (payload && payload.found && payload.data) {
+      const sanitized = sanitizeSyncPayload(payload.data);
+      applySanitizedSyncData(sanitized, true);
+      const mergedStr = JSON.stringify(buildUserSyncData());
+      localStorage.setItem(`teleshorts_cloud_backup_${normEmail}`, mergedStr);
+      localStorage.setItem('teleshorts_last_sync_time', new Date().toISOString());
+      refreshAllSyncedViews();
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
 
+function pushRemoteCloudBackup(syncData, useKeepalive = false) {
+  const endpoint = getCloudSyncEndpoint();
+  if (!endpoint || !syncData?.user_email) return Promise.resolve(false);
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(syncData),
+    keepalive: Boolean(useKeepalive)
+  }).then(r => r.ok).catch(() => false);
+}
+
+function syncUserDataToCloud(isManual = false, opts = {}) {
+  if (!currentUser) return;
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = null;
+
+  const normEmail = normalizeEmail(currentUser.email);
+  const syncData = buildUserSyncData();
+  const jsonStr = JSON.stringify(syncData);
+  localStorage.setItem('teleshorts_last_sync_time', syncData.last_synced);
+  localStorage.setItem(`teleshorts_cloud_backup_${normEmail}`, jsonStr);
   updateGoogleSyncUI();
+
+  const endpoint = getCloudSyncEndpoint();
+  if (endpoint && !isRemoteSyncBusy) {
+    isRemoteSyncBusy = true;
+    const task = (isManual || opts.pullFirst)
+      ? pullRemoteCloudBackup(normEmail).then(() => pushRemoteCloudBackup(buildUserSyncData(), opts.keepalive))
+      : pushRemoteCloudBackup(syncData, opts.keepalive);
+    Promise.resolve(task).finally(() => {
+      isRemoteSyncBusy = false;
+      if (isManual) updateGoogleSyncUI();
+    });
+  }
+
   if (isManual) {
     triggerHaptic('success');
-    const r = syncData.ringkasan;
-    showToast(`JSON tersinkron! ${r.disukai_shorts} suka • ${r.shorts_tersimpan} short • ${r.drama_dan_18_tersimpan} drama/18+ ✓`, 'cloud-check', 'amber', 3200);
+    const totalSaved = likedVideoIds.size + savedShortIds.size + savedDramaIds.size;
+    showToast(`Data akun diperbarui & tersinkron (${totalSaved} item) ✓`, 'cloud-check', 'amber', 2800);
   }
 }
 
@@ -3661,7 +3628,13 @@ function queueCloudSync() {
   clearTimeout(syncDebounceTimer);
   syncDebounceTimer = setTimeout(() => {
     syncUserDataToCloud(false);
-  }, 600);
+  }, 350);
+}
+
+function flushPendingCloudSync() {
+  if (currentUser && syncDebounceTimer) {
+    syncUserDataToCloud(false, { keepalive: true });
+  }
 }
 
 function handleEmailLogin(email, name = '', avatar = '') {
@@ -3706,74 +3679,19 @@ function handleEmailLogin(email, name = '', avatar = '') {
   } else if (switchingAccounts) {
     applySanitizedSyncData({ liked_videos: [], saved_shorts: [], saved_dramas: [], liked_episodes: [], custom_collections: [] }, false);
   } else {
-    persistStorage();
+    saveStorageWithoutSyncLoop();
   }
 
-  const importPanel = document.getElementById('sync-import-panel');
-  if (importPanel) importPanel.classList.add('hidden');
+  syncUserDataToCloud(false, { pullFirst: true });
+  refreshAllSyncedViews();
 
-  syncUserDataToCloud(false);
-  updateStatsDisplay();
-  filterAndRenderDramas();
-  filterAndRenderAdult18();
-  if (activeView === 'profile') renderProfileContent();
-
-  const summary = buildUserSyncData().ringkasan;
   triggerHaptic('success');
-  showToast(`Masuk sebagai ${normEmail} — JSON & ${summary.drama_dan_18_tersimpan + summary.shorts_tersimpan} tersimpan siap ✓`, 'cloud-check', 'amber', 3400);
+  showToast(`Masuk sebagai ${normEmail} — Sinkronisasi otomatis aktif ✓`, 'cloud-check', 'amber', 3200);
   return true;
 }
 
 function handleGoogleLoginSuccess(email, name = '', avatar = '') {
   return handleEmailLogin(email, name, avatar);
-}
-
-function applyImportedSyncText(rawText, sourceLabel = 'JSON') {
-  const parsed = parseRawSyncInput(rawText);
-  if (parsed.user_email && (!currentUser || normalizeEmail(currentUser.email) !== parsed.user_email)) {
-    handleEmailLogin(parsed.user_email, parsed.user_name);
-  }
-  applySanitizedSyncData(parsed, true);
-  syncUserDataToCloud(false);
-  updateStatsDisplay();
-  filterAndRenderDramas();
-  filterAndRenderAdult18();
-  if (activeView === 'profile') renderProfileContent();
-
-  triggerHaptic('success');
-  showToast(`Sinkronisasi ${sourceLabel} berhasil! (${parsed.liked_videos.length} suka, ${parsed.saved_shorts.length} shorts, ${parsed.saved_dramas.length} drama/18+) ✓`, 'cloud-check', 'emerald', 3600);
-  return parsed;
-}
-
-function processSyncUrlHashIfPresent() {
-  const h = window.location.hash || '';
-  if (!h.startsWith('#sync=')) return false;
-  try {
-    const parsed = parseRawSyncInput(h);
-    if (parsed.user_email) {
-      const normEmail = normalizeEmail(parsed.user_email);
-      currentUser = {
-        email: normEmail,
-        name: parsed.user_name || normEmail.split('@')[0],
-        avatar: deriveUserAvatar(parsed.user_name, normEmail),
-        logged_in_at: new Date().toISOString()
-      };
-      localStorage.setItem('teleshorts_google_user', JSON.stringify(currentUser));
-      localStorage.setItem('teleshorts_last_email', normEmail);
-    }
-    applySanitizedSyncData(parsed, true);
-    localStorage.setItem('teleshorts_seeded_v1', '1');
-    syncUserDataToCloud(false);
-    try {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    } catch (e) {}
-    setTimeout(() => {
-      showToast(`Data akun ${parsed.user_email || ''} otomatis tersinkron dari tautan! ✨`, 'cloud-check', 'amber', 3600);
-    }, 500);
-    return true;
-  } catch (err) {
-    return false;
-  }
 }
 
 // ============================================================
@@ -3835,22 +3753,11 @@ function setupEvents() {
     };
   });
 
-  // Email-Only Login & Portable JSON Sync Controls
+  // Email-Only Login & Automatic Sync Controls
   const emailLoginForm = document.getElementById('email-login-form');
   const loginEmailInput = document.getElementById('login-email-input');
   const btnGoogleLogout = document.getElementById('btn-google-logout');
   const btnManualSync = document.getElementById('btn-manual-sync');
-  const btnCopySyncJson = document.getElementById('btn-copy-sync-json');
-  const btnCopySyncLink = document.getElementById('btn-copy-sync-link');
-  const btnDownloadSyncJson = document.getElementById('btn-download-sync-json');
-  const syncImportPanel = document.getElementById('sync-import-panel');
-  const btnToggleImportPanel = document.getElementById('btn-toggle-import-panel');
-  const btnToggleGuestImport = document.getElementById('btn-toggle-guest-import');
-  const btnCloseImportPanel = document.getElementById('btn-close-import-panel');
-  const btnPickImportFile = document.getElementById('btn-pick-import-file');
-  const syncImportFile = document.getElementById('sync-import-file');
-  const syncImportInput = document.getElementById('sync-import-input');
-  const btnApplyImportJson = document.getElementById('btn-apply-import-json');
 
   if (emailLoginForm) {
     emailLoginForm.onsubmit = (e) => {
@@ -3867,11 +3774,10 @@ function setupEvents() {
   if (btnGoogleLogout) {
     btnGoogleLogout.onclick = () => {
       triggerHaptic('light');
-      if (currentUser) syncUserDataToCloud(false);
+      if (currentUser) syncUserDataToCloud(false, { keepalive: true });
       currentUser = null;
       localStorage.removeItem('teleshorts_google_user');
       if (loginEmailInput) loginEmailInput.value = '';
-      if (syncImportPanel) syncImportPanel.classList.add('hidden');
       updateGoogleSyncUI();
       showToast('Berhasil keluar dari akun email 👋', 'log-out', 'zinc');
     };
@@ -3879,82 +3785,19 @@ function setupEvents() {
   if (btnManualSync) {
     btnManualSync.onclick = () => syncUserDataToCloud(true);
   }
-  if (btnCopySyncJson) {
-    btnCopySyncJson.onclick = () => {
-      triggerHaptic('medium');
-      const jsonStr = JSON.stringify(buildUserSyncData(), null, 2);
-      copyTextSafely(jsonStr)
-        .then(() => showToast('Data JSON sinkronisasi disalin! 📋', 'copy', 'amber', 2600))
-        .catch(() => showToast('Ketuk & salin langsung dari kotak JSON di atas', 'alert-circle', 'zinc', 2600));
-    };
-  }
-  if (btnCopySyncLink) {
-    btnCopySyncLink.onclick = () => {
-      triggerHaptic('medium');
-      const url = buildCompactSyncLink();
-      copyTextSafely(url)
-        .then(() => showToast('Link sinkronisasi disalin! Buka di HP/Laptop lain 🔗', 'link', 'sky', 3000))
-        .catch(() => showToast('Gagal menyalin link sinkronisasi ⚠️', 'alert-circle', 'rose'));
-    };
-  }
-  if (btnDownloadSyncJson) {
-    btnDownloadSyncJson.onclick = () => {
-      triggerHaptic('medium');
-      const data = buildUserSyncData();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const safeName = (data.user_email || 'akun').replace(/[^a-z0-9._-]+/gi, '_');
-      a.href = blobUrl;
-      a.download = `appVideo-sync-${safeName}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-      showToast('File JSON sinkronisasi diunduh 💾', 'download', 'emerald', 2600);
-    };
-  }
 
-  const toggleImport = (forceOpen = null) => {
-    if (!syncImportPanel) return;
-    const willOpen = forceOpen !== null ? forceOpen : syncImportPanel.classList.contains('hidden');
-    syncImportPanel.classList.toggle('hidden', !willOpen);
-    if (willOpen && syncImportInput) syncImportInput.focus();
-  };
-  if (btnToggleImportPanel) btnToggleImportPanel.onclick = () => toggleImport();
-  if (btnToggleGuestImport) btnToggleGuestImport.onclick = () => toggleImport();
-  if (btnCloseImportPanel) btnCloseImportPanel.onclick = () => toggleImport(false);
-
-  if (btnPickImportFile && syncImportFile) {
-    btnPickImportFile.onclick = () => syncImportFile.click();
-    syncImportFile.onchange = () => {
-      const file = syncImportFile.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (syncImportInput) syncImportInput.value = String(reader.result || '');
-        try {
-          applyImportedSyncText(String(reader.result || ''), file.name);
-          syncImportPanel?.classList.add('hidden');
-        } catch (err) {
-          showToast(err.message || 'File JSON tidak valid ⚠️', 'alert-circle', 'rose', 3200);
-        }
-      };
-      reader.readAsText(file);
-      syncImportFile.value = '';
-    };
-  }
-  if (btnApplyImportJson) {
-    btnApplyImportJson.onclick = () => {
+  // Real-time cross-tab automatic sync
+  window.addEventListener('storage', (e) => {
+    if (!currentUser) return;
+    const normEmail = normalizeEmail(currentUser.email);
+    if (e.key === `teleshorts_cloud_backup_${normEmail}` && e.newValue) {
       try {
-        applyImportedSyncText(syncImportInput?.value || '', 'JSON');
-        if (syncImportInput) syncImportInput.value = '';
-        syncImportPanel?.classList.add('hidden');
-      } catch (err) {
-        showToast(err.message || 'Format JSON/Link tidak dikenali ⚠️', 'alert-circle', 'rose', 3200);
-      }
-    };
-  }
+        const parsed = sanitizeSyncPayload(JSON.parse(e.newValue));
+        applySanitizedSyncData(parsed, false);
+        refreshAllSyncedViews();
+      } catch (err) {}
+    }
+  });
 
   // Share Profile button
   const btnShareProfile = document.getElementById('btn-share-profile');
@@ -4586,14 +4429,16 @@ function setupEvents() {
     btn?.addEventListener('click', closeManageCollectionsModal);
   });
 
-  // Pause active video playback when app/tab loses visibility
+  // Pause active video playback & flush pending sync when app/tab loses visibility or unloads
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+      flushPendingCloudSync();
       document.querySelectorAll('video').forEach(v => {
         if (!v.paused) v.pause();
       });
     }
   });
+  window.addEventListener('pagehide', flushPendingCloudSync);
 
   // Escape key closes topmost open sheet/modal/drawer
   document.addEventListener('keydown', (e) => {
