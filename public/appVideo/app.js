@@ -3,7 +3,7 @@
 // ============================================================
 const STREAM_PROXY_BASE = 'https://test-worker.big-marigold.workers.dev';
 const GDRIVE_USER_DATA_FOLDER_ID = '1w3bQfcfdqc4-MfqbmHJ17JC-fhOTRR3W';
-const DEFAULT_CLOUD_SYNC_ENDPOINT = ''; // Set URL Web App Google Apps Script untuk simpan .json otomatis ke AppVideo_UserData (reikyranp@gmail.com)
+const DEFAULT_CLOUD_SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw-Ieo4sptsXWwM8PkhNED2XMMsGXSwqLDKCX_JqIW3qVeppcp9NH2ay_bby_4aYEAbGw/exec';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -3329,6 +3329,7 @@ function closeDramaSortSheet() {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const SYNC_ENDPOINT_ALLOWLIST = /^https:\/\/(script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec|[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev\/?.*)$/i;
 let isRemoteSyncBusy = false;
+let pendingRemoteSync = null;
 
 function normalizeEmail(raw) {
   return String(raw || '').trim().toLowerCase();
@@ -3568,6 +3569,7 @@ async function pullRemoteCloudBackup(email) {
     const res = await fetch(`${endpoint}?email=${encodeURIComponent(normEmail)}`, { cache: 'no-store' });
     if (!res.ok) return false;
     const payload = await res.json();
+    if (!currentUser || normalizeEmail(currentUser.email) !== normEmail) return false;
     if (payload && payload.found && payload.data) {
       const sanitized = sanitizeSyncPayload(payload.data);
       applySanitizedSyncData(sanitized, true);
@@ -3605,15 +3607,50 @@ function syncUserDataToCloud(isManual = false, opts = {}) {
   updateGoogleSyncUI();
 
   const endpoint = getCloudSyncEndpoint();
-  if (endpoint && !isRemoteSyncBusy) {
+  if (!endpoint) {
+    if (isManual) {
+      triggerHaptic('success');
+      const totalSaved = likedVideoIds.size + savedShortIds.size + savedDramaIds.size;
+      showToast(`Data akun diperbarui & tersinkron (${totalSaved} item) ✓`, 'cloud-check', 'amber', 2800);
+    }
+    return;
+  }
+
+  if (isRemoteSyncBusy) {
+    if (opts.keepalive) {
+      pendingRemoteSync = null;
+      pushRemoteCloudBackup(syncData, true);
+    } else {
+      pendingRemoteSync = {
+        email: normEmail,
+        pullFirst: Boolean(pendingRemoteSync?.pullFirst || isManual || opts.pullFirst)
+      };
+    }
+  } else {
     isRemoteSyncBusy = true;
-    const task = (isManual || opts.pullFirst)
-      ? pullRemoteCloudBackup(normEmail).then(() => pushRemoteCloudBackup(buildUserSyncData(), opts.keepalive))
+    const shouldPull = Boolean(isManual || opts.pullFirst);
+    const task = shouldPull
+      ? pullRemoteCloudBackup(normEmail).then(() => {
+          if (!currentUser || normalizeEmail(currentUser.email) !== normEmail) return false;
+          return pushRemoteCloudBackup(buildUserSyncData(), opts.keepalive);
+        })
       : pushRemoteCloudBackup(syncData, opts.keepalive);
-    Promise.resolve(task).finally(() => {
-      isRemoteSyncBusy = false;
-      if (isManual) updateGoogleSyncUI();
-    });
+
+    Promise.resolve(task)
+      .then((ok) => {
+        if (ok && currentUser && normalizeEmail(currentUser.email) === normEmail) {
+          localStorage.setItem('teleshorts_last_sync_time', new Date().toISOString());
+        }
+      })
+      .finally(() => {
+        isRemoteSyncBusy = false;
+        if (currentUser) updateGoogleSyncUI();
+        const queued = pendingRemoteSync;
+        pendingRemoteSync = null;
+        if (queued && currentUser && normalizeEmail(currentUser.email) === queued.email) {
+          syncUserDataToCloud(false, { pullFirst: queued.pullFirst });
+        }
+      });
   }
 
   if (isManual) {
