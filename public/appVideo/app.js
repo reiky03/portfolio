@@ -963,7 +963,7 @@ function createShortSlide(data, index) {
       ${posterSrc ? `
         <img 
           src="${posterSrc}" 
-          class="video-poster-img absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0" 
+          class="video-poster-img absolute inset-0 w-full h-full object-contain transition-opacity duration-300 z-0" 
           alt="${safeTitle}" 
           loading="${index < 2 ? 'eager' : 'lazy'}"
           decoding="async"
@@ -972,7 +972,7 @@ function createShortSlide(data, index) {
 
       <!-- Native HTML5 Video Player with Windowed Lazy Hydration -->
       <video 
-        class="video-player w-full h-full object-cover absolute inset-0 z-10"
+        class="video-player fit-contain w-full h-full object-contain absolute inset-0 z-10"
         data-src="${streamSrc}"
         ${hydrateNow ? `src="${streamSrc}"` : ''}
         ${posterSrc ? `poster="${posterSrc}"` : ''}
