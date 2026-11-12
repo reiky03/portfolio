@@ -438,6 +438,53 @@
   </div>
 
   <!-- ============================================================ -->
+  <!-- 2C. VIEW COMIC HUB (KATALOG PADAT & SEARCH KATA-PER-KATA) -->
+  <!-- ============================================================ -->
+  <div id="view-comic" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-zinc-950 overflow-y-auto pb-24">
+    <div class="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-900 pt-safe px-4 pb-3 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="book-open" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+          <h2 class="font-bold text-sm text-white truncate">Koleksi Komik</h2>
+          <span id="comic-count-label" class="text-[10px] text-emerald-300 font-mono bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full shrink-0">230 Komik</span>
+        </div>
+
+        <button id="comic-sort-btn" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-semibold text-zinc-300 hover:text-emerald-400 active:scale-95 transition-all shadow-sm shrink-0" title="Ubah Urutan Komik">
+          <i data-lucide="arrow-down-up" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span id="comic-sort-label">Acak</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-zinc-500"></i>
+        </button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative flex items-center">
+        <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3"></i>
+        <input 
+          id="comic-search-input"
+          type="text" 
+          placeholder="Cari komik: judul, kreator (Ackerman, Teysia...)" 
+          class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400/80 transition-colors"
+        />
+        <button id="comic-search-clear" class="hidden absolute right-2.5 text-zinc-500 hover:text-white p-0.5">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <div id="comic-search-feedback" class="hidden text-[11px] text-emerald-400/90 font-medium px-0.5"></div>
+
+      <!-- Creator / Author Filter Pills -->
+      <div id="comic-author-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+        <!-- Rendered dynamically in app.js -->
+      </div>
+    </div>
+
+    <!-- Grid Komik -->
+    <div class="p-4">
+      <div id="comic-list-grid" class="grid grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
   <!-- 3. VIEW PROFIL: DUA JENIS KOLEKSI & EPISODE DISUKAI -->
   <!-- ============================================================ -->
   <div id="view-profile" class="hidden w-full max-w-[480px] mx-auto h-[100dvh] bg-black overflow-y-auto pb-24 select-text">
@@ -576,9 +623,12 @@
       <span class="text-[10px] font-bold">Shorts</span>
     </button>
 
-    <button id="nav-btn-topics" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-white transition-all">
-      <i data-lucide="layout-grid" class="w-5 h-5"></i>
-      <span id="nav-topics-label" class="text-[10px] font-semibold">Topik (7)</span>
+    <button id="nav-btn-comic" class="flex flex-col items-center gap-1 py-1 px-2.5 text-zinc-400 hover:text-white transition-all relative">
+      <div class="relative">
+        <i data-lucide="book-open" class="w-5 h-5 text-emerald-400"></i>
+        <span class="absolute top-0 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-black"></span>
+      </div>
+      <span id="nav-comic-label" class="text-[10px] font-bold text-emerald-400">Komik</span>
     </button>
 
     <button id="nav-btn-drama" class="flex flex-col items-center gap-1 py-1 px-3 text-zinc-400 hover:text-white transition-all relative">
@@ -1091,9 +1141,177 @@
     </div>
   </div>
 
+  <!-- COMIC SORT BOTTOM SHEET -->
+  <div id="comic-sort-sheet" class="hidden fixed inset-0 z-50">
+    <div id="comic-sort-backdrop" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-[480px] mx-auto bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 pb-safe space-y-4 shadow-2xl">
+      <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto"></div>
+      <div class="flex items-center justify-between">
+        <h4 class="font-bold text-sm text-white flex items-center gap-2">
+          <span>🔀</span> Urutkan Komik
+        </h4>
+        <button id="close-comic-sort-btn" class="p-1 rounded-full text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-1.5 pt-1">
+        <button class="comic-sort-option w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold bg-emerald-950/40 border border-emerald-500/40 text-white transition-all" data-sort="random">
+          <div class="flex items-center gap-2.5">
+            <span class="text-base">🎲</span>
+            <div>
+              <p class="font-bold text-emerald-400">Acak (Rekomendasi)</p>
+              <p class="text-[10px] text-zinc-400">Tampilan beragam dari berbagai kreator</p>
+            </div>
+          </div>
+          <i data-lucide="check" class="sort-check w-4 h-4 text-emerald-400"></i>
+        </button>
+
+        <button class="comic-sort-option w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all text-zinc-300" data-sort="az">
+          <div class="flex items-center gap-2.5">
+            <span class="text-base">🔤</span>
+            <div>
+              <p class="font-bold">Berdasarkan Abjad (A - Z)</p>
+              <p class="text-[10px] text-zinc-400">Urutkan judul komik dari A sampai Z</p>
+            </div>
+          </div>
+          <i data-lucide="check" class="sort-check hidden w-4 h-4 text-emerald-400"></i>
+        </button>
+
+        <button class="comic-sort-option w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all text-zinc-300" data-sort="za">
+          <div class="flex items-center gap-2.5">
+            <span class="text-base">🔤</span>
+            <div>
+              <p class="font-bold">Berdasarkan Abjad (Z - A)</p>
+              <p class="text-[10px] text-zinc-400">Urutkan judul komik dari Z sampai A</p>
+            </div>
+          </div>
+          <i data-lucide="check" class="sort-check hidden w-4 h-4 text-emerald-400"></i>
+        </button>
+
+        <button class="comic-sort-option w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all text-zinc-300" data-sort="pages">
+          <div class="flex items-center gap-2.5">
+            <span class="text-base">📄</span>
+            <div>
+              <p class="font-bold">Halaman Terbanyak</p>
+              <p class="text-[10px] text-zinc-400">Komik dengan jumlah halaman paling tebal</p>
+            </div>
+          </div>
+          <i data-lucide="check" class="sort-check hidden w-4 h-4 text-emerald-400"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 7. COMIC READER MODAL (FULLSCREEN DUAL-MODE READER) -->
+  <!-- ============================================================ -->
+  <div id="comic-reader-modal" class="hidden fixed inset-0 z-50 bg-black flex flex-col select-none touch-manipulation">
+    
+    <!-- Reader Top Bar -->
+    <header id="comic-reader-header" class="fixed top-0 inset-x-0 z-40 bg-black/85 backdrop-blur-md border-b border-zinc-800/80 pt-safe px-3 py-2 flex items-center justify-between gap-2 transition-transform duration-300">
+      <div class="flex items-center gap-2 min-w-0">
+        <button id="close-comic-reader-btn" class="w-9 h-9 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-white flex items-center justify-center shrink-0 active:scale-90 transition-all" aria-label="Tutup Pembaca">
+          <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </button>
+        <div class="min-w-0">
+          <h3 id="comic-reader-title" class="text-xs font-bold text-white truncate leading-tight">Judul Komik</h3>
+          <p id="comic-reader-subtitle" class="text-[10px] text-zinc-400 truncate">Kreator • Chapter 1</p>
+        </div>
+      </div>
+
+      <!-- Controls: Mode Toggle (Webtoon 📜 vs Swap 📖) & Chapter Selector -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="comic-mode-toggle-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold active:scale-95 transition-all shadow-sm" title="Ubah Mode Baca: Webtoon / Swap">
+          <i id="comic-mode-icon" data-lucide="scroll" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span id="comic-mode-label">Webtoon</span>
+        </button>
+
+        <button id="comic-chapter-btn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-[11px] font-semibold active:scale-95 transition-all">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-zinc-400"></i>
+          <span id="comic-chapter-label" class="max-w-[70px] truncate">Ch. 1</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-zinc-400"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Reader Body / Viewports -->
+    <main id="comic-reader-viewport" class="w-full h-full relative overflow-hidden bg-black flex-1">
+      
+      <!-- MODE 1: WEBTOON VIEWPORT (VERTICAL CONTINUOUS SCROLL) -->
+      <div id="comic-webtoon-container" class="w-full h-full overflow-y-auto overscroll-contain flex flex-col items-center pt-14 pb-20 no-scrollbar">
+        <!-- Vertical image pages rendered dynamically -->
+      </div>
+
+      <!-- MODE 2: SWAP VIEWPORT (HORIZONTAL PAGING) -->
+      <div id="comic-swap-container" class="hidden w-full h-full relative flex items-center justify-center pt-14 pb-20 overflow-hidden">
+        <!-- Tap zones: Left 30% for Prev, Right 30% for Next, Middle 40% for Toggle Controls -->
+        <div id="comic-swap-tap-prev" class="absolute left-0 top-14 bottom-20 w-[30%] z-20 cursor-pointer" title="Halaman Sebelumnya"></div>
+        <div id="comic-swap-tap-menu" class="absolute left-[30%] right-[30%] top-14 bottom-20 z-20 cursor-pointer" title="Menu Kontrol"></div>
+        <div id="comic-swap-tap-next" class="absolute right-0 top-14 bottom-20 w-[30%] z-20 cursor-pointer" title="Halaman Selanjutnya"></div>
+
+        <div id="comic-swap-page-wrapper" class="w-full h-full flex items-center justify-center p-1 relative z-10 transition-transform duration-200">
+          <img id="comic-swap-current-img" class="max-w-full max-h-full object-contain select-none" alt="Halaman Komik" />
+        </div>
+      </div>
+
+      <!-- PDF Embedded Viewport for PDF Comics -->
+      <div id="comic-pdf-container" class="hidden w-full h-full pt-14 pb-16 flex flex-col items-center justify-center bg-zinc-950">
+        <iframe id="comic-pdf-frame" class="w-full h-full border-0" src="" allowfullscreen></iframe>
+      </div>
+
+      <!-- Reader Center Loading Indicator -->
+      <div id="comic-reader-loader" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none transition-opacity">
+        <div class="w-10 h-10 rounded-full border-3 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
+        <span class="mt-2 text-xs font-semibold text-zinc-300">Memuat halaman...</span>
+      </div>
+
+    </main>
+
+    <!-- Reader Bottom Bar (Page Number, Scrubber, Prev/Next Ch) -->
+    <footer id="comic-reader-footer" class="fixed bottom-0 inset-x-0 z-40 bg-black/85 backdrop-blur-md border-t border-zinc-800/80 px-4 py-2.5 pb-safe flex flex-col gap-1.5 transition-transform duration-300">
+      <div class="flex items-center justify-between text-xs text-zinc-300 font-mono">
+        <span id="comic-page-now" class="font-bold text-emerald-400">Hal. 1</span>
+        <span id="comic-page-total" class="text-zinc-500">/ 24</span>
+      </div>
+
+      <!-- Page Scrubber Slider -->
+      <div class="flex items-center gap-3">
+        <button id="comic-prev-page-btn" class="text-zinc-400 hover:text-white p-1 disabled:opacity-30 disabled:pointer-events-none" title="Halaman Sebelumnya">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <input 
+          id="comic-page-slider" 
+          type="range" 
+          min="1" 
+          max="24" 
+          value="1" 
+          class="flex-1 accent-emerald-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
+        />
+        <button id="comic-next-page-btn" class="text-zinc-400 hover:text-white p-1 disabled:opacity-30 disabled:pointer-events-none" title="Halaman Selanjutnya">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Chapter Select Sheet -->
+    <div id="comic-chapter-sheet" class="hidden fixed inset-0 z-50">
+      <div id="comic-chapter-sheet-backdrop" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+      <div class="absolute bottom-0 inset-x-0 max-w-[480px] mx-auto bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 pb-safe max-h-[75vh] flex flex-col shadow-2xl">
+        <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-3"></div>
+        <h4 class="font-bold text-sm text-white mb-3 flex items-center justify-between">
+          <span>Pilih Chapter</span>
+          <span id="comic-total-chapters-badge" class="text-[10px] text-zinc-400 font-mono bg-zinc-900 px-2 py-0.5 rounded-full">1 Chapter</span>
+        </h4>
+        <div id="comic-chapter-list" class="space-y-1.5 overflow-y-auto flex-1 pr-1"></div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=3.9.0"></script>
+  <script src="app.js?v=4.0.0"></script>
 </body>
 </html>
