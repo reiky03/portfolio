@@ -3462,6 +3462,7 @@ function renderComicList(items) {
         ${posterUrl ? `
           <img 
             src="${posterUrl}" 
+            referrerpolicy="no-referrer"
             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
             alt="${safeTitle}" 
             loading="lazy" 
@@ -3716,22 +3717,45 @@ function renderWebtoonPages(pages) {
   const frag = document.createDocumentFragment();
   pages.forEach((p, idx) => {
     const pageWrapper = document.createElement('div');
-    // Natural aspect ratio: container fits cleanly, no forced width stretching
-    pageWrapper.className = 'comic-webtoon-page w-full flex items-center justify-center my-1 bg-zinc-950 min-h-[120px] relative';
+    // Natural aspect ratio: flex container fits cleanly, no forced width stretching
+    pageWrapper.className = 'comic-webtoon-page w-full flex flex-col items-center justify-center my-2 bg-zinc-950 min-h-[320px] relative transition-all';
     pageWrapper.dataset.pageIndex = String(idx);
 
     const imgUrl = `https://lh3.googleusercontent.com/d/${p.id}=w1200`;
     const fallbackUrl = `https://drive.google.com/thumbnail?id=${p.id}&sz=w1200`;
 
+    // Visual placeholder while image is fetching
+    const skeleton = document.createElement('div');
+    skeleton.className = 'w-full max-w-[480px] h-[320px] rounded-xl bg-zinc-900/60 border border-zinc-800/40 flex flex-col items-center justify-center text-zinc-500 animate-pulse transition-opacity';
+    skeleton.innerHTML = `
+      <div class="w-7 h-7 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin mb-2"></div>
+      <span class="text-[11px] font-mono font-medium text-zinc-400">Memuat Halaman ${idx + 1}...</span>
+    `;
+    pageWrapper.appendChild(skeleton);
+
     const img = document.createElement('img');
     // max-w-full and h-auto object-contain preserves natural aspect ratio (portrait or landscape)
-    img.className = 'max-w-full h-auto object-contain select-none';
+    img.className = 'max-w-full h-auto object-contain select-none transition-opacity duration-200 opacity-0';
+    img.referrerPolicy = 'no-referrer';
     img.src = imgUrl;
     img.alt = `Halaman ${idx + 1}`;
     img.loading = idx < 3 ? 'eager' : 'lazy';
     img.decoding = 'async';
+
+    img.onload = () => {
+      skeleton.remove();
+      pageWrapper.classList.remove('min-h-[320px]');
+      img.classList.remove('opacity-0');
+      img.classList.add('opacity-100');
+    };
+
     img.onerror = () => {
-      if (img.src !== fallbackUrl) img.src = fallbackUrl;
+      if (img.src !== fallbackUrl) {
+        img.src = fallbackUrl;
+      } else {
+        skeleton.classList.remove('animate-pulse');
+        skeleton.innerHTML = `<span class="text-[11px] text-zinc-500">Halaman ${idx + 1} sedang diproses</span>`;
+      }
     };
 
     pageWrapper.appendChild(img);
@@ -3800,6 +3824,7 @@ function renderSwapPage(pages) {
   const page = pages[currentComicPageIndex];
   if (!page || !comicSwapCurrentImg) return;
 
+  comicSwapCurrentImg.referrerPolicy = 'no-referrer';
   const imgUrl = `https://lh3.googleusercontent.com/d/${page.id}=w1200`;
   const fallbackUrl = `https://drive.google.com/thumbnail?id=${page.id}&sz=w1200`;
 

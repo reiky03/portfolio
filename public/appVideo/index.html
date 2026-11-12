@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
   <title>appVideo - Mommy Video</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f43f5e'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%2309090b'/%3E%3Cpolygon points='24,18 50,32 24,46' fill='url(%23g)'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
@@ -1258,7 +1259,7 @@
         <div id="comic-swap-tap-next" class="absolute right-0 top-14 bottom-20 w-[30%] z-20 cursor-pointer" title="Halaman Selanjutnya"></div>
 
         <div id="comic-swap-page-wrapper" class="w-full h-full flex items-center justify-center p-1 relative z-10 transition-transform duration-200">
-          <img id="comic-swap-current-img" class="max-w-full max-h-full object-contain select-none" alt="Halaman Komik" />
+          <img id="comic-swap-current-img" referrerpolicy="no-referrer" class="max-w-full max-h-full object-contain select-none transition-opacity duration-150" alt="Halaman Komik" />
         </div>
       </div>
 
@@ -1335,6 +1336,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=4.1.0"></script>
+  <script src="app.js?v=4.1.2"></script>
 </body>
 </html>
