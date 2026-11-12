@@ -1276,7 +1276,7 @@
 
     </main>
 
-    <!-- Reader Bottom Bar (Page Number, Chapter Bar, Next Chapter & Scrubber) -->
+    <!-- Reader Bottom Bar (Page Number, Chapter Bar, Next/Prev Chapter & Scrubber) -->
     <footer id="comic-reader-footer" class="fixed bottom-0 inset-x-0 z-40 bg-black/85 backdrop-blur-md border-t border-zinc-800/80 px-4 py-2.5 pb-safe flex flex-col gap-2 transition-transform duration-300">
       <div class="flex items-center justify-between text-xs text-zinc-300 font-mono gap-2">
         <div class="flex items-center gap-1.5 shrink-0">
@@ -1284,8 +1284,19 @@
           <span id="comic-page-total" class="text-zinc-500">/ 24</span>
         </div>
 
-        <!-- Multi-Chapter Bar & Next Chapter Button (Hidden on single-chapter comics) -->
-        <div id="comic-multi-chapter-actions" class="flex items-center gap-2 min-w-0">
+        <!-- Single Chapter Quick Mode Toggle (Visible when single-chapter) -->
+        <button id="comic-footer-mode-btn" class="hidden flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-emerald-300 active:scale-95 transition-all" title="Ubah Mode Baca">
+          <i id="comic-footer-mode-icon" data-lucide="scroll" class="w-3 h-3 text-emerald-400"></i>
+          <span id="comic-footer-mode-label">Webtoon</span>
+        </button>
+
+        <!-- Multi-Chapter Bar & Prev/Next Chapter Buttons -->
+        <div id="comic-multi-chapter-actions" class="flex items-center gap-1.5 min-w-0">
+          <button id="comic-prev-chapter-btn" class="hidden flex items-center gap-1 px-2 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 hover:text-white text-[11px] font-semibold active:scale-95 transition-all" title="Chapter Sebelumnya">
+            <i data-lucide="chevron-left" class="w-3 h-3 text-zinc-400"></i>
+            <span id="comic-prev-chapter-label">Prev</span>
+          </button>
+
           <button id="comic-footer-chapter-btn" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-[11px] font-semibold text-zinc-300 hover:text-white active:scale-95 transition-all" title="Daftar Chapter">
             <i data-lucide="layers" class="w-3 h-3 text-emerald-400"></i>
             <span id="comic-footer-chapter-label" class="truncate max-w-[85px]">Ch. 1 / 4</span>
@@ -1336,6 +1347,6 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=4.1.2"></script>
+  <script src="app.js?v=4.2.0"></script>
 </body>
 </html>

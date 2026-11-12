@@ -152,6 +152,9 @@ let comicReaderOrientation = localStorage.getItem('teleshorts_comic_orientation'
 let isComicScrubbing = false;
 let comicScrubbingTimer = null;
 let comicScrollRaf = null;
+let isComicInitializing = false;
+let comicSwapZoomLevel = 1;
+let lastSwapTapTime = 0;
 
 // Akun Google & Cloud Sync
 let currentUser = JSON.parse(localStorage.getItem('teleshorts_google_user') || 'null');
@@ -538,6 +541,11 @@ const comicNextChapterLabel = document.getElementById('comic-next-chapter-label'
 const comicPageSlider = document.getElementById('comic-page-slider');
 const comicPrevPageBtn = document.getElementById('comic-prev-page-btn');
 const comicNextPageBtn = document.getElementById('comic-next-page-btn');
+const comicPrevChapterBtn = document.getElementById('comic-prev-chapter-btn');
+const comicPrevChapterLabel = document.getElementById('comic-prev-chapter-label');
+const comicFooterModeBtn = document.getElementById('comic-footer-mode-btn');
+const comicFooterModeIcon = document.getElementById('comic-footer-mode-icon');
+const comicFooterModeLabel = document.getElementById('comic-footer-mode-label');
 const comicChapterSheet = document.getElementById('comic-chapter-sheet');
 const comicChapterSheetBackdrop = document.getElementById('comic-chapter-sheet-backdrop');
 const comicChapterList = document.getElementById('comic-chapter-list');
@@ -3579,7 +3587,7 @@ function updateComicHeaderAndFooterInfo() {
     comicChapterLabel.textContent = currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`;
   }
 
-  // Footer chapter bar & Next Chapter button
+  // Footer chapter bar & Next/Prev Chapter buttons
   if (comicMultiChapterActions) {
     comicMultiChapterActions.classList.toggle('hidden', !isMulti);
   }
@@ -3590,12 +3598,25 @@ function updateComicHeaderAndFooterInfo() {
     comicFooterChapterLabel.textContent = `Ch. ${currentComicChapterIndex + 1} / ${totalChapters}`;
   }
 
+  if (comicPrevChapterBtn) {
+    const hasPrev = currentComicChapterIndex > 0;
+    comicPrevChapterBtn.classList.toggle('hidden', !hasPrev);
+    if (hasPrev && comicPrevChapterLabel) {
+      comicPrevChapterLabel.textContent = `Ch. ${currentComicChapterIndex}`;
+    }
+  }
+
   if (comicNextChapterBtn) {
     const hasNext = currentComicChapterIndex < totalChapters - 1;
     comicNextChapterBtn.classList.toggle('hidden', !hasNext);
     if (hasNext && comicNextChapterLabel) {
       comicNextChapterLabel.textContent = `Next Ch. ${currentComicChapterIndex + 2}`;
     }
+  }
+
+  // Single Chapter Quick Mode Button in footer
+  if (comicFooterModeBtn) {
+    comicFooterModeBtn.classList.toggle('hidden', isMulti);
   }
 }
 
@@ -3604,15 +3625,25 @@ function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
   activeComic = comic;
   currentComicChapterIndex = Math.max(0, Math.min(chapterIdx, (comic.chapters?.length || 1) - 1));
   currentComicPageIndex = pageIdx || 0;
+  isComicInitializing = true;
+  resetSwapZoom();
 
   if (comicReaderModal) {
     comicReaderModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
 
-  // Always reset scroll to top immediately so it starts at page 1 cleanly
+  // Reset scroll and container DOM immediately
   if (comicWebtoonContainer) {
+    comicWebtoonContainer.innerHTML = '';
     comicWebtoonContainer.scrollTop = 0;
+  }
+
+  if (comicPageSlider) {
+    comicPageSlider.value = String(currentComicPageIndex + 1);
+  }
+  if (comicPageNow) {
+    comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
   }
 
   syncComicOrientation();
@@ -3620,9 +3651,18 @@ function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
   updateComicHeaderAndFooterInfo();
   renderCurrentComicChapter();
   showComicReaderControls();
+
+  // Ensure scroll is pinned at top after render, then release initialization gate
+  requestAnimationFrame(() => {
+    if (comicWebtoonContainer) comicWebtoonContainer.scrollTop = 0;
+    setTimeout(() => {
+      isComicInitializing = false;
+    }, 400);
+  });
 }
 
 function closeComicReader() {
+  isComicInitializing = true;
   if (comicReaderModal) {
     comicReaderModal.classList.add('hidden');
     comicReaderModal.classList.remove('rotate-mobile');
@@ -3630,18 +3670,30 @@ function closeComicReader() {
   }
   if (comicWebtoonContainer) {
     comicWebtoonContainer.scrollTop = 0;
+    comicWebtoonContainer.innerHTML = '';
   }
   if (comicPdfFrame) comicPdfFrame.src = '';
+  resetSwapZoom();
+  currentComicPageIndex = 0;
+  if (comicPageSlider) comicPageSlider.value = '1';
+  if (comicPageNow) comicPageNow.textContent = 'Hal. 1';
   activeComic = null;
   triggerHaptic('light');
 }
 
 function updateComicReaderModeUI() {
+  const isWebtoon = comicReaderMode === 'webtoon';
   if (comicModeLabel) {
-    comicModeLabel.textContent = comicReaderMode === 'webtoon' ? 'Webtoon' : 'Swap';
+    comicModeLabel.textContent = isWebtoon ? 'Webtoon' : 'Swap';
   }
   if (comicModeIcon) {
-    comicModeIcon.innerHTML = iconSvg(comicReaderMode === 'webtoon' ? 'scroll' : 'book-open', 'w-3.5 h-3.5 text-emerald-400');
+    comicModeIcon.innerHTML = iconSvg(isWebtoon ? 'scroll' : 'book-open', 'w-3.5 h-3.5 text-emerald-400');
+  }
+  if (comicFooterModeLabel) {
+    comicFooterModeLabel.textContent = isWebtoon ? 'Webtoon' : 'Swap';
+  }
+  if (comicFooterModeIcon) {
+    comicFooterModeIcon.innerHTML = iconSvg(isWebtoon ? 'scroll' : 'book-open', 'w-3 h-3 text-emerald-400');
   }
 }
 
@@ -3717,8 +3769,8 @@ function renderWebtoonPages(pages) {
   const frag = document.createDocumentFragment();
   pages.forEach((p, idx) => {
     const pageWrapper = document.createElement('div');
-    // Natural aspect ratio: flex container fits cleanly, no forced width stretching
-    pageWrapper.className = 'comic-webtoon-page w-full flex flex-col items-center justify-center my-2 bg-zinc-950 min-h-[320px] relative transition-all';
+    // Natural aspect ratio: container fits cleanly without forced width stretching
+    pageWrapper.className = 'comic-webtoon-page w-full max-w-[720px] flex flex-col items-center justify-center my-2 bg-zinc-950 min-h-[320px] relative transition-all';
     pageWrapper.dataset.pageIndex = String(idx);
 
     const imgUrl = `https://lh3.googleusercontent.com/d/${p.id}=w1200`;
@@ -3735,7 +3787,7 @@ function renderWebtoonPages(pages) {
 
     const img = document.createElement('img');
     // max-w-full and h-auto object-contain preserves natural aspect ratio (portrait or landscape)
-    img.className = 'max-w-full h-auto object-contain select-none transition-opacity duration-200 opacity-0';
+    img.className = 'max-w-full h-auto object-contain select-none transition-opacity duration-200 opacity-0 shadow-md';
     img.referrerPolicy = 'no-referrer';
     img.src = imgUrl;
     img.alt = `Halaman ${idx + 1}`;
@@ -3762,21 +3814,45 @@ function renderWebtoonPages(pages) {
     frag.appendChild(pageWrapper);
   });
 
-  // End-of-chapter Next Chapter Banner if next chapter exists
-  if (activeComic && currentComicChapterIndex < activeComic.chapters.length - 1) {
-    const nextCh = activeComic.chapters[currentComicChapterIndex + 1];
+  // End-of-chapter Navigation Card (Prev / Next Chapter)
+  if (activeComic && activeComic.chapters?.length > 1) {
+    const hasNext = currentComicChapterIndex < activeComic.chapters.length - 1;
+    const hasPrev = currentComicChapterIndex > 0;
     const nextCard = document.createElement('div');
-    nextCard.className = 'w-full max-w-[480px] p-6 text-center my-6 flex flex-col items-center justify-center gap-2.5';
+    nextCard.className = 'w-full max-w-[480px] p-6 text-center my-6 flex flex-col items-center justify-center gap-3 border-t border-zinc-900 pt-8';
+    
+    let buttonsHtml = '';
+    if (hasNext) {
+      const nextCh = activeComic.chapters[currentComicChapterIndex + 1];
+      buttonsHtml += `
+        <button id="webtoon-next-chapter-cta" class="w-full px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20">
+          <span>Lanjut ke ${escapeHtml(nextCh.title)}</span>
+          ${iconSvg('arrow-right', 'w-4 h-4')}
+        </button>
+      `;
+    }
+    if (hasPrev) {
+      const prevCh = activeComic.chapters[currentComicChapterIndex - 1];
+      buttonsHtml += `
+        <button id="webtoon-prev-chapter-cta" class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white font-semibold text-[11px] flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+          ${iconSvg('arrow-left', 'w-3.5 h-3.5')}
+          <span>Kembali ke ${escapeHtml(prevCh.title)}</span>
+        </button>
+      `;
+    }
+
     nextCard.innerHTML = `
       <p class="text-xs text-zinc-400">Akhir dari ${escapeHtml(activeComic.chapters[currentComicChapterIndex].title)}</p>
-      <button class="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20">
-        <span>Lanjut ke ${escapeHtml(nextCh.title)}</span>
-        ${iconSvg('arrow-right', 'w-4 h-4')}
-      </button>
+      <div class="flex flex-col items-center gap-2 w-full max-w-xs">
+        ${buttonsHtml}
+      </div>
     `;
-    nextCard.querySelector('button').onclick = () => {
-      goToNextComicChapter();
-    };
+
+    const nextBtnEl = nextCard.querySelector('#webtoon-next-chapter-cta');
+    if (nextBtnEl) nextBtnEl.onclick = goToNextComicChapter;
+    const prevBtnEl = nextCard.querySelector('#webtoon-prev-chapter-cta');
+    if (prevBtnEl) prevBtnEl.onclick = goToPrevComicChapter;
+
     frag.appendChild(nextCard);
   }
 
@@ -3792,22 +3868,40 @@ function renderWebtoonPages(pages) {
 }
 
 function onComicWebtoonScroll() {
-  if (isComicScrubbing || comicReaderMode !== 'webtoon' || !comicWebtoonContainer) return;
+  if (isComicInitializing || isComicScrubbing || comicReaderMode !== 'webtoon' || !comicWebtoonContainer) return;
   if (comicScrollRaf) cancelAnimationFrame(comicScrollRaf);
   comicScrollRaf = requestAnimationFrame(() => {
     const pages = comicWebtoonContainer.querySelectorAll('.comic-webtoon-page');
     if (!pages.length) return;
+
     const scrollTop = comicWebtoonContainer.scrollTop;
-    const probe = scrollTop + 100;
+    const clientH = comicWebtoonContainer.clientHeight;
+    const scrollH = comicWebtoonContainer.scrollHeight;
+
     let activeIdx = 0;
-    for (let i = 0; i < pages.length; i++) {
-      const p = pages[i];
-      if (p.offsetTop <= probe) {
-        activeIdx = i;
-      } else {
-        break;
+
+    // Boundary 1: Pin at Page 1 when scrolled near top
+    if (scrollTop <= 40) {
+      activeIdx = 0;
+    }
+    // Boundary 2: Pin at last page when scrolled near bottom
+    else if (scrollTop + clientH >= scrollH - 40) {
+      activeIdx = pages.length - 1;
+    }
+    // In-between: calculate based on viewport center probe
+    else {
+      const cRect = comicWebtoonContainer.getBoundingClientRect();
+      const probeY = cRect.top + Math.min(220, cRect.height * 0.35);
+      for (let i = 0; i < pages.length; i++) {
+        const r = pages[i].getBoundingClientRect();
+        if (r.top <= probeY) {
+          activeIdx = i;
+        } else {
+          break;
+        }
       }
     }
+
     if (activeIdx !== currentComicPageIndex) {
       currentComicPageIndex = activeIdx;
       if (comicPageNow) comicPageNow.textContent = `Hal. ${activeIdx + 1}`;
@@ -3820,6 +3914,7 @@ function renderSwapPage(pages) {
   if (!comicSwapContainer) return;
   if (comicWebtoonContainer) comicWebtoonContainer.classList.add('hidden');
   comicSwapContainer.classList.remove('hidden');
+  resetSwapZoom();
 
   const page = pages[currentComicPageIndex];
   if (!page || !comicSwapCurrentImg) return;
@@ -3835,8 +3930,47 @@ function renderSwapPage(pages) {
 
   if (comicPageNow) comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
   if (comicPageSlider) comicPageSlider.value = String(currentComicPageIndex + 1);
-  if (comicPrevPageBtn) comicPrevPageBtn.disabled = currentComicPageIndex <= 0;
-  if (comicNextPageBtn) comicNextPageBtn.disabled = currentComicPageIndex >= pages.length - 1;
+  if (comicPrevPageBtn) comicPrevPageBtn.disabled = currentComicPageIndex <= 0 && currentComicChapterIndex <= 0;
+  if (comicNextPageBtn) {
+    const totalChapters = activeComic?.chapters?.length || 1;
+    comicNextPageBtn.disabled = currentComicPageIndex >= pages.length - 1 && currentComicChapterIndex >= totalChapters - 1;
+  }
+}
+
+function prevComicPage() {
+  if (comicReaderMode === 'webtoon') {
+    if (currentComicPageIndex > 0) {
+      currentComicPageIndex--;
+      const targetEl = comicWebtoonContainer?.querySelector(`div[data-page-index="${currentComicPageIndex}"]`);
+      targetEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (comicPageNow) comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
+      if (comicPageSlider) comicPageSlider.value = String(currentComicPageIndex + 1);
+      triggerHaptic('light');
+    } else if (currentComicChapterIndex > 0) {
+      goToPrevComicChapter();
+    }
+  } else {
+    prevSwapPage();
+  }
+}
+
+function nextComicPage() {
+  if (comicReaderMode === 'webtoon') {
+    const chapter = activeComic?.chapters?.[currentComicChapterIndex];
+    const totalPages = chapter?.pages?.length || 0;
+    if (currentComicPageIndex < totalPages - 1) {
+      currentComicPageIndex++;
+      const targetEl = comicWebtoonContainer?.querySelector(`div[data-page-index="${currentComicPageIndex}"]`);
+      targetEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (comicPageNow) comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
+      if (comicPageSlider) comicPageSlider.value = String(currentComicPageIndex + 1);
+      triggerHaptic('light');
+    } else if (currentComicChapterIndex < (activeComic?.chapters?.length || 1) - 1) {
+      goToNextComicChapter();
+    }
+  } else {
+    nextSwapPage();
+  }
 }
 
 function nextSwapPage() {
@@ -3867,6 +4001,28 @@ function prevSwapPage() {
     renderCurrentComicChapter();
     showToast(`Kembali ke ${activeComic.chapters[currentComicChapterIndex].title} 📖`, 'book-open', 'emerald');
     triggerHaptic('medium');
+  }
+}
+
+function toggleSwapZoom() {
+  if (!comicSwapPageWrapper || !comicSwapCurrentImg) return;
+  if (comicSwapZoomLevel === 1) {
+    comicSwapZoomLevel = 1.75;
+    comicSwapPageWrapper.style.transform = 'scale(1.75)';
+    comicSwapPageWrapper.style.cursor = 'zoom-out';
+    showToast('Zoom 1.75x 🔍', 'zoom-in', 'emerald');
+  } else {
+    resetSwapZoom();
+    showToast('Zoom 1x 🔍', 'zoom-out', 'zinc');
+  }
+  triggerHaptic('light');
+}
+
+function resetSwapZoom() {
+  comicSwapZoomLevel = 1;
+  if (comicSwapPageWrapper) {
+    comicSwapPageWrapper.style.transform = 'scale(1)';
+    comicSwapPageWrapper.style.cursor = '';
   }
 }
 
@@ -4622,7 +4778,9 @@ function setupEvents() {
   if (comicModeToggleBtn) comicModeToggleBtn.onclick = toggleComicReaderMode;
   if (comicChapterBtn) comicChapterBtn.onclick = openComicChapterSheet;
   if (comicFooterChapterBtn) comicFooterChapterBtn.onclick = openComicChapterSheet;
+  if (comicPrevChapterBtn) comicPrevChapterBtn.onclick = goToPrevComicChapter;
   if (comicNextChapterBtn) comicNextChapterBtn.onclick = goToNextComicChapter;
+  if (comicFooterModeBtn) comicFooterModeBtn.onclick = toggleComicReaderMode;
   if (comicChapterSheetBackdrop) comicChapterSheetBackdrop.onclick = closeComicChapterSheet;
 
   // Reader Slider
@@ -4650,13 +4808,29 @@ function setupEvents() {
     };
   }
 
-  if (comicPrevPageBtn) comicPrevPageBtn.onclick = prevSwapPage;
-  if (comicNextPageBtn) comicNextPageBtn.onclick = nextSwapPage;
+  if (comicPrevPageBtn) comicPrevPageBtn.onclick = prevComicPage;
+  if (comicNextPageBtn) comicNextPageBtn.onclick = nextComicPage;
 
   // Swap Tap Zones
-  if (comicSwapTapPrev) comicSwapTapPrev.onclick = prevSwapPage;
-  if (comicSwapTapNext) comicSwapTapNext.onclick = nextSwapPage;
-  if (comicSwapTapMenu) comicSwapTapMenu.onclick = toggleComicReaderControls;
+  if (comicSwapTapPrev) comicSwapTapPrev.onclick = prevComicPage;
+  if (comicSwapTapNext) comicSwapTapNext.onclick = nextComicPage;
+  if (comicSwapTapMenu) {
+    comicSwapTapMenu.onclick = () => {
+      const now = Date.now();
+      if (now - lastSwapTapTime < 300) {
+        lastSwapTapTime = 0;
+        toggleSwapZoom();
+      } else {
+        lastSwapTapTime = now;
+        setTimeout(() => {
+          if (Date.now() - lastSwapTapTime >= 280 && lastSwapTapTime !== 0) {
+            toggleComicReaderControls();
+            lastSwapTapTime = 0;
+          }
+        }, 285);
+      }
+    };
+  }
 
   // Horizontal Swipe Gestures on Swap Mode
   if (comicSwapContainer) {
@@ -4671,9 +4845,9 @@ function setupEvents() {
       const dy = Math.abs(e.clientY - touchStartY);
       if (Math.abs(dx) > 40 && dy < 60) {
         if (dx < 0) {
-          nextSwapPage();
+          nextComicPage();
         } else {
-          prevSwapPage();
+          prevComicPage();
         }
       }
     });
@@ -5292,8 +5466,14 @@ function setupEvents() {
   }
 
   // Auto handle orientation resize
-  window.addEventListener('resize', syncLandscapeViewport);
-  window.addEventListener('orientationchange', syncLandscapeViewport);
+  window.addEventListener('resize', () => {
+    syncLandscapeViewport();
+    syncComicOrientation();
+  });
+  window.addEventListener('orientationchange', () => {
+    syncLandscapeViewport();
+    syncComicOrientation();
+  });
 
   // Profile Tab Buttons
   profileTabLikes.onclick = () => {
@@ -5441,25 +5621,44 @@ function setupEvents() {
   });
   window.addEventListener('pagehide', flushPendingCloudSync);
 
-  // Escape key closes topmost open sheet/modal/drawer
+  // Keyboard Navigation: Escape and Arrow keys
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const modalCreate = document.getElementById('modal-create-collection');
-    const modalManage = document.getElementById('modal-manage-collections');
-    const sortSheet = document.getElementById('drama-sort-sheet');
-    if (modalCreate && !modalCreate.classList.contains('hidden')) { closeCreateCollectionModal(); return; }
-    if (modalManage && !modalManage.classList.contains('hidden')) { closeManageCollectionsModal(); return; }
-    if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) { landscapeEpSheet.classList.add('hidden'); return; }
-    if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
-      if (isLandscapeLocked) { setLandscapeLocked(false); return; }
-      closeLandscapeTheater();
+    // Escape key closes topmost open sheet/modal/drawer
+    if (e.key === 'Escape') {
+      const modalCreate = document.getElementById('modal-create-collection');
+      const modalManage = document.getElementById('modal-manage-collections');
+      const sortSheet = document.getElementById('drama-sort-sheet');
+      if (modalCreate && !modalCreate.classList.contains('hidden')) { closeCreateCollectionModal(); return; }
+      if (modalManage && !modalManage.classList.contains('hidden')) { closeManageCollectionsModal(); return; }
+      if (landscapeEpSheet && !landscapeEpSheet.classList.contains('hidden')) { landscapeEpSheet.classList.add('hidden'); return; }
+      if (dramaLandscapeTheater && !dramaLandscapeTheater.classList.contains('hidden')) {
+        if (isLandscapeLocked) { setLandscapeLocked(false); return; }
+        closeLandscapeTheater();
+        return;
+      }
+      if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) { reelEpSheet.classList.add('hidden'); return; }
+      if (dramaReelModal && !dramaReelModal.classList.contains('hidden')) { closeDramaReel(); return; }
+      if (dramaDetailModal && !dramaDetailModal.classList.contains('hidden')) { dramaDetailModal.classList.add('hidden'); return; }
+      if (sortSheet && !sortSheet.classList.contains('hidden')) { closeDramaSortSheet(); return; }
+      if (comicChapterSheet && !comicChapterSheet.classList.contains('hidden')) { closeComicChapterSheet(); return; }
+      if (comicSortSheet && !comicSortSheet.classList.contains('hidden')) { closeComicSortSheet(); return; }
+      if (comicReaderModal && !comicReaderModal.classList.contains('hidden')) { closeComicReader(); return; }
+      if (topicDrawer && !topicDrawer.classList.contains('hidden')) { closeDrawer(); }
       return;
     }
-    if (reelEpSheet && !reelEpSheet.classList.contains('hidden')) { reelEpSheet.classList.add('hidden'); return; }
-    if (dramaReelModal && !dramaReelModal.classList.contains('hidden')) { closeDramaReel(); return; }
-    if (dramaDetailModal && !dramaDetailModal.classList.contains('hidden')) { dramaDetailModal.classList.add('hidden'); return; }
-    if (sortSheet && !sortSheet.classList.contains('hidden')) { closeDramaSortSheet(); return; }
-    if (topicDrawer && !topicDrawer.classList.contains('hidden')) { closeDrawer(); }
+
+    // Active Comic Reader navigation
+    if (comicReaderModal && !comicReaderModal.classList.contains('hidden')) {
+      if (e.key === 'ArrowLeft') {
+        prevComicPage();
+      } else if (e.key === 'ArrowRight') {
+        nextComicPage();
+      } else if (e.key === 'ArrowUp' && comicReaderMode === 'webtoon' && comicWebtoonContainer) {
+        comicWebtoonContainer.scrollBy({ top: -260, behavior: 'smooth' });
+      } else if (e.key === 'ArrowDown' && comicReaderMode === 'webtoon' && comicWebtoonContainer) {
+        comicWebtoonContainer.scrollBy({ top: 260, behavior: 'smooth' });
+      }
+    }
   });
 }
 
