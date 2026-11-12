@@ -27,6 +27,7 @@ const SVG_ICONS = {
   'heart-off': '<line x1="2" y1="2" x2="22" y2="22"/><path d="M16.5 16.5 12 21l-7-7c-1.5-1.45-3-3.2-3-5.5a5.5 5.5 0 0 1 2.14-4.35"/><path d="M8.76 3.1c1.15.22 2.13.78 3.24 1.9 1.5-1.5 2.74-2 4.5-2A5.5 5.5 0 0 1 22 8.5c0 2.12-1.3 3.78-2.67 5.17"/>',
   'chevron-right': '<path d="m9 18 6-6-6-6"/>',
   'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
   'pause': '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
   'skip-back': '<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>',
@@ -147,7 +148,10 @@ let activeComic = null;
 let currentComicChapterIndex = 0;
 let currentComicPageIndex = 0;
 let comicReaderMode = localStorage.getItem('teleshorts_comic_mode') || 'webtoon'; // 'webtoon' | 'swap'
-let comicObserver = null;
+let comicReaderOrientation = localStorage.getItem('teleshorts_comic_orientation') || 'portrait'; // 'portrait' | 'landscape'
+let isComicScrubbing = false;
+let comicScrubbingTimer = null;
+let comicScrollRaf = null;
 
 // Akun Google & Cloud Sync
 let currentUser = JSON.parse(localStorage.getItem('teleshorts_google_user') || 'null');
@@ -508,6 +512,9 @@ const comicReaderModal = document.getElementById('comic-reader-modal');
 const closeComicReaderBtn = document.getElementById('close-comic-reader-btn');
 const comicReaderTitle = document.getElementById('comic-reader-title');
 const comicReaderSubtitle = document.getElementById('comic-reader-subtitle');
+const comicOrientationBtn = document.getElementById('comic-orientation-btn');
+const comicOrientationIcon = document.getElementById('comic-orientation-icon');
+const comicOrientationLabel = document.getElementById('comic-orientation-label');
 const comicModeToggleBtn = document.getElementById('comic-mode-toggle-btn');
 const comicModeIcon = document.getElementById('comic-mode-icon');
 const comicModeLabel = document.getElementById('comic-mode-label');
@@ -523,6 +530,11 @@ const comicPdfFrame = document.getElementById('comic-pdf-frame');
 const comicReaderLoader = document.getElementById('comic-reader-loader');
 const comicPageNow = document.getElementById('comic-page-now');
 const comicPageTotal = document.getElementById('comic-page-total');
+const comicMultiChapterActions = document.getElementById('comic-multi-chapter-actions');
+const comicFooterChapterBtn = document.getElementById('comic-footer-chapter-btn');
+const comicFooterChapterLabel = document.getElementById('comic-footer-chapter-label');
+const comicNextChapterBtn = document.getElementById('comic-next-chapter-btn');
+const comicNextChapterLabel = document.getElementById('comic-next-chapter-label');
 const comicPageSlider = document.getElementById('comic-page-slider');
 const comicPrevPageBtn = document.getElementById('comic-prev-page-btn');
 const comicNextPageBtn = document.getElementById('comic-next-page-btn');
@@ -629,7 +641,7 @@ async function initApp() {
   }
 
   try {
-    const resComics = await fetch('comics.json?v=4.0.0', { cache: 'no-cache' });
+    const resComics = await fetch('comics.json?v=4.1.0', { cache: 'no-cache' });
     if (resComics.ok) {
       allComics = await resComics.json();
     }
@@ -3441,7 +3453,8 @@ function renderComicList(items) {
     const posterUrl = thumbUrl(c.cover_file_id, 480);
     const safeTitle = escapeHtml(c.title);
     const safeAuthor = escapeHtml(c.author);
-    const chCount = c.chapters?.length || 1;
+    const chCount = c.chapters_count || c.chapters?.length || 1;
+    const isMulti = c.is_multi_chapter || chCount > 1;
     const isPdf = c.is_pdf;
 
     card.innerHTML = `
@@ -3477,9 +3490,10 @@ function renderComicList(items) {
           <span class="px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md border border-white/10 text-zinc-300 font-mono text-[9px]">
             ${c.page_count} Hlm
           </span>
-          ${chCount > 1 ? `
-            <span class="px-1.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[9px]">
-              ${chCount} Ch
+          ${isMulti ? `
+            <span class="px-1.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] flex items-center gap-0.5">
+              ${iconSvg('layers', 'w-2.5 h-2.5')}
+              <span>${chCount} Ch</span>
             </span>
           ` : ''}
         </div>
@@ -3489,8 +3503,9 @@ function renderComicList(items) {
         <h3 class="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">
           ${safeTitle}
         </h3>
-        <p class="text-[10px] text-zinc-500 mt-1 truncate">
-          By ${safeAuthor}
+        <p class="text-[10px] text-zinc-500 mt-1 truncate flex items-center justify-between">
+          <span>By ${safeAuthor}</span>
+          ${isMulti ? `<span class="text-emerald-500/80 font-semibold text-[9px]">${chCount} Chapter</span>` : ''}
         </p>
       </div>
     `;
@@ -3509,28 +3524,99 @@ function renderComicList(items) {
 // ============================================================
 // COMIC READER (DUAL-MODE: WEBTOON SCROLL & HORIZONTAL SWAP)
 // ============================================================
+function syncComicOrientation() {
+  if (!comicReaderModal || comicReaderModal.classList.contains('hidden')) return;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const isLandscape = comicReaderOrientation === 'landscape';
+
+  if (comicOrientationLabel) {
+    comicOrientationLabel.textContent = isLandscape ? 'Potret' : 'Lanskap';
+  }
+  if (comicOrientationIcon) {
+    comicOrientationIcon.innerHTML = iconSvg(isLandscape ? 'smartphone' : 'rotate-cw', 'w-3.5 h-3.5 text-zinc-400');
+  }
+
+  if (isLandscape && vh > vw) {
+    comicReaderModal.style.setProperty('--theater-vw', `${vw}px`);
+    comicReaderModal.style.setProperty('--theater-vh', `${vh}px`);
+    comicReaderModal.classList.add('rotate-mobile');
+  } else {
+    comicReaderModal.style.removeProperty('--theater-vw');
+    comicReaderModal.style.removeProperty('--theater-vh');
+    comicReaderModal.classList.remove('rotate-mobile');
+  }
+}
+
+function toggleComicReaderOrientation() {
+  comicReaderOrientation = comicReaderOrientation === 'portrait' ? 'landscape' : 'portrait';
+  localStorage.setItem('teleshorts_comic_orientation', comicReaderOrientation);
+  syncComicOrientation();
+  showToast(comicReaderOrientation === 'landscape' ? 'Mode Orientasi: Lanskap 🔄' : 'Mode Orientasi: Potret 📱', 'book-open', 'emerald');
+  triggerHaptic('light');
+}
+
+function updateComicHeaderAndFooterInfo() {
+  if (!activeComic) return;
+  const currentChapter = activeComic.chapters?.[currentComicChapterIndex];
+  const totalChapters = activeComic.chapters?.length || 1;
+  const isMulti = activeComic.is_multi_chapter || totalChapters > 1;
+
+  // Header info
+  if (comicReaderTitle) comicReaderTitle.textContent = activeComic.title;
+  if (comicReaderSubtitle) {
+    comicReaderSubtitle.textContent = isMulti 
+      ? `${activeComic.author} • ${currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`}`
+      : activeComic.author;
+  }
+
+  // Top chapter button
+  if (comicChapterBtn) {
+    comicChapterBtn.classList.toggle('hidden', !isMulti);
+  }
+  if (comicChapterLabel) {
+    comicChapterLabel.textContent = currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`;
+  }
+
+  // Footer chapter bar & Next Chapter button
+  if (comicMultiChapterActions) {
+    comicMultiChapterActions.classList.toggle('hidden', !isMulti);
+  }
+  if (comicFooterChapterBtn) {
+    comicFooterChapterBtn.classList.toggle('hidden', !isMulti);
+  }
+  if (comicFooterChapterLabel) {
+    comicFooterChapterLabel.textContent = `Ch. ${currentComicChapterIndex + 1} / ${totalChapters}`;
+  }
+
+  if (comicNextChapterBtn) {
+    const hasNext = currentComicChapterIndex < totalChapters - 1;
+    comicNextChapterBtn.classList.toggle('hidden', !hasNext);
+    if (hasNext && comicNextChapterLabel) {
+      comicNextChapterLabel.textContent = `Next Ch. ${currentComicChapterIndex + 2}`;
+    }
+  }
+}
+
 function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
   if (!comic) return;
   activeComic = comic;
   currentComicChapterIndex = Math.max(0, Math.min(chapterIdx, (comic.chapters?.length || 1) - 1));
-  currentComicPageIndex = pageIdx;
+  currentComicPageIndex = pageIdx || 0;
 
   if (comicReaderModal) {
     comicReaderModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
 
-  // Update header text
-  if (comicReaderTitle) comicReaderTitle.textContent = comic.title;
-  const currentChapter = comic.chapters?.[currentComicChapterIndex];
-  if (comicReaderSubtitle) {
-    comicReaderSubtitle.textContent = `${comic.author} • ${currentChapter?.title || 'Chapter 1'}`;
-  }
-  if (comicChapterLabel) {
-    comicChapterLabel.textContent = currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`;
+  // Always reset scroll to top immediately so it starts at page 1 cleanly
+  if (comicWebtoonContainer) {
+    comicWebtoonContainer.scrollTop = 0;
   }
 
+  syncComicOrientation();
   updateComicReaderModeUI();
+  updateComicHeaderAndFooterInfo();
   renderCurrentComicChapter();
   showComicReaderControls();
 }
@@ -3538,9 +3624,12 @@ function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
 function closeComicReader() {
   if (comicReaderModal) {
     comicReaderModal.classList.add('hidden');
+    comicReaderModal.classList.remove('rotate-mobile');
     document.body.style.overflow = '';
   }
-  if (comicObserver) comicObserver.disconnect();
+  if (comicWebtoonContainer) {
+    comicWebtoonContainer.scrollTop = 0;
+  }
   if (comicPdfFrame) comicPdfFrame.src = '';
   activeComic = null;
   triggerHaptic('light');
@@ -3572,6 +3661,8 @@ function renderCurrentComicChapter() {
   const chapter = activeComic.chapters?.[currentComicChapterIndex];
   if (!chapter) return;
 
+  updateComicHeaderAndFooterInfo();
+
   const isPdf = chapter.is_pdf || activeComic.is_pdf;
 
   if (isPdf) {
@@ -3598,7 +3689,10 @@ function renderCurrentComicChapter() {
   const pages = chapter.pages || [];
   const totalPages = pages.length;
 
+  currentComicPageIndex = Math.max(0, Math.min(currentComicPageIndex, Math.max(0, totalPages - 1)));
+
   if (comicPageTotal) comicPageTotal.textContent = `/ ${totalPages}`;
+  if (comicPageNow) comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
   if (comicPageSlider) {
     comicPageSlider.min = '1';
     comicPageSlider.max = String(Math.max(1, totalPages));
@@ -3617,18 +3711,21 @@ function renderWebtoonPages(pages) {
   if (comicSwapContainer) comicSwapContainer.classList.add('hidden');
   comicWebtoonContainer.classList.remove('hidden');
   comicWebtoonContainer.innerHTML = '';
+  comicWebtoonContainer.scrollTop = 0;
 
   const frag = document.createDocumentFragment();
   pages.forEach((p, idx) => {
     const pageWrapper = document.createElement('div');
-    pageWrapper.className = 'comic-webtoon-page w-full max-w-[720px] flex items-center justify-center my-0.5 bg-zinc-950 min-h-[300px] relative';
+    // Natural aspect ratio: container fits cleanly, no forced width stretching
+    pageWrapper.className = 'comic-webtoon-page w-full flex items-center justify-center my-1 bg-zinc-950 min-h-[120px] relative';
     pageWrapper.dataset.pageIndex = String(idx);
 
     const imgUrl = `https://lh3.googleusercontent.com/d/${p.id}=w1200`;
     const fallbackUrl = `https://drive.google.com/thumbnail?id=${p.id}&sz=w1200`;
 
     const img = document.createElement('img');
-    img.className = 'w-full h-auto object-contain select-none';
+    // max-w-full and h-auto object-contain preserves natural aspect ratio (portrait or landscape)
+    img.className = 'max-w-full h-auto object-contain select-none';
     img.src = imgUrl;
     img.alt = `Halaman ${idx + 1}`;
     img.loading = idx < 3 ? 'eager' : 'lazy';
@@ -3641,28 +3738,58 @@ function renderWebtoonPages(pages) {
     frag.appendChild(pageWrapper);
   });
 
+  // End-of-chapter Next Chapter Banner if next chapter exists
+  if (activeComic && currentComicChapterIndex < activeComic.chapters.length - 1) {
+    const nextCh = activeComic.chapters[currentComicChapterIndex + 1];
+    const nextCard = document.createElement('div');
+    nextCard.className = 'w-full max-w-[480px] p-6 text-center my-6 flex flex-col items-center justify-center gap-2.5';
+    nextCard.innerHTML = `
+      <p class="text-xs text-zinc-400">Akhir dari ${escapeHtml(activeComic.chapters[currentComicChapterIndex].title)}</p>
+      <button class="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20">
+        <span>Lanjut ke ${escapeHtml(nextCh.title)}</span>
+        ${iconSvg('arrow-right', 'w-4 h-4')}
+      </button>
+    `;
+    nextCard.querySelector('button').onclick = () => {
+      goToNextComicChapter();
+    };
+    frag.appendChild(nextCard);
+  }
+
   comicWebtoonContainer.appendChild(frag);
 
-  if (comicObserver) comicObserver.disconnect();
-  comicObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const pageIdx = parseInt(entry.target.dataset.pageIndex || '0', 10);
-        currentComicPageIndex = pageIdx;
-        if (comicPageNow) comicPageNow.textContent = `Hal. ${pageIdx + 1}`;
-        if (comicPageSlider) comicPageSlider.value = String(pageIdx + 1);
-      }
-    });
-  }, { root: comicWebtoonContainer, threshold: 0.4 });
-
-  comicWebtoonContainer.querySelectorAll('div[data-page-index]').forEach(el => comicObserver.observe(el));
-
+  // Scroll to current page if > 0
   if (currentComicPageIndex > 0) {
     setTimeout(() => {
       const targetEl = comicWebtoonContainer.querySelector(`div[data-page-index="${currentComicPageIndex}"]`);
-      targetEl?.scrollIntoView({ behavior: 'auto' });
+      targetEl?.scrollIntoView({ behavior: 'auto', block: 'start' });
     }, 50);
   }
+}
+
+function onComicWebtoonScroll() {
+  if (isComicScrubbing || comicReaderMode !== 'webtoon' || !comicWebtoonContainer) return;
+  if (comicScrollRaf) cancelAnimationFrame(comicScrollRaf);
+  comicScrollRaf = requestAnimationFrame(() => {
+    const pages = comicWebtoonContainer.querySelectorAll('.comic-webtoon-page');
+    if (!pages.length) return;
+    const scrollTop = comicWebtoonContainer.scrollTop;
+    const probe = scrollTop + 100;
+    let activeIdx = 0;
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      if (p.offsetTop <= probe) {
+        activeIdx = i;
+      } else {
+        break;
+      }
+    }
+    if (activeIdx !== currentComicPageIndex) {
+      currentComicPageIndex = activeIdx;
+      if (comicPageNow) comicPageNow.textContent = `Hal. ${activeIdx + 1}`;
+      if (comicPageSlider) comicPageSlider.value = String(activeIdx + 1);
+    }
+  });
 }
 
 function renderSwapPage(pages) {
@@ -3696,11 +3823,7 @@ function nextSwapPage() {
     renderSwapPage(pages);
     triggerHaptic('light');
   } else if (currentComicChapterIndex < (activeComic.chapters.length - 1)) {
-    currentComicChapterIndex++;
-    currentComicPageIndex = 0;
-    renderCurrentComicChapter();
-    showToast(`Lanjut ke Chapter ${currentComicChapterIndex + 1} 📖`, 'book-open', 'emerald');
-    triggerHaptic('medium');
+    goToNextComicChapter();
   }
 }
 
@@ -3717,7 +3840,29 @@ function prevSwapPage() {
     const prevChapterPages = activeComic.chapters[currentComicChapterIndex]?.pages || [];
     currentComicPageIndex = Math.max(0, prevChapterPages.length - 1);
     renderCurrentComicChapter();
-    showToast(`Kembali ke Chapter ${currentComicChapterIndex + 1} 📖`, 'book-open', 'emerald');
+    showToast(`Kembali ke ${activeComic.chapters[currentComicChapterIndex].title} 📖`, 'book-open', 'emerald');
+    triggerHaptic('medium');
+  }
+}
+
+function goToNextComicChapter() {
+  if (!activeComic) return;
+  if (currentComicChapterIndex < activeComic.chapters.length - 1) {
+    currentComicChapterIndex++;
+    currentComicPageIndex = 0;
+    renderCurrentComicChapter();
+    showToast(`Lanjut ke ${activeComic.chapters[currentComicChapterIndex].title} 📖`, 'book-open', 'emerald');
+    triggerHaptic('medium');
+  }
+}
+
+function goToPrevComicChapter() {
+  if (!activeComic) return;
+  if (currentComicChapterIndex > 0) {
+    currentComicChapterIndex--;
+    currentComicPageIndex = 0;
+    renderCurrentComicChapter();
+    showToast(`Kembali ke ${activeComic.chapters[currentComicChapterIndex].title} 📖`, 'book-open', 'emerald');
     triggerHaptic('medium');
   }
 }
@@ -3753,7 +3898,7 @@ function openComicChapterSheet() {
     activeComic.chapters.forEach((ch, idx) => {
       const btn = document.createElement('button');
       const isCur = idx === currentComicChapterIndex;
-      btn.className = `w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold ${isCur ? 'bg-emerald-950/60 border border-emerald-500/50 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-zinc-700'} transition-all`;
+      btn.className = `w-full p-3 rounded-2xl flex items-center justify-between text-left text-xs font-semibold ${isCur ? 'bg-emerald-950/60 border border-emerald-500/50 text-white shadow-sm' : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-zinc-700'} transition-all`;
       btn.innerHTML = `
         <div class="flex items-center gap-2.5 min-w-0">
           <span class="text-emerald-400 font-bold">${idx + 1}.</span>
@@ -3766,12 +3911,6 @@ function openComicChapterSheet() {
         currentComicPageIndex = 0;
         closeComicChapterSheet();
         renderCurrentComicChapter();
-        if (comicReaderSubtitle) {
-          comicReaderSubtitle.textContent = `${activeComic.author} • ${ch.title}`;
-        }
-        if (comicChapterLabel) {
-          comicChapterLabel.textContent = ch.title;
-        }
         triggerHaptic('light');
       };
       frag.appendChild(btn);
@@ -4454,8 +4593,11 @@ function setupEvents() {
 
   // Comic Reader Controls
   if (closeComicReaderBtn) closeComicReaderBtn.onclick = closeComicReader;
+  if (comicOrientationBtn) comicOrientationBtn.onclick = toggleComicReaderOrientation;
   if (comicModeToggleBtn) comicModeToggleBtn.onclick = toggleComicReaderMode;
   if (comicChapterBtn) comicChapterBtn.onclick = openComicChapterSheet;
+  if (comicFooterChapterBtn) comicFooterChapterBtn.onclick = openComicChapterSheet;
+  if (comicNextChapterBtn) comicNextChapterBtn.onclick = goToNextComicChapter;
   if (comicChapterSheetBackdrop) comicChapterSheetBackdrop.onclick = closeComicChapterSheet;
 
   // Reader Slider
@@ -4467,8 +4609,13 @@ function setupEvents() {
       if (comicPageNow) comicPageNow.textContent = `Hal. ${pageNum}`;
 
       if (comicReaderMode === 'webtoon') {
+        isComicScrubbing = true;
         const el = comicWebtoonContainer?.querySelector(`div[data-page-index="${targetIdx}"]`);
-        el?.scrollIntoView({ behavior: 'smooth' });
+        el?.scrollIntoView({ behavior: 'auto', block: 'start' });
+        clearTimeout(comicScrubbingTimer);
+        comicScrubbingTimer = setTimeout(() => {
+          isComicScrubbing = false;
+        }, 300);
       } else {
         const chapter = activeComic?.chapters?.[currentComicChapterIndex];
         if (chapter && !chapter.is_pdf) {
@@ -4507,8 +4654,9 @@ function setupEvents() {
     });
   }
 
-  // Tap in Webtoon container to toggle reader controls
+  // Scroll and Tap in Webtoon container
   if (comicWebtoonContainer) {
+    comicWebtoonContainer.addEventListener('scroll', onComicWebtoonScroll, { passive: true });
     comicWebtoonContainer.onclick = (e) => {
       if (e.target.tagName === 'IMG' || e.target === comicWebtoonContainer) {
         toggleComicReaderControls();
