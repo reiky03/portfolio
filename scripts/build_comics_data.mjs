@@ -124,18 +124,54 @@ function normalizeAuthor(raw) {
 }
 
 function cleanTitle(raw, author) {
-  let t = raw.trim();
+  let t = (raw || '').trim();
   t = t.replace(/\.pdf$/i, '');
+  t = t.replace(/\.(zip|rar|7z|cbz|cbr)$/i, '');
   t = t.replace(/\s*\(\d+\)$/, '').trim();
-  const authPattern = new RegExp(`^(\\[?${author}\\]?\\s*[-–—:]?\\s*)`, 'i');
-  t = t.replace(authPattern, '');
-  t = t.replace(/^\s*[-–—:]\s*/, '').trim();
+
+  // Strip leading bracketed author/creator tags: "[Ackerman] ", "[FTL] ", "［ytsnow］", "[SP_XXX]", "[SuperHeather]"
+  t = t.replace(/^(\[|［)[^\]］]+(\]|］)[-_ :–—]*/i, '');
+
+  // Strip known author prefixes: "Ackerman - ", "TGTrinity_-_", "PBSHoney2 - ", "FTL - ", "SP_XXX "
+  t = t.replace(/^(ackerman|midoriko(\s*kobayashi)?|teysia|tgtrinity|pbshoney\s*\d*|tom\s*reynolds|ftl|lite|ytsnow|zis|sp\s*_?\s*xxx|double_?a4)[-_ :–—]+/i, '');
+  t = t.replace(/^[-_ :–—]+/, '').replace(/[-_ :–—]+$/, '').trim();
+
+  // Handle FaceApp encoding glitch: "FaceAppБ─⌠Vol.1..." or "《換臉APP》–Vol.1..."
+  const faceAppMatch = t.match(/^(FaceApp|《換臉APP》)/i);
+  if (faceAppMatch) return faceAppMatch[1];
+
+  // Handle Phantom Season 2: "Phantom 1-8 - Season 2" -> "Phantom - Season 2"
+  const phantomS2 = t.match(/^Phantom(?:\s*\d+\s*-\s*\d+)?[-_ :–—]*(Season\s*\d+)/i);
+  if (phantomS2) return `Phantom - ${phantomS2[1]}`;
+
+  // Replace snake_case underscores with spaces if applicable
+  if (t.includes('_')) {
+    t = t.replace(/_+/g, ' ').trim();
+  }
+
   return t || raw;
 }
 
 function extractSeriesAndChapter(cleanT) {
   let s = cleanT.trim();
-  
+  if (s.includes('_')) s = s.replace(/_+/g, ' ').trim();
+
+  // If title has "Season X", keep "Season X" in the series title!
+  const hasSeason = s.match(/(.*?[-_ :–—]*Season\s*\d+)(.*)/i);
+  if (hasSeason) {
+    const seriesPrefix = hasSeason[1].trim();
+    const rest = hasSeason[2].trim();
+    if (!rest) {
+      return { seriesTitle: seriesPrefix, chapterTitle: 'Chapter 1', chapterNum: 1 };
+    }
+    const chM = rest.match(/[-_ :–—]*(?:Chapter|Ch\.?|Part|Eps?\.?|\b)\s*(\d+)/i);
+    return {
+      seriesTitle: seriesPrefix,
+      chapterTitle: chM ? `Chapter ${chM[1]}` : 'Chapter 1',
+      chapterNum: chM ? parseInt(chM[1], 10) : 1
+    };
+  }
+
   // Dot pattern: "Title.Part1" or "Title.Part 1"
   const dotPart = s.match(/^(.*?)\.part\s*(\d+)$/i);
   if (dotPart && dotPart[1].length >= 2) {
@@ -147,40 +183,40 @@ function extractSeriesAndChapter(cleanT) {
   }
 
   // Part / Episode / Volume: "Title Part 1" or "Title Part1"
-  const partMatch = s.match(/^(.*?)\s*[-–—:]?\s*(?:Part|Eps?\.?|Volume|Vol\.?)\s*(\d+(?:\s*-\s*\d+)?)$/i);
+  const partMatch = s.match(/^(.*?)[-_ :–—]*(?:Part|Eps?\.?|Volume|Vol\.?)\s*(\d+(?:\s*-\s*\d+)?)$/i);
   if (partMatch && partMatch[1].length >= 2) {
     return {
-      seriesTitle: partMatch[1].trim().replace(/\s*[-–—:]$/, '').trim(),
+      seriesTitle: partMatch[1].trim().replace(/[-_ :–—]+$/, '').trim(),
       chapterTitle: `Part ${partMatch[2].trim()}`,
       chapterNum: parseFloat(partMatch[2]) || 0
     };
   }
 
   // Chapter: "Title Chapter 1" or "Title Ch. 2"
-  const chMatch = s.match(/^(.*?)\s*[-–—:]?\s*(?:Chapter|Ch\.?)\s*(\d+(?:\s*-\s*\d+)?)$/i);
+  const chMatch = s.match(/^(.*?)[-_ :–—]*(?:Chapter|Ch\.?)\s*(\d+(?:\s*-\s*\d+)?)$/i);
   if (chMatch && chMatch[1].length >= 2) {
     return {
-      seriesTitle: chMatch[1].trim().replace(/\s*[-–—:]$/, '').trim(),
+      seriesTitle: chMatch[1].trim().replace(/[-_ :–—]+$/, '').trim(),
       chapterTitle: `Chapter ${chMatch[2].trim()}`,
       chapterNum: parseFloat(chMatch[2]) || 0
     };
   }
 
   // Range: "Title 1-10", "Title 1-6", "Title 1-7"
-  const rangeMatch = s.match(/^(.*?)\s*[-–—:]?\s*(\d+\s*-\s*\d+)$/i);
+  const rangeMatch = s.match(/^(.*?)[-_ :–—]*(\d+\s*-\s*\d+)$/i);
   if (rangeMatch && rangeMatch[1].length >= 2) {
     return {
-      seriesTitle: rangeMatch[1].trim().replace(/\s*[-–—:]$/, '').trim(),
+      seriesTitle: rangeMatch[1].trim().replace(/[-_ :–—]+$/, '').trim(),
       chapterTitle: `Chapter ${rangeMatch[2].trim()}`,
       chapterNum: parseFloat(rangeMatch[2]) || 0
     };
   }
 
   // Ending number: "Title 01", "Title 2", "Title 41", "Title 42"
-  const numEndMatch = s.match(/^(.*?[a-zA-Z\u4e00-\u9fa5]{2,}.*?)\s+[-–—]?\s*0*(\d{1,3})$/);
+  const numEndMatch = s.match(/^(.*?[a-zA-Z\u4e00-\u9fa5]{3,}.*?)[-_ :–—]+0*(\d{1,3})$/);
   if (numEndMatch) {
     return {
-      seriesTitle: numEndMatch[1].trim().replace(/\s*[-–—:]$/, '').trim(),
+      seriesTitle: numEndMatch[1].trim().replace(/[-_ :–—]+$/, '').trim(),
       chapterTitle: `Chapter ${numEndMatch[2]}`,
       chapterNum: parseInt(numEndMatch[2], 10)
     };
@@ -194,14 +230,35 @@ function extractSeriesAndChapter(cleanT) {
 }
 
 function cleanChapterTitle(chTitle, seriesTitle) {
-  let c = chTitle.trim().replace(/\s*\(\d+\)$/, '').trim();
-  const re = new RegExp(`^${seriesTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–—:]?\\s*`, 'i');
-  c = c.replace(re, '').trim();
-  if (/^\d+$/.test(c)) {
-    c = `Chapter ${parseInt(c, 10)}`;
-  } else if (/^\d+\s*-\s*\d+$/.test(c)) {
-    c = `Chapter ${c}`;
+  let c = (chTitle || '').trim().replace(/\s*\(\d+\)$/, '').trim();
+  c = c.replace(/\.(zip|rar|7z|cbz|cbr|pdf)$/i, '');
+  // Strip bracketed author or any tag at start
+  c = c.replace(/^(\[|［)[^\]］]+(\]|］)[-_ :–—]*/i, '');
+  // Strip author prefix
+  c = c.replace(/^(ackerman|midoriko(\s*kobayashi)?|teysia|tgtrinity|pbshoney\s*\d*|tom\s*reynolds|ftl|lite|ytsnow|zis|sp\s*_?\s*xxx|double_?a4)[-_ :–—]+/i, '');
+  // Strip series title if present
+  if (seriesTitle) {
+    const esc = seriesTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    c = c.replace(new RegExp(`^${esc}[-_ :–—]*`, 'i'), '');
+    // Also handle generic "Phantom Season 2" or "Season 2"
+    c = c.replace(/^(?:Phantom|Season\s*\d+)[-_ :–—]*/i, '');
   }
+  c = c.replace(/^[-_ :–—]+/, '').replace(/[-_ :–—]+$/, '').trim();
+
+  // If now it is just a number: "8", "08", "10"
+  if (/^\d+$/.test(c)) {
+    return `Chapter ${parseInt(c, 10)}`;
+  }
+  // Range: "1-2", "1-7"
+  if (/^\d+\s*-\s*\d+$/.test(c)) {
+    return `Chapter ${c}`;
+  }
+  // "Chapter 2", "Ch 2", "Part 2"
+  const m = c.match(/^(?:Chapter|Ch\.?|Part|Eps?\.?)\s*(\d+(?:\.\d+)?)$/i);
+  if (m) {
+    return `Chapter ${parseFloat(m[1])}`;
+  }
+  if (c.includes('_')) c = c.replace(/_+/g, ' ').trim();
   return c || chTitle;
 }
 
@@ -353,6 +410,7 @@ async function main() {
           id: `comic_${it.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
           folder_id: it.id,
           title: seriesTitle,
+          original_title: it.name.replace(/\.pdf$/i, '').trim(),
           author,
           cover_file_id: it.id,
           chapters: []
@@ -420,6 +478,7 @@ async function main() {
       id: s.id,
       folder_id: s.folder_id,
       title: s.title,
+      original_title: s.original_title || s.title,
       author: s.author,
       is_pdf: isAllPdf,
       pdf_file_id: isAllPdf ? (firstPdf || null) : null,

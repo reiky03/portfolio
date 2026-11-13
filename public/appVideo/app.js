@@ -3431,7 +3431,7 @@ function filterAndRenderComics() {
     comicSearchClear?.classList.remove('hidden');
     const rawWords = query.toLowerCase().split(/\s+/).filter(Boolean);
     results = results.filter(c => {
-      const corpus = `${c.title} ${c.author}`.toLowerCase();
+      const corpus = `${c.title} ${c.original_title || ''} ${c.author}`.toLowerCase();
       return rawWords.every(w => corpus.includes(w));
     });
     if (comicSearchFeedback) {
