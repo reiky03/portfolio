@@ -240,8 +240,62 @@ async function runBrowserTests() {
     });
     console.log('✅ Audit 6 (Swap Mode & Toggle):', swapEval.result?.value);
 
+    // Audit 7: Verify progress bar accuracy (no jump to Hal 3 or last page on open)
+    console.log('🎯 Audit 7: Testing Progress Bar & Slider stability...');
+    const progressEval = await sendSession('Runtime.evaluate', {
+      expression: `(() => {
+        const comic = allComics.find(c => c.page_count > 50);
+        openComicReader(comic, 0, 0);
+        const pageNowInitial = document.getElementById("comic-page-now")?.textContent;
+        const sliderInitial = document.getElementById("comic-page-slider")?.value;
+        
+        // Trigger onComicWebtoonScroll at top
+        onComicWebtoonScroll();
+        const pageAfterScrollTop = document.getElementById("comic-page-now")?.textContent;
+        
+        closeComicReader();
+        return {
+          title: comic.title,
+          pageNowInitial,
+          sliderInitial,
+          pageAfterScrollTop,
+          isCorrect: pageNowInitial === "Hal. 1" && sliderInitial === "1" && pageAfterScrollTop === "Hal. 1"
+        };
+      })()`,
+      returnByValue: true
+    });
+    console.log('✅ Audit 7 (Progress Bar Accuracy):', progressEval.result?.value);
+
+    // Audit 8: Verify debounced search
+    console.log('🔍 Audit 8: Testing Debounced Comic Search...');
+    const searchEval = await sendSession('Runtime.evaluate', {
+      expression: `(() => {
+        const input = document.getElementById("comic-search-input");
+        if (input) {
+          input.value = "leather";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        return new Promise(res => {
+          setTimeout(() => {
+            const grid = document.getElementById("comic-list-grid");
+            const cards = grid ? grid.querySelectorAll(".comic-card") : [];
+            const titles = Array.from(cards).map(c => c.querySelector("h3")?.textContent.trim());
+            // Clear input for subsequent runs
+            if (input) {
+              input.value = "";
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            res({ cardsFound: cards.length, sampleTitles: titles.slice(0, 2) });
+          }, 300);
+        });
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    console.log('✅ Audit 8 (Debounced Search):', searchEval.result?.value);
+
     if (consoleErrors.length === 0) {
-      console.log('\n🏆 ALL 6 AUDIT VERIFICATION GATES PASSED WITH 0 CONSOLE ERRORS!');
+      console.log('\n🏆 ALL 8 AUDIT VERIFICATION GATES PASSED WITH 0 CONSOLE ERRORS!');
     } else {
       console.error(`\n❌ Found ${consoleErrors.length} errors during audit!`);
       process.exitCode = 1;

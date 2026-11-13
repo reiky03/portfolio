@@ -255,7 +255,7 @@ async function extractFolderChapters(folderId, folderName, chapterTitle, seriesT
         title: cleanChapterTitle(chapterTitle || folderName, seriesTitle),
         is_pdf: false,
         page_count: bestImages.length,
-        pages: bestImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
+        pages: bestImages.map(p => p.id)
       });
     }
 
@@ -275,7 +275,7 @@ async function extractFolderChapters(folderId, folderName, chapterTitle, seriesT
       title: cleanChapterTitle(chapterTitle || folderName, seriesTitle),
       is_pdf: false,
       page_count: bestImages.length,
-      pages: bestImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
+      pages: bestImages.map(p => p.id)
     });
   } else if (directPdfs.length > 0) {
     for (const dp of directPdfs) {
@@ -413,7 +413,7 @@ async function main() {
     const totalPages = uniqueChapters.reduce((sum, ch) => sum + ch.page_count, 0);
     const firstImage = uniqueChapters.find(ch => !ch.is_pdf && ch.pages?.length > 0)?.pages[0];
     const firstPdf = uniqueChapters.find(ch => ch.is_pdf)?.pdf_file_id;
-    const coverId = firstImage ? firstImage.id : (firstPdf || s.cover_file_id);
+    const coverId = firstImage ? (typeof firstImage === 'string' ? firstImage : firstImage.id) : (firstPdf || s.cover_file_id);
     const isAllPdf = uniqueChapters.every(ch => ch.is_pdf);
 
     result.push({
@@ -478,13 +478,13 @@ async function main() {
   console.log(`\n🎉 Completed! Exporting ${result.length} unique comic series to public/appVideo/comics.json`);
 
   const outPath = '/Users/reikypratama/PortoFolio copy/public/appVideo/comics.json';
-  fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+  fs.writeFileSync(outPath, JSON.stringify(result));
   saveCache();
   console.log(`Written ${outPath} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB)`);
 
   const syncPath = '/Users/reikypratama/Random/comics.json';
   try {
-    fs.writeFileSync(syncPath, JSON.stringify(result, null, 2));
+    fs.writeFileSync(syncPath, JSON.stringify(result));
     console.log(`Synced to ${syncPath}`);
   } catch (err) {
     console.warn('Failed to sync to Random:', err.message);

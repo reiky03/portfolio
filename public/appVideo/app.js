@@ -560,6 +560,8 @@ const comicSwapTapPrev = document.getElementById('comic-swap-tap-prev');
 const comicSwapTapMenu = document.getElementById('comic-swap-tap-menu');
 const comicSwapTapNext = document.getElementById('comic-swap-tap-next');
 const comicSwapPageWrapper = document.getElementById('comic-swap-page-wrapper');
+let comicWebtoonObserver = null;
+let comicSearchDebounceTimer = null;
 
 // Drama catalog
 const dramaListGrid = document.getElementById('drama-list-grid');
@@ -637,30 +639,40 @@ async function initApp() {
 
   const initialLoader = document.getElementById('app-initial-loader');
   const initialLoaderText = document.getElementById('initial-loader-text');
-  if (initialLoaderText) initialLoaderText.textContent = "Mengunduh katalog video & drama...";
+  if (initialLoaderText) initialLoaderText.textContent = "Mengunduh katalog video, drama & komik...";
 
   try {
-    const res = await fetch('videos.json', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('Network error');
-    const data = await res.json();
-    allTopics = data.topics || FALLBACK_DATA.topics;
-    allVideos = data.videos || FALLBACK_DATA.videos;
-    allDramas = data.dramas || FALLBACK_DATA.dramas;
-    allAdultVideos = data.adult_videos || [];
+    const [resVideos, resComics] = await Promise.all([
+      fetch('videos.json').catch(e => { console.warn('videos.json fetch error:', e); return null; }),
+      fetch('comics.json?v=4.4.0').catch(e => { console.warn('comics.json fetch error:', e); return null; })
+    ]);
+
+    if (resVideos && resVideos.ok) {
+      const data = await resVideos.json();
+      allTopics = data.topics || FALLBACK_DATA.topics;
+      allVideos = data.videos || FALLBACK_DATA.videos;
+      allDramas = data.dramas || FALLBACK_DATA.dramas;
+      allAdultVideos = data.adult_videos || [];
+    } else {
+      allTopics = FALLBACK_DATA.topics;
+      allVideos = FALLBACK_DATA.videos;
+      allDramas = FALLBACK_DATA.dramas;
+      allAdultVideos = [];
+    }
+
+    if (resComics && resComics.ok) {
+      allComics = await resComics.json();
+      window.allComics = allComics;
+    } else {
+      allComics = [];
+      window.allComics = [];
+    }
   } catch (err) {
+    console.warn('Init fetch fallback:', err);
     allTopics = FALLBACK_DATA.topics;
     allVideos = FALLBACK_DATA.videos;
     allDramas = FALLBACK_DATA.dramas;
     allAdultVideos = [];
-  }
-
-  try {
-    const resComics = await fetch('comics.json?v=4.3.0', { cache: 'no-cache' });
-    if (resComics.ok) {
-      allComics = await resComics.json();
-      window.allComics = allComics;
-    }
-  } catch (err) {
     allComics = [];
     window.allComics = [];
   }
@@ -3465,6 +3477,8 @@ function renderComicList(items) {
   items.forEach(c => {
     const card = document.createElement('div');
     card.className = 'comic-card group relative rounded-2xl overflow-hidden bg-zinc-900/90 border border-zinc-800/80 hover:border-emerald-500/50 transition-all duration-300 flex flex-col cursor-pointer active:scale-98 shadow-lg shadow-black/40';
+    card.style.contentVisibility = 'auto';
+    card.style.containIntrinsicSize = '280px 380px';
 
     const posterUrl = thumbUrl(c.cover_file_id, 480);
     const safeTitle = escapeHtml(c.title);
@@ -3692,6 +3706,14 @@ function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
 
 function closeComicReader() {
   isComicInitializing = true;
+  if (comicScrollRaf) {
+    cancelAnimationFrame(comicScrollRaf);
+    comicScrollRaf = null;
+  }
+  if (comicWebtoonObserver) {
+    comicWebtoonObserver.disconnect();
+    comicWebtoonObserver = null;
+  }
   if (comicReaderModal) {
     comicReaderModal.classList.add('hidden');
     comicReaderModal.classList.remove('rotate-mobile');
@@ -3865,15 +3887,43 @@ function renderWebtoonPages(pages) {
   comicWebtoonContainer.innerHTML = '';
   comicWebtoonContainer.scrollTop = 0;
 
+  if (comicWebtoonObserver) {
+    comicWebtoonObserver.disconnect();
+    comicWebtoonObserver = null;
+  }
+
+  // Progressive IntersectionObserver: only loads images within 1000px of container viewport
+  if ('IntersectionObserver' in window) {
+    comicWebtoonObserver = new IntersectionObserver((entries, obs) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const wrapper = entry.target;
+          const targetImg = wrapper.querySelector('img[data-src]');
+          if (targetImg) {
+            targetImg.src = targetImg.dataset.src;
+            targetImg.removeAttribute('data-src');
+          }
+          obs.unobserve(wrapper);
+        }
+      });
+    }, {
+      root: comicWebtoonContainer,
+      rootMargin: '1000px 0px 1000px 0px'
+    });
+  }
+
   const frag = document.createDocumentFragment();
   pages.forEach((p, idx) => {
+    const pageId = typeof p === 'string' ? p : p.id;
     const pageWrapper = document.createElement('div');
-    // Natural aspect ratio: container fits cleanly without forced width stretching
+    // Natural aspect ratio + content-visibility skips painting offscreen pages
     pageWrapper.className = 'comic-webtoon-page w-full max-w-[720px] flex flex-col items-center justify-center my-2 bg-zinc-950 min-h-[320px] relative transition-all';
+    pageWrapper.style.contentVisibility = 'auto';
+    pageWrapper.style.containIntrinsicSize = '720px 800px';
     pageWrapper.dataset.pageIndex = String(idx);
 
-    const imgUrl = `https://lh3.googleusercontent.com/d/${p.id}=w1200`;
-    const fallbackUrl = `https://drive.google.com/thumbnail?id=${p.id}&sz=w1200`;
+    const imgUrl = `https://lh3.googleusercontent.com/d/${pageId}=w1200`;
+    const fallbackUrl = `https://drive.google.com/thumbnail?id=${pageId}&sz=w1200`;
 
     // Visual placeholder while image is fetching
     const skeleton = document.createElement('div');
@@ -3885,13 +3935,19 @@ function renderWebtoonPages(pages) {
     pageWrapper.appendChild(skeleton);
 
     const img = document.createElement('img');
-    // max-w-full and h-auto object-contain preserves natural aspect ratio (portrait or landscape)
     img.className = 'max-w-full h-auto object-contain select-none transition-opacity duration-200 opacity-0 shadow-md';
     img.referrerPolicy = 'no-referrer';
-    img.src = imgUrl;
     img.alt = `Halaman ${idx + 1}`;
-    img.loading = idx < 3 ? 'eager' : 'lazy';
     img.decoding = 'async';
+
+    // First 2 pages load eagerly, rest are lazy-loaded via IntersectionObserver
+    if (idx < 2 || !comicWebtoonObserver) {
+      img.loading = idx < 2 ? 'eager' : 'lazy';
+      img.src = imgUrl;
+    } else {
+      img.loading = 'lazy';
+      img.dataset.src = imgUrl;
+    }
 
     img.onload = () => {
       skeleton.remove();
@@ -3901,7 +3957,8 @@ function renderWebtoonPages(pages) {
     };
 
     img.onerror = () => {
-      if (img.src !== fallbackUrl) {
+      const curSrc = img.src || img.dataset.src;
+      if (curSrc !== fallbackUrl) {
         img.src = fallbackUrl;
       } else {
         skeleton.classList.remove('animate-pulse');
@@ -3930,6 +3987,9 @@ function renderWebtoonPages(pages) {
     };
 
     pageWrapper.appendChild(img);
+    if (comicWebtoonObserver && idx >= 2) {
+      comicWebtoonObserver.observe(pageWrapper);
+    }
     frag.appendChild(pageWrapper);
   });
 
@@ -4000,33 +4060,57 @@ function onComicWebtoonScroll() {
     let activeIdx = 0;
 
     // Boundary 1: Pin at Page 1 when scrolled near top
-    if (scrollTop <= 40) {
+    if (scrollTop <= 30) {
       activeIdx = 0;
     }
-    // Boundary 2: Pin at last page when scrolled near bottom
-    else if (scrollTop + clientH >= scrollH - 40) {
+    // Boundary 2: Pin at last page ONLY if content actually overflows viewport AND scrolled all the way to bottom
+    else if (scrollH > clientH + 120 && scrollTop + clientH >= scrollH - 30) {
       activeIdx = pages.length - 1;
     }
-    // In-between: calculate based on viewport center probe
+    // In-between: calculate based on maximum visible height in container viewport
     else {
       const cRect = comicWebtoonContainer.getBoundingClientRect();
-      const probeY = cRect.top + Math.min(220, cRect.height * 0.35);
+      let maxVisible = -1;
+      let bestIdx = 0;
+
       for (let i = 0; i < pages.length; i++) {
         const r = pages[i].getBoundingClientRect();
-        if (r.top <= probeY) {
-          activeIdx = i;
-        } else {
-          break;
+        const visibleTop = Math.max(cRect.top, r.top);
+        const visibleBottom = Math.min(cRect.bottom, r.bottom);
+        const visibleH = Math.max(0, visibleBottom - visibleTop);
+
+        if (visibleH > maxVisible) {
+          maxVisible = visibleH;
+          bestIdx = i;
         }
       }
+      activeIdx = bestIdx;
     }
 
-    if (activeIdx !== currentComicPageIndex) {
+    if (activeIdx !== currentComicPageIndex && activeIdx >= 0 && activeIdx < pages.length) {
       currentComicPageIndex = activeIdx;
       if (comicPageNow) comicPageNow.textContent = `Hal. ${activeIdx + 1}`;
       if (comicPageSlider) comicPageSlider.value = String(activeIdx + 1);
     }
   });
+}
+
+function preloadSwapAdjacentPages(pages, currentIdx) {
+  if (!pages || !pages.length) return;
+  const nextP = pages[currentIdx + 1];
+  if (nextP) {
+    const nextId = typeof nextP === 'string' ? nextP : nextP.id;
+    const nextImg = new Image();
+    nextImg.referrerPolicy = 'no-referrer';
+    nextImg.src = `https://lh3.googleusercontent.com/d/${nextId}=w1200`;
+  }
+  const prevP = pages[currentIdx - 1];
+  if (prevP) {
+    const prevId = typeof prevP === 'string' ? prevP : prevP.id;
+    const prevImg = new Image();
+    prevImg.referrerPolicy = 'no-referrer';
+    prevImg.src = `https://lh3.googleusercontent.com/d/${prevId}=w1200`;
+  }
 }
 
 function renderSwapPage(pages) {
@@ -4038,9 +4122,10 @@ function renderSwapPage(pages) {
   const page = pages[currentComicPageIndex];
   if (!page || !comicSwapCurrentImg) return;
 
+  const pageId = typeof page === 'string' ? page : page.id;
   comicSwapCurrentImg.referrerPolicy = 'no-referrer';
-  const imgUrl = `https://lh3.googleusercontent.com/d/${page.id}=w1200`;
-  const fallbackUrl = `https://drive.google.com/thumbnail?id=${page.id}&sz=w1200`;
+  const imgUrl = `https://lh3.googleusercontent.com/d/${pageId}=w1200`;
+  const fallbackUrl = `https://drive.google.com/thumbnail?id=${pageId}&sz=w1200`;
 
   comicSwapCurrentImg.classList.add('opacity-40');
   comicSwapCurrentImg.onload = () => {
@@ -4062,6 +4147,9 @@ function renderSwapPage(pages) {
     const totalChapters = activeComic?.chapters?.length || 1;
     comicNextPageBtn.disabled = currentComicPageIndex >= pages.length - 1 && currentComicChapterIndex >= totalChapters - 1;
   }
+
+  // Preload next and prev pages for zero latency page turning
+  preloadSwapAdjacentPages(pages, currentComicPageIndex);
 }
 
 function prevComicPage() {
@@ -4905,14 +4993,18 @@ function setupEvents() {
     switchView('profile');
   };
 
-  // Comic Search & Clear
+  // Comic Search & Clear (Debounced)
   if (comicSearchInput) {
     comicSearchInput.oninput = () => {
-      filterAndRenderComics();
+      clearTimeout(comicSearchDebounceTimer);
+      comicSearchDebounceTimer = setTimeout(() => {
+        filterAndRenderComics();
+      }, 120);
     };
   }
   if (comicSearchClear) {
     comicSearchClear.onclick = () => {
+      clearTimeout(comicSearchDebounceTimer);
       if (comicSearchInput) comicSearchInput.value = '';
       filterAndRenderComics();
       triggerHaptic('light');
@@ -5017,6 +5109,7 @@ function setupEvents() {
       touchStartY = e.clientY;
     });
     comicSwapContainer.addEventListener('pointerup', (e) => {
+      if (comicSwapZoomLevel > 1) return; // Allow natural panning when zoomed in
       const dx = e.clientX - touchStartX;
       const dy = Math.abs(e.clientY - touchStartY);
       if (Math.abs(dx) > 40 && dy < 60) {
