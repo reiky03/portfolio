@@ -373,6 +373,52 @@ async function extractFolderChapters(folderId, folderName, chapterTitle, seriesT
   return chapters;
 }
 
+function computeChapterRange(s, uniqueChapters) {
+  const orig = s.original_title || '';
+  const rawRangeMatch = orig.match(/(?:^|[-_ :–—]+)(\d+\s*-\s*\d+)(?:\.|$)/i) || 
+                        orig.match(/\b(?:Part|Ch\.?|Eps?\.?|Vol\.?)\s*(\d+\s*-\s*\d+)/i);
+
+  if (!uniqueChapters || uniqueChapters.length === 0) return '1 Ch';
+
+  if (uniqueChapters.length === 1) {
+    const chTitle = uniqueChapters[0].title || '';
+    const mRange = chTitle.match(/(\d+\s*-\s*\d+)/);
+    if (mRange) return `Ch. ${mRange[1].replace(/\s+/g, '')}`;
+    if (rawRangeMatch) return `Ch. ${rawRangeMatch[1].replace(/\s+/g, '')}`;
+    if (/^chapter\s*\d+$/i.test(chTitle)) return chTitle.replace(/^chapter\s*/i, 'Ch. ');
+    return '1 Ch';
+  }
+
+  const nums = [];
+  let isPart = false;
+  for (const ch of uniqueChapters) {
+    if (/part/i.test(ch.title)) isPart = true;
+    const m = ch.title.match(/(?:Chapter|Part|Ch\.?|Eps?\.?|\b)\s*(\d+(?:\.\d+)?)/i);
+    if (m) nums.push(parseFloat(m[1]));
+  }
+
+  if (nums.length >= 2) {
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    const prefix = isPart ? 'Part' : 'Ch.';
+    if (min !== max) {
+      if (rawRangeMatch) {
+        const rawParts = rawRangeMatch[1].split('-').map(x => parseInt(x.trim(), 10));
+        if (rawParts[0] <= min && rawParts[1] >= max) {
+          return `${prefix} ${rawParts[0]}-${rawParts[1]}`;
+        }
+      }
+      return `${prefix} ${min}-${max}`;
+    }
+  }
+
+  if (rawRangeMatch) {
+    return `Ch. ${rawRangeMatch[1].replace(/\s+/g, '')}`;
+  }
+
+  return `${uniqueChapters.length} Ch`;
+}
+
 async function main() {
   console.log('🚀 Starting Google Drive Comic Scanner (Series Grouping)...');
   const komikListId = '1VlH132I8cvt-WVwCO1VEGer3DGJ3UmEd';
@@ -473,6 +519,7 @@ async function main() {
     const firstPdf = uniqueChapters.find(ch => ch.is_pdf)?.pdf_file_id;
     const coverId = firstImage ? (typeof firstImage === 'string' ? firstImage : firstImage.id) : (firstPdf || s.cover_file_id);
     const isAllPdf = uniqueChapters.every(ch => ch.is_pdf);
+    const chRange = computeChapterRange(s, uniqueChapters);
 
     result.push({
       id: s.id,
@@ -480,6 +527,7 @@ async function main() {
       title: s.title,
       original_title: s.original_title || s.title,
       author: s.author,
+      chapter_range: chRange,
       is_pdf: isAllPdf,
       pdf_file_id: isAllPdf ? (firstPdf || null) : null,
       cover_file_id: coverId,
@@ -526,6 +574,7 @@ async function main() {
             id: o.id,
             title: o.title,
             author: o.author,
+            chapter_range: o.chapter_range,
             page_count: o.page_count,
             chapters_count: o.chapters_count
           }));

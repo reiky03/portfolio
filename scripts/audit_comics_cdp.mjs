@@ -146,7 +146,8 @@ async function runBrowserTests() {
         const grid = document.getElementById("comic-list-grid");
         const cards = grid ? grid.querySelectorAll(".comic-card") : [];
         const duplicateBadges = grid ? grid.querySelectorAll("span[title*='versi lain']").length : 0;
-        return { cardsCount: cards.length, duplicateBadgesRendered: duplicateBadges };
+        const rangeBadges = grid ? Array.from(grid.querySelectorAll(".comic-card span.text-emerald-300, .comic-card span.text-emerald-400")).map(el => el.textContent.trim()).filter(t => t.includes("-")) : [];
+        return { cardsCount: cards.length, duplicateBadgesRendered: duplicateBadges, sampleRanges: rangeBadges.slice(0, 5) };
       })()`,
       returnByValue: true
     });

@@ -3527,12 +3527,10 @@ function renderComicList(items) {
           <span class="px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md border border-white/10 text-zinc-300 font-mono text-[9px]">
             ${c.page_count} Hlm
           </span>
-          ${isMulti ? `
-            <span class="px-1.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] flex items-center gap-0.5">
-              ${iconSvg('layers', 'w-2.5 h-2.5')}
-              <span>${chCount} Ch</span>
-            </span>
-          ` : ''}
+          <span class="px-1.5 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 font-mono font-bold text-[9px] flex items-center gap-0.5 shadow-sm">
+            ${iconSvg('layers', 'w-2.5 h-2.5')}
+            <span>${escapeHtml(c.chapter_range || (isMulti ? `${chCount} Ch` : '1 Ch'))}</span>
+          </span>
         </div>
       </div>
 
@@ -3545,7 +3543,7 @@ function renderComicList(items) {
             <span class="truncate">By ${safeAuthor}</span>
             ${c.is_duplicate ? `<span class="text-amber-400 font-semibold text-[8px] shrink-0">• Versi Lain</span>` : ''}
           </span>
-          ${isMulti ? `<span class="text-emerald-500/80 font-semibold text-[9px] shrink-0">${chCount} Ch</span>` : ''}
+          <span class="text-emerald-400 font-bold font-mono text-[9px] shrink-0 ml-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">${escapeHtml(c.chapter_range || `${chCount} Ch`)}</span>
         </p>
       </div>
     `;
@@ -3605,9 +3603,10 @@ function updateComicHeaderAndFooterInfo() {
   // Header info
   if (comicReaderTitle) comicReaderTitle.textContent = activeComic.title;
   if (comicReaderSubtitle) {
+    const rangeInfo = activeComic.chapter_range ? ` • ${activeComic.chapter_range}` : '';
     comicReaderSubtitle.textContent = isMulti 
-      ? `${activeComic.author} • ${currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`}`
-      : activeComic.author;
+      ? `${activeComic.author}${rangeInfo} • ${currentChapter?.title || `Ch. ${currentComicChapterIndex + 1}`}`
+      : `${activeComic.author}${rangeInfo}`;
   }
 
   // Top chapter button
@@ -4286,7 +4285,8 @@ function openComicChapterSheet() {
   if (!activeComic || !comicChapterSheet) return;
   comicChapterSheet.classList.remove('hidden');
   if (comicTotalChaptersBadge) {
-    comicTotalChaptersBadge.textContent = `${activeComic.chapters.length} Chapter`;
+    const rangeText = activeComic.chapter_range ? `${activeComic.chapter_range} • ` : '';
+    comicTotalChaptersBadge.textContent = `${rangeText}${activeComic.chapters.length} Chapter`;
   }
   if (comicChapterList) {
     comicChapterList.innerHTML = '';
@@ -4304,7 +4304,7 @@ function openComicChapterSheet() {
         <div class="flex flex-col gap-1.5">
           ${activeComic.duplicate_others.map(o => `
             <button type="button" data-switch-comic-id="${escapeHtml(o.id)}" class="btn-switch-version w-full text-left px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-amber-500/40 text-[11px] font-semibold flex items-center justify-between text-white active:scale-98 transition-all">
-              <span class="truncate">Versi ${escapeHtml(o.author)} (${o.chapters_count} Bab, ${o.page_count} Hal)</span>
+              <span class="truncate">Versi ${escapeHtml(o.author)} (${o.chapter_range ? `${escapeHtml(o.chapter_range)} • ` : ''}${o.chapters_count} Bab, ${o.page_count} Hal)</span>
               <span class="text-amber-400 font-bold text-[10px] shrink-0 ml-2">Buka Versi Ini →</span>
             </button>
           `).join('')}
