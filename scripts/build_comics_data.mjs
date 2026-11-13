@@ -246,6 +246,7 @@ async function main() {
       if (!seriesMap.has(seriesKey)) {
         seriesMap.set(seriesKey, {
           id: `comic_${it.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
+          folder_id: it.id,
           title: seriesTitle,
           author,
           cover_file_id: it.id,
@@ -260,6 +261,7 @@ async function main() {
       if (isPdf) {
         seriesObj.chapters.push({
           id: `ch_${it.id.slice(0, 10)}`,
+          folder_id: it.id,
           title: cleanChapterTitle(chapterTitle, seriesTitle),
           is_pdf: true,
           pdf_file_id: it.id,
@@ -284,6 +286,7 @@ async function main() {
             if (subImages.length > 0) {
               seriesObj.chapters.push({
                 id: `ch_${sub.id.slice(0, 10)}`,
+                folder_id: sub.id,
                 title: cleanChapterTitle(sub.name, seriesTitle),
                 is_pdf: false,
                 page_count: subImages.length,
@@ -293,6 +296,7 @@ async function main() {
               for (const sp of subPdfs) {
                 seriesObj.chapters.push({
                   id: `ch_${sp.id.slice(0, 10)}`,
+                  folder_id: sub.id,
                   title: `${cleanChapterTitle(sub.name, seriesTitle)} - ${sp.name.replace(/\.pdf$/i, '')}`,
                   is_pdf: true,
                   pdf_file_id: sp.id,
@@ -300,6 +304,16 @@ async function main() {
                   pages: []
                 });
               }
+            } else {
+              seriesObj.chapters.push({
+                id: `ch_${sub.id.slice(0, 10)}`,
+                folder_id: sub.id,
+                title: cleanChapterTitle(sub.name, seriesTitle),
+                is_pdf: false,
+                is_archive: true,
+                page_count: 0,
+                pages: []
+              });
             }
           }
         }
@@ -315,17 +329,17 @@ async function main() {
         if (directImages.length > 0) {
           seriesObj.chapters.push({
             id: `ch_${it.id.slice(0, 10)}`,
+            folder_id: it.id,
             title: cleanChapterTitle(chapterTitle, seriesTitle),
             is_pdf: false,
             page_count: directImages.length,
             pages: directImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
           });
-        }
-
-        if (directPdfs.length > 0) {
+        } else if (directPdfs.length > 0) {
           for (const dp of directPdfs) {
             seriesObj.chapters.push({
               id: `ch_${dp.id.slice(0, 10)}`,
+              folder_id: it.id,
               title: dp.name.replace(/\.pdf$/i, ''),
               is_pdf: true,
               pdf_file_id: dp.id,
@@ -333,6 +347,16 @@ async function main() {
               pages: []
             });
           }
+        } else if (subFolders.length === 0) {
+          seriesObj.chapters.push({
+            id: `ch_${it.id.slice(0, 10)}`,
+            folder_id: it.id,
+            title: cleanChapterTitle(chapterTitle, seriesTitle),
+            is_pdf: false,
+            is_archive: true,
+            page_count: 0,
+            pages: []
+          });
         }
       }
     }
@@ -376,6 +400,7 @@ async function main() {
 
     result.push({
       id: s.id,
+      folder_id: s.folder_id,
       title: s.title,
       author: s.author,
       is_pdf: isAllPdf,

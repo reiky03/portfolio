@@ -655,12 +655,14 @@ async function initApp() {
   }
 
   try {
-    const resComics = await fetch('comics.json?v=4.1.0', { cache: 'no-cache' });
+    const resComics = await fetch('comics.json?v=4.2.0', { cache: 'no-cache' });
     if (resComics.ok) {
       allComics = await resComics.json();
+      window.allComics = allComics;
     }
   } catch (err) {
     allComics = [];
+    window.allComics = [];
   }
 
   // Precompute searchable lowercase corpus per drama and 18+ item once at startup
@@ -3783,7 +3785,7 @@ function renderCurrentComicChapter() {
           </div>
           <h4 class="text-base font-bold text-zinc-100 mb-1">${chapter.title || 'Chapter Tanpa Gambar'}</h4>
           <p class="text-xs text-zinc-400 max-w-sm mb-5 leading-relaxed">Chapter ini belum memuat gambar langsung (mungkin berisi arsip .zip/.rar atau file sedang disinkronkan di Google Drive).</p>
-          <a href="https://drive.google.com/drive/folders/${chapter.id || activeComic.id}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md active:scale-95">
+          <a href="https://drive.google.com/drive/folders/${chapter.folder_id || activeComic.folder_id || activeComic.cover_file_id || ''}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md active:scale-95">
             <i data-lucide="external-link" class="w-4 h-4"></i>
             <span>Buka Folder di Google Drive</span>
           </a>
