@@ -211,6 +211,111 @@ function parseChapterSortKey(title) {
   return 9999;
 }
 
+async function extractFolderChapters(folderId, folderName, chapterTitle, seriesTitle, depth = 0) {
+  const contents = await listDir(folderId);
+  const subFolders = contents
+    .filter(c => c.mimeType === 'application/vnd.google-apps.folder')
+    .sort((a, b) => naturalCompare(a.name, b.name));
+  const directFiles = contents
+    .filter(c => c.mimeType !== 'application/vnd.google-apps.folder' && c.name !== '.DS_Store');
+
+  const directImages = directFiles
+    .filter(p => !p.name.startsWith('.') && (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.name)))
+    .sort((a, b) => naturalCompare(a.name, b.name));
+
+  const directPdfs = directFiles
+    .filter(p => p.name.toLowerCase().endsWith('.pdf') || p.mimeType === 'application/pdf')
+    .sort((a, b) => naturalCompare(a.name, b.name));
+
+  const directArchives = directFiles
+    .filter(p => /\.(zip|rar|7z|cbz|cbr)$/i.test(p.name));
+
+  // Check if there is a "Panels", "Images", "Pages", "Scans" subfolder
+  const panelsFolder = subFolders.find(s => /^(panels|images|pages|scans)$/i.test(s.name));
+  let bestImages = directImages;
+  if (panelsFolder) {
+    const panelsContents = await listDir(panelsFolder.id);
+    const panelsImages = panelsContents
+      .filter(p => !p.name.startsWith('.') && (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.name)))
+      .sort((a, b) => naturalCompare(a.name, b.name));
+    if (panelsImages.length > bestImages.length) {
+      bestImages = panelsImages;
+    }
+  }
+
+  // The real subfolders excluding panels folder
+  const realSubfolders = subFolders.filter(s => !/^(panels|images|pages|scans)$/i.test(s.name));
+
+  if (realSubfolders.length > 0) {
+    const chapters = [];
+    if (bestImages.length > 0 && !panelsFolder) {
+      chapters.push({
+        id: `ch_${folderId.slice(0, 10)}`,
+        folder_id: folderId,
+        title: cleanChapterTitle(chapterTitle || folderName, seriesTitle),
+        is_pdf: false,
+        page_count: bestImages.length,
+        pages: bestImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
+      });
+    }
+
+    for (const sub of realSubfolders) {
+      const subChapters = await extractFolderChapters(sub.id, sub.name, sub.name, seriesTitle, depth + 1);
+      chapters.push(...subChapters);
+    }
+    return chapters;
+  }
+
+  // Leaf folder
+  const chapters = [];
+  if (bestImages.length > 0) {
+    chapters.push({
+      id: `ch_${folderId.slice(0, 10)}`,
+      folder_id: folderId,
+      title: cleanChapterTitle(chapterTitle || folderName, seriesTitle),
+      is_pdf: false,
+      page_count: bestImages.length,
+      pages: bestImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
+    });
+  } else if (directPdfs.length > 0) {
+    for (const dp of directPdfs) {
+      chapters.push({
+        id: `ch_${dp.id.slice(0, 10)}`,
+        folder_id: folderId,
+        title: dp.name.replace(/\.pdf$/i, ''),
+        is_pdf: true,
+        pdf_file_id: dp.id,
+        page_count: 1,
+        pages: []
+      });
+    }
+  } else if (directArchives.length > 0) {
+    for (const da of directArchives) {
+      chapters.push({
+        id: `ch_${da.id.slice(0, 10)}`,
+        folder_id: folderId,
+        file_id: da.id,
+        title: da.name.replace(/\.(zip|rar|7z|cbz|cbr)$/i, ''),
+        is_pdf: false,
+        is_archive: true,
+        page_count: 0,
+        pages: []
+      });
+    }
+  } else if (depth === 0) {
+    chapters.push({
+      id: `ch_${folderId.slice(0, 10)}`,
+      folder_id: folderId,
+      title: cleanChapterTitle(chapterTitle || folderName, seriesTitle),
+      is_pdf: false,
+      is_archive: true,
+      page_count: 0,
+      pages: []
+    });
+  }
+  return chapters;
+}
+
 async function main() {
   console.log('🚀 Starting Google Drive Comic Scanner (Series Grouping)...');
   const komikListId = '1VlH132I8cvt-WVwCO1VEGer3DGJ3UmEd';
@@ -269,95 +374,8 @@ async function main() {
           pages: []
         });
       } else if (isFolder) {
-        const contents = await listDir(it.id);
-        const subFolders = contents.filter(c => c.mimeType === 'application/vnd.google-apps.folder');
-        const directFiles = contents.filter(c => c.mimeType !== 'application/vnd.google-apps.folder' && c.name !== '.DS_Store');
-
-        if (subFolders.length > 0) {
-          subFolders.sort((a, b) => naturalCompare(a.name, b.name));
-          for (let chIdx = 0; chIdx < subFolders.length; chIdx++) {
-            const sub = subFolders[chIdx];
-            const subContents = await listDir(sub.id);
-            const subImages = subContents
-              .filter(p => !p.name.startsWith('.') && (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.name)))
-              .sort((a, b) => naturalCompare(a.name, b.name));
-            const subPdfs = subContents.filter(p => p.name.toLowerCase().endsWith('.pdf'));
-
-            if (subImages.length > 0) {
-              seriesObj.chapters.push({
-                id: `ch_${sub.id.slice(0, 10)}`,
-                folder_id: sub.id,
-                title: cleanChapterTitle(sub.name, seriesTitle),
-                is_pdf: false,
-                page_count: subImages.length,
-                pages: subImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
-              });
-            } else if (subPdfs.length > 0) {
-              for (const sp of subPdfs) {
-                seriesObj.chapters.push({
-                  id: `ch_${sp.id.slice(0, 10)}`,
-                  folder_id: sub.id,
-                  title: `${cleanChapterTitle(sub.name, seriesTitle)} - ${sp.name.replace(/\.pdf$/i, '')}`,
-                  is_pdf: true,
-                  pdf_file_id: sp.id,
-                  page_count: 1,
-                  pages: []
-                });
-              }
-            } else {
-              seriesObj.chapters.push({
-                id: `ch_${sub.id.slice(0, 10)}`,
-                folder_id: sub.id,
-                title: cleanChapterTitle(sub.name, seriesTitle),
-                is_pdf: false,
-                is_archive: true,
-                page_count: 0,
-                pages: []
-              });
-            }
-          }
-        }
-
-        const directImages = directFiles
-          .filter(p => !p.name.startsWith('.') && (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.name)))
-          .sort((a, b) => naturalCompare(a.name, b.name));
-
-        const directPdfs = directFiles
-          .filter(p => p.name.toLowerCase().endsWith('.pdf') || p.mimeType === 'application/pdf')
-          .sort((a, b) => naturalCompare(a.name, b.name));
-
-        if (directImages.length > 0) {
-          seriesObj.chapters.push({
-            id: `ch_${it.id.slice(0, 10)}`,
-            folder_id: it.id,
-            title: cleanChapterTitle(chapterTitle, seriesTitle),
-            is_pdf: false,
-            page_count: directImages.length,
-            pages: directImages.map(p => ({ id: p.id, name: p.name, size: p.size }))
-          });
-        } else if (directPdfs.length > 0) {
-          for (const dp of directPdfs) {
-            seriesObj.chapters.push({
-              id: `ch_${dp.id.slice(0, 10)}`,
-              folder_id: it.id,
-              title: dp.name.replace(/\.pdf$/i, ''),
-              is_pdf: true,
-              pdf_file_id: dp.id,
-              page_count: 1,
-              pages: []
-            });
-          }
-        } else if (subFolders.length === 0) {
-          seriesObj.chapters.push({
-            id: `ch_${it.id.slice(0, 10)}`,
-            folder_id: it.id,
-            title: cleanChapterTitle(chapterTitle, seriesTitle),
-            is_pdf: false,
-            is_archive: true,
-            page_count: 0,
-            pages: []
-          });
-        }
+        const extracted = await extractFolderChapters(it.id, it.name, chapterTitle, seriesTitle);
+        seriesObj.chapters.push(...extracted);
       }
     }
   }
@@ -417,6 +435,45 @@ async function main() {
     if (a.author !== b.author) return a.author.localeCompare(b.author);
     return a.title.localeCompare(b.title);
   });
+
+  // Tag duplicate series clearly so user knows there are multiple versions
+  function cleanForDuplicate(title) {
+    return (title || '').toLowerCase()
+      .replace(/\[.*?\]|\(.*?\)/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+  }
+
+  const dupGroups = new Map();
+  for (const s of result) {
+    const k = cleanForDuplicate(s.title);
+    if (!k) continue;
+    if (!dupGroups.has(k)) dupGroups.set(k, []);
+    dupGroups.get(k).push(s);
+  }
+
+  let dupCount = 0;
+  for (const [k, list] of dupGroups.entries()) {
+    if (list.length > 1) {
+      dupCount += list.length;
+      for (const item of list) {
+        item.is_duplicate = true;
+        item.duplicate_group = k;
+        item.duplicate_count = list.length;
+        item.duplicate_badge = `Versi ${item.author}`;
+        item.duplicate_others = list
+          .filter(o => o.id !== item.id)
+          .map(o => ({
+            id: o.id,
+            title: o.title,
+            author: o.author,
+            page_count: o.page_count,
+            chapters_count: o.chapters_count
+          }));
+      }
+    }
+  }
+  console.log(`🏷️ Tagged ${dupCount} duplicate/alternative version series across ${dupGroups.size} groups.`);
 
   console.log(`\n🎉 Completed! Exporting ${result.length} unique comic series to public/appVideo/comics.json`);
 

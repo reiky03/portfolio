@@ -655,7 +655,7 @@ async function initApp() {
   }
 
   try {
-    const resComics = await fetch('comics.json?v=4.2.0', { cache: 'no-cache' });
+    const resComics = await fetch('comics.json?v=4.3.0', { cache: 'no-cache' });
     if (resComics.ok) {
       allComics = await resComics.json();
       window.allComics = allComics;
@@ -3494,12 +3494,18 @@ function renderComicList(items) {
         <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none"></div>
 
         <!-- Badges -->
-        <div class="absolute top-2 left-2 flex items-center gap-1">
+        <div class="absolute top-2 left-2 flex flex-wrap items-center gap-1 max-w-[85%]">
           <span class="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-emerald-400 font-bold text-[9px]">
             ${escapeHtml(safeAuthor)}
           </span>
           ${isPdf ? `
             <span class="px-1.5 py-0.5 rounded-md bg-rose-600/80 text-white font-bold text-[8px]">PDF</span>
+          ` : ''}
+          ${c.is_duplicate ? `
+            <span class="px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black font-extrabold text-[8px] flex items-center gap-0.5 shadow-sm" title="Ada versi lain dari serial ini">
+              ${iconSvg('copy', 'w-2.5 h-2.5')}
+              <span>${escapeHtml(c.duplicate_badge || 'Duplikat')}</span>
+            </span>
           ` : ''}
         </div>
 
@@ -3521,8 +3527,11 @@ function renderComicList(items) {
           ${safeTitle}
         </h3>
         <p class="text-[10px] text-zinc-500 mt-1 truncate flex items-center justify-between">
-          <span>By ${safeAuthor}</span>
-          ${isMulti ? `<span class="text-emerald-500/80 font-semibold text-[9px]">${chCount} Chapter</span>` : ''}
+          <span class="flex items-center gap-1 min-w-0 truncate">
+            <span class="truncate">By ${safeAuthor}</span>
+            ${c.is_duplicate ? `<span class="text-amber-400 font-semibold text-[8px] shrink-0">• Versi Lain</span>` : ''}
+          </span>
+          ${isMulti ? `<span class="text-emerald-500/80 font-semibold text-[9px] shrink-0">${chCount} Ch</span>` : ''}
         </p>
       </div>
     `;
@@ -3631,6 +3640,18 @@ function updateComicHeaderAndFooterInfo() {
 function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
   if (!comic) return;
   activeComic = comic;
+
+  // Auto-skip empty chapter 0 if other chapters have content
+  if (chapterIdx === 0 && comic.chapters?.length > 1) {
+    const ch0Pages = comic.chapters[0]?.pages?.length || 0;
+    if (ch0Pages === 0 && !comic.chapters[0]?.is_pdf) {
+      const firstNonEmpty = comic.chapters.findIndex(ch => (ch.pages?.length || 0) > 0 || ch.is_pdf);
+      if (firstNonEmpty !== -1) {
+        chapterIdx = firstNonEmpty;
+      }
+    }
+  }
+
   currentComicChapterIndex = Math.max(0, Math.min(chapterIdx, (comic.chapters?.length || 1) - 1));
   currentComicPageIndex = pageIdx || 0;
   isComicInitializing = true;
@@ -3778,17 +3799,36 @@ function renderCurrentComicChapter() {
   if (totalPages === 0) {
     if (comicWebtoonContainer) {
       comicWebtoonContainer.classList.remove('hidden');
+      const directTargetId = chapter.file_id || chapter.folder_id || activeComic.folder_id || activeComic.cover_file_id || '';
+      const isDirectFile = Boolean(chapter.file_id);
+      const targetUrl = isDirectFile
+        ? `https://drive.google.com/file/d/${directTargetId}/view`
+        : `https://drive.google.com/drive/folders/${directTargetId}`;
+      const downloadUrl = isDirectFile
+        ? `https://drive.google.com/uc?export=download&id=${directTargetId}`
+        : null;
+
       comicWebtoonContainer.innerHTML = `
         <div class="w-full max-w-[500px] mx-auto my-16 p-6 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center flex flex-col items-center">
-          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
-            <i data-lucide="archive" class="w-7 h-7"></i>
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shadow-sm">
+            <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
           </div>
-          <h4 class="text-base font-bold text-zinc-100 mb-1">${chapter.title || 'Chapter Tanpa Gambar'}</h4>
-          <p class="text-xs text-zinc-400 max-w-sm mb-5 leading-relaxed">Chapter ini belum memuat gambar langsung (mungkin berisi arsip .zip/.rar atau file sedang disinkronkan di Google Drive).</p>
-          <a href="https://drive.google.com/drive/folders/${chapter.folder_id || activeComic.folder_id || activeComic.cover_file_id || ''}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md active:scale-95">
-            <i data-lucide="external-link" class="w-4 h-4"></i>
-            <span>Buka Folder di Google Drive</span>
-          </a>
+          <h4 class="text-base font-bold text-zinc-100 mb-1">${escapeHtml(chapter.title || 'Arsip Komik')}</h4>
+          <p class="text-xs text-zinc-400 max-w-sm mb-5 leading-relaxed">
+            ${isDirectFile ? 'File ini berupa arsip (.zip / .rar). Kamu bisa langsung mengunduh atau membukanya di Google Drive.' : 'Chapter ini memuat arsip file (.zip / .rar) yang tersimpan di Google Drive.'}
+          </p>
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <a href="${targetUrl}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md active:scale-95">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>${isDirectFile ? 'Buka File di Drive' : 'Buka Folder di Drive'}</span>
+            </a>
+            ${downloadUrl ? `
+              <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center gap-2 transition-all border border-zinc-700 active:scale-95">
+                <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Unduh Arsip</span>
+              </a>
+            ` : ''}
+          </div>
         </div>
       `;
       if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -3865,7 +3905,27 @@ function renderWebtoonPages(pages) {
         img.src = fallbackUrl;
       } else {
         skeleton.classList.remove('animate-pulse');
-        skeleton.innerHTML = `<span class="text-[11px] text-zinc-500">Halaman ${idx + 1} sedang diproses</span>`;
+        skeleton.innerHTML = `
+          <div class="flex flex-col items-center justify-center p-3 text-center">
+            <span class="text-[11px] text-zinc-400 font-medium mb-2">Halaman ${idx + 1} belum termuat</span>
+            <button type="button" class="btn-retry-page px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold border border-zinc-700/60 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+              <span>Muat Ulang</span>
+              <svg class="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+          </div>
+        `;
+        const retryBtn = skeleton.querySelector('.btn-retry-page');
+        if (retryBtn) {
+          retryBtn.onclick = (e) => {
+            e.stopPropagation();
+            skeleton.classList.add('animate-pulse');
+            skeleton.innerHTML = `
+              <div class="w-7 h-7 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin mb-2"></div>
+              <span class="text-[11px] font-mono font-medium text-zinc-400">Memuat Halaman ${idx + 1}...</span>
+            `;
+            img.src = `${imgUrl}&retry=${Date.now()}`;
+          };
+        }
       }
     };
 
@@ -3982,9 +4042,17 @@ function renderSwapPage(pages) {
   const imgUrl = `https://lh3.googleusercontent.com/d/${page.id}=w1200`;
   const fallbackUrl = `https://drive.google.com/thumbnail?id=${page.id}&sz=w1200`;
 
+  comicSwapCurrentImg.classList.add('opacity-40');
+  comicSwapCurrentImg.onload = () => {
+    comicSwapCurrentImg.classList.remove('opacity-40');
+  };
   comicSwapCurrentImg.src = imgUrl;
   comicSwapCurrentImg.onerror = () => {
-    if (comicSwapCurrentImg.src !== fallbackUrl) comicSwapCurrentImg.src = fallbackUrl;
+    if (comicSwapCurrentImg.src !== fallbackUrl) {
+      comicSwapCurrentImg.src = fallbackUrl;
+    } else {
+      comicSwapCurrentImg.classList.remove('opacity-40');
+    }
   };
 
   if (comicPageNow) comicPageNow.textContent = `Hal. ${currentComicPageIndex + 1}`;
@@ -4135,6 +4203,42 @@ function openComicChapterSheet() {
   if (comicChapterList) {
     comicChapterList.innerHTML = '';
     const frag = document.createDocumentFragment();
+
+    // Tampilkan Versi Lain jika komik memiliki duplikat
+    if (activeComic.is_duplicate && activeComic.duplicate_others?.length > 0) {
+      const dupBox = document.createElement('div');
+      dupBox.className = 'mb-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2 shadow-sm';
+      dupBox.innerHTML = `
+        <div class="flex items-center gap-1.5 font-bold text-[11px] text-amber-300">
+          ${iconSvg('copy', 'w-3.5 h-3.5')}
+          <span>Tersedia Versi Lain dari Serial Ini:</span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          ${activeComic.duplicate_others.map(o => `
+            <button type="button" data-switch-comic-id="${escapeHtml(o.id)}" class="btn-switch-version w-full text-left px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-amber-500/40 text-[11px] font-semibold flex items-center justify-between text-white active:scale-98 transition-all">
+              <span class="truncate">Versi ${escapeHtml(o.author)} (${o.chapters_count} Bab, ${o.page_count} Hal)</span>
+              <span class="text-amber-400 font-bold text-[10px] shrink-0 ml-2">Buka Versi Ini →</span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+
+      dupBox.querySelectorAll('.btn-switch-version').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const targetId = btn.dataset.switchComicId;
+          const otherComic = allComics.find(c => c.id === targetId);
+          if (otherComic) {
+            closeComicChapterSheet();
+            openComicReader(otherComic, 0, 0);
+            triggerHaptic('success');
+            showToast(`Membuka versi ${otherComic.author} 📖`, 'copy', 'amber');
+          }
+        };
+      });
+      frag.appendChild(dupBox);
+    }
+
     activeComic.chapters.forEach((ch, idx) => {
       const btn = document.createElement('button');
       const isCur = idx === currentComicChapterIndex;
