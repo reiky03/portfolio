@@ -1264,8 +1264,30 @@
       </div>
 
       <!-- PDF Embedded Viewport for PDF Comics -->
-      <div id="comic-pdf-container" class="hidden w-full h-full pt-14 pb-16 flex flex-col items-center justify-center bg-zinc-950">
-        <iframe id="comic-pdf-frame" class="w-full h-full border-0" src="" allowfullscreen></iframe>
+      <div id="comic-pdf-container" class="hidden w-full h-full pt-14 pb-16 flex flex-col items-center justify-between bg-zinc-950 relative">
+        <!-- PDF Action / Fallback Bar (For large PDFs or blocked previews) -->
+        <div id="comic-pdf-toolbar" class="w-full bg-zinc-900/95 border-b border-zinc-800/80 px-3 py-2 flex flex-wrap items-center justify-between gap-2 z-20 shadow-md">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-wide uppercase">PDF MODE</span>
+            <span class="text-[11px] text-zinc-400 hidden sm:inline">Preview Google Drive terbatas jika file besar:</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="comic-pdf-alt-viewer-btn" type="button" class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1 active:scale-95" title="Ganti mode viewer Google Docs / Drive">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span id="comic-pdf-alt-label">Alt Viewer</span>
+            </button>
+            <a id="comic-pdf-drive-link" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1 shadow-sm active:scale-95" title="Buka PDF langsung di Google Drive">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Buka di Drive</span>
+            </a>
+            <a id="comic-pdf-download-link" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1 active:scale-95" title="Unduh file PDF">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Unduh</span>
+            </a>
+          </div>
+        </div>
+
+        <iframe id="comic-pdf-frame" class="w-full flex-1 border-0" src="" allowfullscreen></iframe>
       </div>
 
       <!-- Reader Center Loading Indicator -->

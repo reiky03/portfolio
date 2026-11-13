@@ -530,6 +530,12 @@ const comicSwapContainer = document.getElementById('comic-swap-container');
 const comicSwapCurrentImg = document.getElementById('comic-swap-current-img');
 const comicPdfContainer = document.getElementById('comic-pdf-container');
 const comicPdfFrame = document.getElementById('comic-pdf-frame');
+const comicPdfAltViewerBtn = document.getElementById('comic-pdf-alt-viewer-btn');
+const comicPdfAltLabel = document.getElementById('comic-pdf-alt-label');
+const comicPdfDriveLink = document.getElementById('comic-pdf-drive-link');
+const comicPdfDownloadLink = document.getElementById('comic-pdf-download-link');
+let currentComicPdfId = null;
+let currentPdfViewerMode = 'drive_preview';
 const comicReaderLoader = document.getElementById('comic-reader-loader');
 const comicPageNow = document.getElementById('comic-page-now');
 const comicPageTotal = document.getElementById('comic-page-total');
@@ -3673,6 +3679,8 @@ function closeComicReader() {
     comicWebtoonContainer.innerHTML = '';
   }
   if (comicPdfFrame) comicPdfFrame.src = '';
+  currentComicPdfId = null;
+  currentPdfViewerMode = 'drive_preview';
   resetSwapZoom();
   currentComicPageIndex = 0;
   if (comicPageSlider) comicPageSlider.value = '1';
@@ -3709,6 +3717,20 @@ function toggleComicReaderMode() {
   triggerHaptic('light');
 }
 
+function updatePdfViewerSource() {
+  if (!comicPdfFrame || !currentComicPdfId) return;
+  if (currentPdfViewerMode === 'drive_preview') {
+    comicPdfFrame.src = `https://drive.google.com/file/d/${currentComicPdfId}/preview`;
+    if (comicPdfAltLabel) comicPdfAltLabel.textContent = 'Docs Viewer';
+  } else if (currentPdfViewerMode === 'docs_viewer') {
+    comicPdfFrame.src = `https://docs.google.com/viewer?url=https://drive.google.com/uc?id=${currentComicPdfId}&embedded=true`;
+    if (comicPdfAltLabel) comicPdfAltLabel.textContent = 'Drive View';
+  } else {
+    comicPdfFrame.src = `https://drive.google.com/file/d/${currentComicPdfId}/view`;
+    if (comicPdfAltLabel) comicPdfAltLabel.textContent = 'Drive Preview';
+  }
+}
+
 function renderCurrentComicChapter() {
   if (!activeComic) return;
   const chapter = activeComic.chapters?.[currentComicChapterIndex];
@@ -3722,13 +3744,22 @@ function renderCurrentComicChapter() {
     if (comicPdfContainer) comicPdfContainer.classList.remove('hidden');
     if (comicWebtoonContainer) comicWebtoonContainer.classList.add('hidden');
     if (comicSwapContainer) comicSwapContainer.classList.add('hidden');
-    if (comicPdfFrame) {
-      const pdfId = chapter.pdf_file_id || activeComic.pdf_file_id;
-      comicPdfFrame.src = `https://drive.google.com/file/d/${pdfId}/preview`;
+    const pdfId = chapter.pdf_file_id || activeComic.pdf_file_id;
+    currentComicPdfId = pdfId;
+    currentPdfViewerMode = 'drive_preview';
+    updatePdfViewerSource();
+
+    if (comicPdfDriveLink) {
+      comicPdfDriveLink.href = `https://drive.google.com/file/d/${pdfId}/view`;
     }
+    if (comicPdfDownloadLink) {
+      comicPdfDownloadLink.href = `https://drive.google.com/uc?export=download&id=${pdfId}`;
+    }
+
     if (comicPageNow) comicPageNow.textContent = 'Mode PDF';
     if (comicPageTotal) comicPageTotal.textContent = '';
     if (comicPageSlider) comicPageSlider.parentElement.classList.add('hidden');
+    if (window.lucide?.createIcons) window.lucide.createIcons();
     return;
   }
 
@@ -3737,10 +3768,36 @@ function renderCurrentComicChapter() {
     comicPdfContainer.classList.add('hidden');
     if (comicPdfFrame) comicPdfFrame.src = '';
   }
-  if (comicPageSlider) comicPageSlider.parentElement.classList.remove('hidden');
+  currentComicPdfId = null;
 
   const pages = chapter.pages || [];
   const totalPages = pages.length;
+
+  if (totalPages === 0) {
+    if (comicWebtoonContainer) {
+      comicWebtoonContainer.classList.remove('hidden');
+      comicWebtoonContainer.innerHTML = `
+        <div class="w-full max-w-[500px] mx-auto my-16 p-6 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center flex flex-col items-center">
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
+            <i data-lucide="archive" class="w-7 h-7"></i>
+          </div>
+          <h4 class="text-base font-bold text-zinc-100 mb-1">${chapter.title || 'Chapter Tanpa Gambar'}</h4>
+          <p class="text-xs text-zinc-400 max-w-sm mb-5 leading-relaxed">Chapter ini belum memuat gambar langsung (mungkin berisi arsip .zip/.rar atau file sedang disinkronkan di Google Drive).</p>
+          <a href="https://drive.google.com/drive/folders/${chapter.id || activeComic.id}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md active:scale-95">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Buka Folder di Google Drive</span>
+          </a>
+        </div>
+      `;
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+    if (comicSwapContainer) comicSwapContainer.classList.add('hidden');
+    if (comicPageTotal) comicPageTotal.textContent = `/ 0`;
+    if (comicPageNow) comicPageNow.textContent = 'Kosong';
+    if (comicPageSlider) comicPageSlider.parentElement.classList.add('hidden');
+    return;
+  }
+  if (comicPageSlider) comicPageSlider.parentElement.classList.remove('hidden');
 
   currentComicPageIndex = Math.max(0, Math.min(currentComicPageIndex, Math.max(0, totalPages - 1)));
 
@@ -4782,6 +4839,19 @@ function setupEvents() {
   if (comicNextChapterBtn) comicNextChapterBtn.onclick = goToNextComicChapter;
   if (comicFooterModeBtn) comicFooterModeBtn.onclick = toggleComicReaderMode;
   if (comicChapterSheetBackdrop) comicChapterSheetBackdrop.onclick = closeComicChapterSheet;
+  if (comicPdfAltViewerBtn) {
+    comicPdfAltViewerBtn.onclick = () => {
+      if (currentPdfViewerMode === 'drive_preview') {
+        currentPdfViewerMode = 'docs_viewer';
+      } else if (currentPdfViewerMode === 'docs_viewer') {
+        currentPdfViewerMode = 'drive_view';
+      } else {
+        currentPdfViewerMode = 'drive_preview';
+      }
+      updatePdfViewerSource();
+      triggerHaptic('light');
+    };
+  }
 
   // Reader Slider
   if (comicPageSlider) {

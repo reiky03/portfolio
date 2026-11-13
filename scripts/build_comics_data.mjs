@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -17,17 +18,88 @@ function saveCache() {
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
-async function listDir(id) {
-  if (cache[id]) return cache[id];
+function fetchPublicFolder(folderId) {
+  return new Promise((resolve) => {
+    const req = https.get('https://drive.google.com/drive/folders/' + folderId, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 15000
+    }, (res) => {
+      let html = '';
+      res.on('data', chunk => html += chunk);
+      res.on('end', () => {
+        const marker = "_DRIVE_ivd'] = '";
+        const start = html.indexOf(marker);
+        if (start === -1) return resolve(null);
+        const strStart = start + marker.length;
+        const end = html.indexOf("';", strStart);
+        if (end === -1) return resolve(null);
+        const raw = html.slice(strStart, end);
+        try {
+          const unescaped = raw.replace(/\\x([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+          const data = JSON.parse(unescaped);
+          const items = [];
+          if (Array.isArray(data) && Array.isArray(data[0])) {
+            for (const item of data[0]) {
+              if (Array.isArray(item) && item.length > 3) {
+                items.push({
+                  id: item[0],
+                  name: item[2],
+                  mimeType: item[3],
+                  size: item[13] || 0
+                });
+              }
+            }
+          }
+          resolve(items);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
+let isGdriveChecked = false;
+let isGdriveWorking = false;
+
+async function checkGdrive() {
+  if (isGdriveChecked) return isGdriveWorking;
+  isGdriveChecked = true;
   try {
-    const { stdout } = await execAsync(`gdrive --json readonly ls "${id}"`, { maxBuffer: 10 * 1024 * 1024 });
-    const parsed = JSON.parse(stdout);
-    cache[id] = parsed;
-    return parsed;
-  } catch (err) {
-    console.warn(`Failed to list dir ${id}: ${err.message}`);
-    return [];
+    await execAsync(`gdrive --json readonly ls 1VlH132I8cvt-WVwCO1VEGer3DGJ3UmEd --max 1`, { timeout: 3000 });
+    isGdriveWorking = true;
+    console.log('✅ gdrive CLI is authenticated and operational.');
+  } catch {
+    isGdriveWorking = false;
+    console.log('ℹ️ gdrive CLI not authenticated, using fast public Drive scraper.');
   }
+  return isGdriveWorking;
+}
+
+async function listDir(id) {
+  if (cache[id] && Array.isArray(cache[id]) && cache[id].length > 0) return cache[id];
+  const gdriveOk = await checkGdrive();
+  if (gdriveOk) {
+    try {
+      const { stdout } = await execAsync(`gdrive --json readonly ls "${id}" --max 0`, { maxBuffer: 50 * 1024 * 1024 });
+      const parsed = JSON.parse(stdout);
+      cache[id] = parsed;
+      return parsed;
+    } catch {}
+  }
+  const fallback = await fetchPublicFolder(id);
+  if (fallback) {
+    cache[id] = fallback;
+    return fallback;
+  }
+  return [];
 }
 
 function naturalCompare(a, b) {
@@ -158,9 +230,12 @@ async function main() {
 
   const seriesMap = new Map();
 
+  let afIndex = 0;
   for (const af of authorFolders) {
+    afIndex++;
     const author = normalizeAuthor(af.name);
     const items = await listDir(af.id);
+    console.log(`[Author ${afIndex}/${authorFolders.length}] Scanning ${af.name} (${items.length} items)...`);
 
     for (const it of items) {
       if (it.name === '.DS_Store') continue;
