@@ -1570,6 +1570,8 @@ function triggerDoubleTapLike(slide, clientX, clientY) {
   setTimeout(() => heart.remove(), 750);
 }
 
+let shortsScrollPlayTimeout = null;
+
 function setupShortsObserver() {
   if (shortsObserver) shortsObserver.disconnect();
 
@@ -1590,16 +1592,20 @@ function setupShortsObserver() {
         syncShortSlideSources(idx);
         slide.classList.remove('slide-paused');
         currentPlayingShortVideo = video;
-        if (video) {
-          if (!video.getAttribute('src') && video.dataset.src) {
-            video.src = video.dataset.src;
+
+        clearTimeout(shortsScrollPlayTimeout);
+        shortsScrollPlayTimeout = setTimeout(() => {
+          if (video && activeView === 'shorts' && dramaReelModal.classList.contains('hidden') && currentPlayingShortVideo === video) {
+            if (!video.getAttribute('src') && video.dataset.src) {
+              video.src = video.dataset.src;
+            }
+            video.preload = 'auto';
+            playVideoSafely(video, (ok) => {
+              if (ok && playIndicator) playIndicator.style.opacity = '0';
+            });
+            if (disc) disc.classList.remove('spin-paused');
           }
-          video.preload = 'auto';
-          playVideoSafely(video, (ok) => {
-            if (ok && playIndicator) playIndicator.style.opacity = '0';
-          });
-          if (disc) disc.classList.remove('spin-paused');
-        }
+        }, 80);
 
         // Infinite Scroll: Muat batch berikutnya secara mulus saat mendekati slide akhir
         if (idx >= currentRenderedFeedCount - 4) {
@@ -2077,12 +2083,17 @@ function syncDramaSlideSources(centerIdx) {
     const dist = Math.abs(idx - centerIdx);
     const hasSrc = Boolean(video.getAttribute('src'));
 
-    if (dist <= 2) {
+    if (dist <= 1) {
       if (!hasSrc) {
         video.src = video.dataset.src;
       }
-      video.preload = idx === centerIdx || idx === centerIdx + 1 ? 'auto' : 'metadata';
-    } else if (dist > 5 && hasSrc) {
+      video.preload = (idx === centerIdx) ? 'auto' : 'metadata';
+    } else if (dist === 2 && idx === centerIdx + 2) {
+      if (!hasSrc) {
+        video.src = video.dataset.src;
+        video.preload = 'none';
+      }
+    } else if (dist > 2 && hasSrc) {
       video.pause();
       video.removeAttribute('src');
       video.load();
@@ -2353,6 +2364,18 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       if (timeTotalEl && video.duration && (timeTotalEl.textContent === '00:00' || timeTotalEl.textContent === '')) {
         timeTotalEl.textContent = formatTime(video.duration);
       }
+
+      // Proactive Preload: Saat episode sudah ditonton > 60%, buffer episode berikutnya agar 0ms delay saat swipe
+      if (dur > 10 && (cur / dur) > 0.60 && idx < drama.episodes.length - 1) {
+        const nextSlide = dramaEpisodesReel.children[idx + 1];
+        if (nextSlide) {
+          const nextVid = nextSlide.querySelector('video');
+          if (nextVid && nextVid.dataset.src && !nextVid.getAttribute('src')) {
+            nextVid.src = nextVid.dataset.src;
+            nextVid.preload = 'auto';
+          }
+        }
+      }
     });
 
     video.addEventListener('play', () => {
@@ -2548,6 +2571,8 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   };
 }
 
+let reelScrollPlayTimeout = null;
+
 function setupDramaReelObserver() {
   if (dramaReelObserver) dramaReelObserver.disconnect();
 
@@ -2560,10 +2585,15 @@ function setupDramaReelObserver() {
         currentReelEpisodeIndex = idx;
         updateReelEpBadge(idx);
         syncDramaSlideSources(idx);
-        if (video) playVideoSafely(video);
+
+        clearTimeout(reelScrollPlayTimeout);
+        reelScrollPlayTimeout = setTimeout(() => {
+          if (video && !dramaReelModal.classList.contains('hidden') && currentReelEpisodeIndex === idx) {
+            playVideoSafely(video);
+          }
+        }, 80);
       } else if (video) {
         video.pause();
-        if (video.readyState > 0) video.currentTime = 0;
       }
     });
   }, { root: dramaEpisodesReel, threshold: 0.65 });
@@ -2614,6 +2644,7 @@ function renderReelSheetGrid() {
 
 function closeDramaReel() {
   triggerHaptic('light');
+  clearTimeout(reelScrollPlayTimeout);
   if (dramaReelObserver) {
     dramaReelObserver.disconnect();
     dramaReelObserver = null;
