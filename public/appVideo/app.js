@@ -2015,6 +2015,15 @@ function openDramaReel(drama, startEpIndex = 0) {
   }
   updateReelEpBadge(startEpIndex);
 
+  // Selalu default ke Aspek Asli (tidak dipaksa / tidak di-crop)
+  if (dramaEpisodesReel) {
+    dramaEpisodesReel.classList.remove('reel-fit-cover');
+  }
+  const currentReelFitLabel = document.getElementById('reel-fit-label');
+  if (currentReelFitLabel) {
+    currentReelFitLabel.textContent = 'Aspek Asli';
+  }
+
   // Buat vertical slides untuk semua episode tanpa mengaktifkan observer dulu (cegah ep 1 sempat autoplay)
   renderDramaReelSlides(drama, startEpIndex, false);
 
@@ -2099,7 +2108,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
 
     slide.innerHTML = `
       <video 
-        class="video-player ${isHorizontal ? 'fit-contain' : ''}"
+        class="video-player fit-contain w-full h-full object-contain"
         data-src="${streamSrc}"
         ${shouldHydrateNow ? `src="${streamSrc}"` : ''}
         playsinline
@@ -5391,6 +5400,28 @@ function setupEvents() {
       const v = targetSlide ? targetSlide.querySelector('video') : null;
       const currentTime = v ? v.currentTime : 0;
       openLandscapeTheater(currentPlayingDrama, currentReelEpisodeIndex, currentTime);
+    };
+  }
+
+  // Header Fit (Aspek Asli vs Penuh Layar) Toggle Button in Drama Reel
+  const reelFitToggleBtn = document.getElementById('reel-fit-toggle-btn');
+  const reelFitLabel = document.getElementById('reel-fit-label');
+  let reelFitIsCover = false;
+  if (reelFitToggleBtn) {
+    reelFitToggleBtn.onclick = () => {
+      triggerHaptic('selection');
+      reelFitIsCover = !reelFitIsCover;
+      if (dramaEpisodesReel) {
+        dramaEpisodesReel.classList.toggle('reel-fit-cover', reelFitIsCover);
+      }
+      if (reelFitLabel) {
+        reelFitLabel.textContent = reelFitIsCover ? 'Penuh Layar' : 'Aspek Asli';
+      }
+      const icon = reelFitToggleBtn.querySelector('i');
+      if (icon && typeof lucide !== 'undefined') {
+        icon.setAttribute('data-lucide', reelFitIsCover ? 'maximize' : 'minimize');
+        lucide.createIcons();
+      }
     };
   }
 
