@@ -643,8 +643,8 @@ async function initApp() {
 
   try {
     const [resVideos, resComics] = await Promise.all([
-      fetch('videos.json').catch(e => { console.warn('videos.json fetch error:', e); return null; }),
-      fetch('comics.json?v=4.4.0').catch(e => { console.warn('comics.json fetch error:', e); return null; })
+      fetch(`videos.json?v=${Date.now()}`, { cache: 'no-store' }).catch(e => { console.warn('videos.json fetch error:', e); return null; }),
+      fetch('comics.json?v=4.4.1').catch(e => { console.warn('comics.json fetch error:', e); return null; })
     ]);
 
     if (resVideos && resVideos.ok) {
