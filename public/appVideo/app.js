@@ -19,6 +19,21 @@ function thumbUrl(gdriveFileId, width = 480) {
   return gdriveFileId ? `https://lh3.googleusercontent.com/d/${gdriveFileId}=w${width}` : '';
 }
 
+function getStreamProxyUrl(gdriveFileId, fallbackUrl = '') {
+  if (gdriveFileId) {
+    return `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gdriveFileId)}%26confirm=t`;
+  }
+  if (fallbackUrl) {
+    if (fallbackUrl.includes('test-worker') && !fallbackUrl.includes('confirm=t')) {
+      return fallbackUrl.includes('?') 
+        ? `${fallbackUrl}%26confirm=t`
+        : `${fallbackUrl}?confirm=t`;
+    }
+    return fallbackUrl;
+  }
+  return '';
+}
+
 const SVG_ICONS = {
   'sparkles': '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>',
   'bookmark': '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
@@ -1069,9 +1084,7 @@ function createShortSlide(data, index) {
   const isLiked = likedVideoIds.has(data.id);
   const isSaved = savedShortIds.has(data.id);
 
-  const streamSrc = data.gdrive_file_id 
-    ? `${STREAM_PROXY_BASE}?id=${data.gdrive_file_id}` 
-    : data.video_url;
+  const streamSrc = getStreamProxyUrl(data.gdrive_file_id, data.video_url);
   const posterSrc = thumbUrl(data.gdrive_file_id, 480);
   const hydrateNow = index <= 1;
   const safeTitle = escapeHtml(data.title);
@@ -2099,9 +2112,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
 
     const isLiked = isEpisodeLiked(drama.id, ep.ep);
 
-    const streamSrc = ep.gdrive_file_id 
-      ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
-      : ep.video_url;
+    const streamSrc = getStreamProxyUrl(ep.gdrive_file_id, ep.video_url);
     const shouldHydrateNow = Math.abs(idx - startEpIndex) <= 2;
     const safeEpTitle = escapeHtml(ep.title);
     const safeDuration = escapeHtml(ep.duration || '00:00');
@@ -2859,10 +2870,8 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
     ? (ep.duration || activeDrama.duration || 'Full Video')
     : `${ep.ep} / ${activeDrama.total_episodes}`;
 
-  // Stream URL with proxy
-  const streamSrc = ep.gdrive_file_id 
-    ? `${STREAM_PROXY_BASE}?id=${ep.gdrive_file_id}` 
-    : ep.video_url;
+  // Stream URL with proxy (with confirm=t to bypass Google Drive virus scan warning for >100MB files)
+  const streamSrc = getStreamProxyUrl(ep.gdrive_file_id, ep.video_url);
 
   landscapeVideo.src = streamSrc;
   landscapeVideo.muted = isMuted;
