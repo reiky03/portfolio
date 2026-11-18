@@ -654,13 +654,28 @@ async function initApp() {
 
   const initialLoader = document.getElementById('app-initial-loader');
   const initialLoaderText = document.getElementById('initial-loader-text');
-  if (initialLoaderText) initialLoaderText.textContent = "Mengunduh katalog video, drama & komik...";
+  if (initialLoaderText) initialLoaderText.textContent = "Menyiapkan hiburan video & drama...";
 
+  // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
+  let cachedData = null;
   try {
-    const [resVideos, resComics] = await Promise.all([
-      fetch(`videos.json?v=${Date.now()}`, { cache: 'no-store' }).catch(e => { console.warn('videos.json fetch error:', e); return null; }),
-      fetch('comics.json?v=4.4.1').catch(e => { console.warn('comics.json fetch error:', e); return null; })
-    ]);
+    const raw = sessionStorage.getItem('teleshorts_videos_cache');
+    if (raw) cachedData = JSON.parse(raw);
+  } catch (e) {}
+
+  if (cachedData) {
+    allTopics = cachedData.topics || FALLBACK_DATA.topics;
+    allVideos = cachedData.videos || FALLBACK_DATA.videos;
+    allDramas = cachedData.dramas || FALLBACK_DATA.dramas;
+    allAdultVideos = cachedData.adult_videos || [];
+  }
+
+  // 2. Conditional fetch with ETag support (only downloads if modified, 304 saves 2.3MB)
+  try {
+    const resVideos = await fetch('videos.json', { cache: 'no-cache' }).catch(e => {
+      console.warn('videos.json fetch error:', e);
+      return null;
+    });
 
     if (resVideos && resVideos.ok) {
       const data = await resVideos.json();
@@ -668,29 +683,32 @@ async function initApp() {
       allVideos = data.videos || FALLBACK_DATA.videos;
       allDramas = data.dramas || FALLBACK_DATA.dramas;
       allAdultVideos = data.adult_videos || [];
-    } else {
+      try {
+        sessionStorage.setItem('teleshorts_videos_cache', JSON.stringify({
+          topics: allTopics,
+          videos: allVideos,
+          dramas: allDramas,
+          adult_videos: allAdultVideos
+        }));
+      } catch (e) {}
+    } else if (!cachedData) {
       allTopics = FALLBACK_DATA.topics;
       allVideos = FALLBACK_DATA.videos;
       allDramas = FALLBACK_DATA.dramas;
       allAdultVideos = [];
     }
-
-    if (resComics && resComics.ok) {
-      allComics = await resComics.json();
-      window.allComics = allComics;
-    } else {
-      allComics = [];
-      window.allComics = [];
-    }
   } catch (err) {
     console.warn('Init fetch fallback:', err);
-    allTopics = FALLBACK_DATA.topics;
-    allVideos = FALLBACK_DATA.videos;
-    allDramas = FALLBACK_DATA.dramas;
-    allAdultVideos = [];
-    allComics = [];
-    window.allComics = [];
+    if (!cachedData) {
+      allTopics = FALLBACK_DATA.topics;
+      allVideos = FALLBACK_DATA.videos;
+      allDramas = FALLBACK_DATA.dramas;
+      allAdultVideos = [];
+    }
   }
+
+  allComics = [];
+  window.allComics = [];
 
   // Precompute searchable lowercase corpus per drama and 18+ item once at startup
   getAllCatalogMedia().forEach(d => {
@@ -1086,7 +1104,7 @@ function createShortSlide(data, index) {
 
   const streamSrc = getStreamProxyUrl(data.gdrive_file_id, data.video_url);
   const posterSrc = thumbUrl(data.gdrive_file_id, 480);
-  const hydrateNow = index <= 1;
+  const hydrateNow = index === 0; // Only the active first video buffers on boot for zero startup lag
   const safeTitle = escapeHtml(data.title);
   const safeAuthor = escapeHtml(data.author);
   const safeTopic = escapeHtml(data.topic_name);
@@ -1318,6 +1336,16 @@ function setupShortSlideGestures(slide, data) {
     video.addEventListener('ended', () => {
       video.currentTime = 0;
       video.play().catch(() => {});
+    });
+
+    video.addEventListener('error', () => {
+      if (!video.getAttribute('src')) return;
+      const gfid = data.gdrive_file_id;
+      if (video.src && video.src.includes('test-worker') && gfid) {
+        video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
+        video.load();
+        video.play().catch(() => {});
+      }
     });
   }
 
@@ -2083,17 +2111,18 @@ function syncDramaSlideSources(centerIdx) {
     const dist = Math.abs(idx - centerIdx);
     const hasSrc = Boolean(video.getAttribute('src'));
 
-    if (dist <= 1) {
+    if (dist === 0) {
       if (!hasSrc) {
         video.src = video.dataset.src;
       }
-      video.preload = (idx === centerIdx) ? 'auto' : 'metadata';
-    } else if (dist === 2 && idx === centerIdx + 2) {
+      video.preload = 'auto';
+    } else if (dist === 1 && idx === centerIdx + 1) {
+      // Preload next episode metadata only (does not compete with active video)
       if (!hasSrc) {
         video.src = video.dataset.src;
-        video.preload = 'none';
       }
-    } else if (dist > 2 && hasSrc) {
+      video.preload = 'metadata';
+    } else if (dist > 1 && hasSrc) {
       video.pause();
       video.removeAttribute('src');
       video.load();
@@ -2102,6 +2131,12 @@ function syncDramaSlideSources(centerIdx) {
 }
 
 function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
+  // Clean up existing video decoding instances before clearing DOM
+  Array.from(dramaEpisodesReel.querySelectorAll('video')).forEach(v => {
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+  });
   dramaEpisodesReel.innerHTML = '';
 
   const isHorizontal = drama.orientation === 'horizontal';
@@ -2124,7 +2159,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
     const isLiked = isEpisodeLiked(drama.id, ep.ep);
 
     const streamSrc = getStreamProxyUrl(ep.gdrive_file_id, ep.video_url);
-    const shouldHydrateNow = Math.abs(idx - startEpIndex) <= 2;
+    const shouldHydrateNow = idx === startEpIndex; // Dedicated bandwidth: ONLY active video hydrates immediately
     const safeEpTitle = escapeHtml(ep.title);
     const safeDuration = escapeHtml(ep.duration || '00:00');
 
@@ -2135,7 +2170,7 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
         ${shouldHydrateNow ? `src="${streamSrc}"` : ''}
         playsinline
         webkit-playsinline
-        preload="${idx === startEpIndex || idx === startEpIndex + 1 ? 'auto' : 'metadata'}"
+        preload="${idx === startEpIndex ? 'auto' : 'none'}"
         ${isMuted ? 'muted' : ''}
       ></video>
 
@@ -2316,11 +2351,16 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
         setTimeout(() => {
           if (dramaReelModal.classList.contains('hidden')) return;
           const src = video.dataset.src;
-          if (!src) return;
-          video.src = src;
+          const gfid = ep.gdrive_file_id;
+          // Dual-stream self-healing: if Cloudflare worker fails, try direct Google Drive CDN!
+          if (src && src.includes('test-worker') && gfid) {
+            video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
+          } else if (src) {
+            video.src = src;
+          }
           video.load();
           video.play().catch(() => {});
-        }, 1200);
+        }, 800);
         return;
       }
       if (loaderEl) loaderEl.classList.add('hidden');
@@ -2335,12 +2375,18 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       if (loaderEl) loaderEl.classList.remove('hidden');
       autoRetried = true;
       const src = video.dataset.src;
-      if (src) {
+      const gfid = ep.gdrive_file_id;
+      // Toggle between primary worker and direct Google Drive stream on retry
+      if (video.src && video.src.includes('drive.usercontent.google.com') && src) {
         video.src = src;
-        video.load();
-        video.muted = isMuted;
-        video.play().catch(() => {});
+      } else if (gfid) {
+        video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
+      } else if (src) {
+        video.src = src;
       }
+      video.load();
+      video.muted = isMuted;
+      video.play().catch(() => {});
     };
   }
 
@@ -3443,6 +3489,37 @@ function closeComicSortSheet() {
   comicSortSheet?.classList.add('hidden');
 }
 
+let isComicsLoading = false;
+let comicsLoaded = false;
+
+async function ensureComicsLoaded() {
+  if (comicsLoaded) return;
+  if (isComicsLoading) return;
+  isComicsLoading = true;
+  if (comicListGrid) {
+    comicListGrid.innerHTML = `
+      <div class="col-span-2 py-16 flex flex-col items-center justify-center text-center">
+        <div class="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-3"></div>
+        <p class="text-xs font-semibold text-zinc-300">Mengunduh katalog komik...</p>
+      </div>
+    `;
+  }
+  try {
+    const res = await fetch('comics.json?v=4.4.1');
+    if (res && res.ok) {
+      allComics = await res.json();
+      window.allComics = allComics;
+      comicsLoaded = true;
+    }
+  } catch (err) {
+    console.warn('Gagal memuat komik:', err);
+  } finally {
+    isComicsLoading = false;
+    renderComicAuthorPills();
+    filterAndRenderComics();
+  }
+}
+
 function renderComicAuthorPills() {
   if (!comicAuthorPills) return;
   comicAuthorPills.innerHTML = '';
@@ -3469,6 +3546,10 @@ function renderComicAuthorPills() {
 
 function filterAndRenderComics() {
   if (!comicListGrid) return;
+  if (!comicsLoaded) {
+    ensureComicsLoaded();
+    return;
+  }
   const query = (comicSearchInput?.value || '').trim();
   let results = [...allComics];
 
