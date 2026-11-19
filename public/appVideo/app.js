@@ -610,6 +610,12 @@ const modalLandscapeWatchBtn = document.getElementById('modal-landscape-watch-bt
 const modalBookmarkDramaBtn = document.getElementById('modal-bookmark-drama-btn');
 const modalBookmarkLabel = document.getElementById('modal-bookmark-label');
 const modalEpisodeList = document.getElementById('modal-episode-list');
+const modalEpisodeTabs = document.getElementById('modal-episode-tabs');
+const reelSheetTabs = document.getElementById('reel-sheet-tabs');
+const landscapeSheetTabs = document.getElementById('landscape-sheet-tabs');
+let currentModalEpisodeBatch = 0;
+let currentReelSheetBatch = 0;
+let currentLandscapeSheetBatch = 0;
 
 // DramaBox Vertical Reel Player Elements
 const dramaReelModal = document.getElementById('drama-reel-modal');
@@ -1947,7 +1953,8 @@ function openDramaDetailModal(drm) {
   }
 
   updateModalBookmarkBtn();
-  renderModalEpisodes(drm);
+  currentModalEpisodeBatch = 0;
+  renderModalEpisodes(drm, 0);
 
   modalStartWatchBtn.onclick = () => {
     dramaDetailModal.classList.add('hidden');
@@ -1981,11 +1988,51 @@ function updateModalBookmarkBtn() {
   }
 }
 
-function renderModalEpisodes(drm) {
+function renderModalEpisodes(drm, batchIdx = currentModalEpisodeBatch) {
+  if (!drm || !drm.episodes) return;
   modalEpisodeList.innerHTML = '';
   const isAdultItem = isAdult18Item(drm);
+  const totalEps = drm.episodes.length;
+  const BATCH_SIZE = 30;
+
+  if (modalEpisodeTabs) {
+    if (totalEps <= BATCH_SIZE) {
+      modalEpisodeTabs.classList.add('hidden');
+      modalEpisodeTabs.innerHTML = '';
+    } else {
+      modalEpisodeTabs.classList.remove('hidden');
+      modalEpisodeTabs.innerHTML = '';
+      const numTabs = Math.ceil(totalEps / BATCH_SIZE);
+      if (batchIdx >= numTabs) batchIdx = 0;
+      currentModalEpisodeBatch = batchIdx;
+
+      for (let b = 0; b < numTabs; b++) {
+        const start = b * BATCH_SIZE + 1;
+        const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
+        const isActive = b === batchIdx;
+        const tabBtn = document.createElement('button');
+        tabBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+          isActive
+            ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+            : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+        }`;
+        tabBtn.textContent = `${start} - ${end}`;
+        tabBtn.onclick = () => {
+          triggerHaptic('light');
+          renderModalEpisodes(drm, b);
+        };
+        modalEpisodeTabs.appendChild(tabBtn);
+      }
+    }
+  }
+
+  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
+  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
+  const sliceEps = drm.episodes.slice(startIdx, endIdx);
+
   const frag = document.createDocumentFragment();
-  drm.episodes.forEach((ep, idx) => {
+  sliceEps.forEach((ep, sliceIdx) => {
+    const realIdx = startIdx + sliceIdx;
     const isLiked = isEpisodeLiked(drm.id, ep.ep);
     const epLabel = isAdultItem ? `Part ${ep.ep}` : `Ep ${ep.ep}`;
     const item = document.createElement('div');
@@ -2027,7 +2074,7 @@ function renderModalEpisodes(drm) {
 
     item.querySelector('.ep-play-btn').onclick = () => {
       dramaDetailModal.classList.add('hidden');
-      openDramaReel(drm, idx);
+      openDramaReel(drm, realIdx);
     };
 
     item.querySelector('.ep-chat-btn').onclick = () => {
@@ -2104,30 +2151,46 @@ function updateReelEpBadge(epIdx) {
 
 function syncDramaSlideSources(centerIdx) {
   if (!dramaEpisodesReel) return;
-  const slides = Array.from(dramaEpisodesReel.children);
-  slides.forEach((slide, idx) => {
-    const video = slide.querySelector('video');
-    if (!video || !video.dataset.src) return;
-    const dist = Math.abs(idx - centerIdx);
-    const hasSrc = Boolean(video.getAttribute('src'));
+  const slides = dramaEpisodesReel.children;
+  const total = slides.length;
+  if (total === 0) return;
 
-    if (dist === 0) {
-      if (!hasSrc) {
+  // 1. Dedicated bandwidth for active episode (dist === 0)
+  const activeSlide = slides[centerIdx];
+  if (activeSlide) {
+    const video = activeSlide.querySelector('video');
+    if (video && video.dataset.src) {
+      if (!video.getAttribute('src')) {
         video.src = video.dataset.src;
       }
       video.preload = 'auto';
-    } else if (dist === 1 && idx === centerIdx + 1) {
-      // Preload next episode metadata only (does not compete with active video)
-      if (!hasSrc) {
-        video.src = video.dataset.src;
-      }
-      video.preload = 'metadata';
-    } else if (dist > 1 && hasSrc) {
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
     }
-  });
+  }
+
+  // 2. Preload next episode metadata only (dist === 1)
+  if (centerIdx + 1 < total) {
+    const nextSlide = slides[centerIdx + 1];
+    const nextVideo = nextSlide?.querySelector('video');
+    if (nextVideo && nextVideo.dataset.src) {
+      if (!nextVideo.getAttribute('src')) {
+        nextVideo.src = nextVideo.dataset.src;
+      }
+      nextVideo.preload = 'metadata';
+    }
+  }
+
+  // 3. Immediately unbind and release hardware decoders on distant slides (dist > 1)
+  for (let idx = 0; idx < total; idx++) {
+    if (Math.abs(idx - centerIdx) > 1) {
+      const s = slides[idx];
+      const v = s?.querySelector('video');
+      if (v && v.getAttribute('src')) {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      }
+    }
+  }
 }
 
 function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
@@ -2332,18 +2395,48 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
 
   // Video Buffering / Loading Indicator & Auto-Retry Error Handling
   let autoRetried = false;
+  let stallWatchdog = null;
+
+  const clearStallWatchdog = () => {
+    if (stallWatchdog) {
+      clearTimeout(stallWatchdog);
+      stallWatchdog = null;
+    }
+  };
+
+  const startStallWatchdog = () => {
+    clearStallWatchdog();
+    if (!video || !video.getAttribute('src')) return;
+    stallWatchdog = setTimeout(() => {
+      if (video.readyState < 2 && video.getAttribute('src') && !autoRetried && !dramaReelModal.classList.contains('hidden')) {
+        autoRetried = true;
+        const gfid = ep.gdrive_file_id;
+        if (gfid) {
+          video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
+          video.load();
+          video.play().catch(() => {});
+        }
+      }
+    }, 3200);
+  };
+
   if (video && loaderEl) {
     wireVideoLoadingIndicator(video, loaderEl);
   }
   if (video) {
     const hideError = () => {
+      clearStallWatchdog();
       if (errorOverlay) errorOverlay.classList.add('hidden');
       autoRetried = false;
     };
     video.addEventListener('loadeddata', hideError);
     video.addEventListener('canplay', hideError);
     video.addEventListener('playing', hideError);
+    video.addEventListener('waiting', startStallWatchdog);
+    video.addEventListener('loadstart', startStallWatchdog);
+
     video.addEventListener('error', () => {
+      clearStallWatchdog();
       if (!video.getAttribute('src')) return;
       if (!autoRetried) {
         autoRetried = true;
@@ -2360,7 +2453,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
           }
           video.load();
           video.play().catch(() => {});
-        }, 800);
+        }, 500);
         return;
       }
       if (loaderEl) loaderEl.classList.add('hidden');
@@ -2371,6 +2464,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     retryBtn.onclick = (e) => {
       e.stopPropagation();
       triggerHaptic('medium');
+      clearStallWatchdog();
       if (errorOverlay) errorOverlay.classList.add('hidden');
       if (loaderEl) loaderEl.classList.remove('hidden');
       autoRetried = true;
@@ -2655,24 +2749,63 @@ function openReelEpisodeSheet() {
   reelEpSheet.classList.remove('hidden');
 }
 
-function renderReelSheetGrid() {
+function renderReelSheetGrid(batchIdx = null) {
   if (!currentPlayingDrama) return;
-  reelSheetGrid.innerHTML = '';
+  const totalEps = currentPlayingDrama.episodes.length;
+  const BATCH_SIZE = 30;
 
-  currentPlayingDrama.episodes.forEach((ep, idx) => {
+  if (batchIdx === null) {
+    batchIdx = Math.floor(currentReelEpisodeIndex / BATCH_SIZE);
+  }
+  currentReelSheetBatch = batchIdx;
+
+  if (reelSheetTabs) {
+    if (totalEps <= BATCH_SIZE) {
+      reelSheetTabs.classList.add('hidden');
+      reelSheetTabs.innerHTML = '';
+    } else {
+      reelSheetTabs.classList.remove('hidden');
+      reelSheetTabs.innerHTML = '';
+      const numTabs = Math.ceil(totalEps / BATCH_SIZE);
+      for (let b = 0; b < numTabs; b++) {
+        const start = b * BATCH_SIZE + 1;
+        const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
+        const isActive = b === batchIdx;
+        const tabBtn = document.createElement('button');
+        tabBtn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+          isActive
+            ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+            : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+        }`;
+        tabBtn.textContent = `${start} - ${end}`;
+        tabBtn.onclick = () => {
+          triggerHaptic('light');
+          renderReelSheetGrid(b);
+        };
+        reelSheetTabs.appendChild(tabBtn);
+      }
+    }
+  }
+
+  reelSheetGrid.innerHTML = '';
+  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
+  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
+
+  for (let idx = startIdx; idx < endIdx; idx++) {
+    const ep = currentPlayingDrama.episodes[idx];
     const isCurrent = idx === currentReelEpisodeIndex;
     const isLiked = isEpisodeLiked(currentPlayingDrama.id, ep.ep);
 
     const btn = document.createElement('button');
     btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
       isCurrent
-        ? 'bg-amber-500 text-black border-amber-400 font-bold shadow-lg'
-        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
+        ? 'bg-amber-500 text-black border-amber-400 font-bold shadow-lg ring-2 ring-amber-400/50'
+        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
     }`;
 
     btn.innerHTML = `
       <span class="text-xs font-bold">Ep ${ep.ep}</span>
-      <span class="text-[9px] ${isCurrent ? 'text-black/80' : 'text-zinc-500'}">${isLiked ? '❤️ Disukai' : ep.duration}</span>
+      <span class="text-[9px] ${isCurrent ? 'text-black/80 font-bold' : 'text-zinc-500'}">${isLiked ? '❤️ Disukai' : ep.duration}</span>
     `;
 
     btn.onclick = () => {
@@ -2685,7 +2818,7 @@ function renderReelSheetGrid() {
     };
 
     reelSheetGrid.appendChild(btn);
-  });
+  }
 }
 
 function closeDramaReel() {
@@ -2978,13 +3111,18 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
       setTimeout(() => {
         if (dramaLandscapeTheater.classList.contains('hidden')) return;
         if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
-        landscapeVideo.src = streamSrc;
+        const gfid = ep.gdrive_file_id;
+        if (streamSrc && streamSrc.includes('test-worker') && gfid) {
+          landscapeVideo.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
+        } else {
+          landscapeVideo.src = streamSrc;
+        }
         landscapeVideo.load();
         playVideoSafely(landscapeVideo, (ok) => {
           updateLandscapePlayBtn(ok);
           if (ok) resetLandscapeControlsTimer();
         });
-      }, 1200);
+      }, 800);
     } else {
       showToast('Gagal memutar episode, coba pilih ulang atau periksa koneksi.', 'alert-circle', 'rose', 3500);
     }
@@ -3054,12 +3192,51 @@ function closeLandscapeTheater() {
 }
 
 // In-Landscape Episode Sheet Drawer
-function openLandscapeEpisodeSheet() {
+function openLandscapeEpisodeSheet(batchIdx = null) {
   if (!currentLandscapeDrama) return;
   showLandscapeControls(false);
-  landscapeSheetGrid.innerHTML = '';
+  const totalEps = currentLandscapeDrama.episodes.length;
+  const BATCH_SIZE = 30;
 
-  currentLandscapeDrama.episodes.forEach((ep, idx) => {
+  if (batchIdx === null) {
+    batchIdx = Math.floor(currentLandscapeEpIndex / BATCH_SIZE);
+  }
+  currentLandscapeSheetBatch = batchIdx;
+
+  if (landscapeSheetTabs) {
+    if (totalEps <= BATCH_SIZE) {
+      landscapeSheetTabs.classList.add('hidden');
+      landscapeSheetTabs.innerHTML = '';
+    } else {
+      landscapeSheetTabs.classList.remove('hidden');
+      landscapeSheetTabs.innerHTML = '';
+      const numTabs = Math.ceil(totalEps / BATCH_SIZE);
+      for (let b = 0; b < numTabs; b++) {
+        const start = b * BATCH_SIZE + 1;
+        const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
+        const isActive = b === batchIdx;
+        const tabBtn = document.createElement('button');
+        tabBtn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+          isActive
+            ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+            : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+        }`;
+        tabBtn.textContent = `${start} - ${end}`;
+        tabBtn.onclick = () => {
+          triggerHaptic('light');
+          openLandscapeEpisodeSheet(b);
+        };
+        landscapeSheetTabs.appendChild(tabBtn);
+      }
+    }
+  }
+
+  landscapeSheetGrid.innerHTML = '';
+  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
+  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
+
+  for (let idx = startIdx; idx < endIdx; idx++) {
+    const ep = currentLandscapeDrama.episodes[idx];
     const isCurrent = idx === currentLandscapeEpIndex;
     const btn = document.createElement('button');
     btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
@@ -3079,7 +3256,7 @@ function openLandscapeEpisodeSheet() {
     };
 
     landscapeSheetGrid.appendChild(btn);
-  });
+  }
 
   landscapeEpSheet.classList.remove('hidden');
 }
