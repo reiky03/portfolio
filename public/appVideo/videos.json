@@ -53725,7 +53725,7 @@
       "folder_id": "1nQGs2cdY4TQQ0krHLkKKkmPb8QJCANQ8",
       "genre": "Drama \u2022 Mini Series / Romance",
       "rating": "4.9",
-      "total_episodes": 37,
+      "total_episodes": 45,
       "poster": "./posters/serial_swaydrama.jpg",
       "synopsis": "Koleksi serial drama pendek eksklusif SwayDrama dengan 153 episode penuh intrik emosional, konflik tak terduga, dan romansa modern.",
       "episodes": [
@@ -53987,6 +53987,62 @@
           "duration": "7 Menit",
           "video_url": "https://test-worker.big-marigold.workers.dev?id=1C2K7YAGDM-kycAWkLdrA3CMHSwXlTEvd%26confirm=t",
           "gdrive_file_id": "1C2K7YAGDM-kycAWkLdrA3CMHSwXlTEvd"
+        },
+        {
+          "ep": 38,
+          "title": "Serial SwayDrama \u2022 Episode 38",
+          "duration": "9 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1iulX4-O5v1Q7hvCUCy7xYShZs79t4Rp5%26confirm=t",
+          "gdrive_file_id": "1iulX4-O5v1Q7hvCUCy7xYShZs79t4Rp5"
+        },
+        {
+          "ep": 39,
+          "title": "Serial SwayDrama \u2022 Episode 39",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1KQAM5owklOkNgK12rsRwuQmlE8paMUI2%26confirm=t",
+          "gdrive_file_id": "1KQAM5owklOkNgK12rsRwuQmlE8paMUI2"
+        },
+        {
+          "ep": 40,
+          "title": "Serial SwayDrama \u2022 Episode 40",
+          "duration": "3 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1atB5aPEhmDxUJJXQHcRijhqt_TEoZiZG%26confirm=t",
+          "gdrive_file_id": "1atB5aPEhmDxUJJXQHcRijhqt_TEoZiZG"
+        },
+        {
+          "ep": 41,
+          "title": "Serial SwayDrama \u2022 Episode 41",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1mEX6MKi4j39kusaE_4_EHpG6ABhqSWPZ%26confirm=t",
+          "gdrive_file_id": "1mEX6MKi4j39kusaE_4_EHpG6ABhqSWPZ"
+        },
+        {
+          "ep": 42,
+          "title": "Serial SwayDrama \u2022 Episode 42",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1mHv_XOdyZ10cbqideOAKMWAA6rxyLDkm%26confirm=t",
+          "gdrive_file_id": "1mHv_XOdyZ10cbqideOAKMWAA6rxyLDkm"
+        },
+        {
+          "ep": 43,
+          "title": "Serial SwayDrama \u2022 Episode 43",
+          "duration": "1 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1Ksg1wPWDy5oToF-258K8bMf1XU83dCoD%26confirm=t",
+          "gdrive_file_id": "1Ksg1wPWDy5oToF-258K8bMf1XU83dCoD"
+        },
+        {
+          "ep": 44,
+          "title": "Serial SwayDrama \u2022 Episode 44",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1JixVRXsivMqfag2E2xfquno09INMtQms%26confirm=t",
+          "gdrive_file_id": "1JixVRXsivMqfag2E2xfquno09INMtQms"
+        },
+        {
+          "ep": 45,
+          "title": "Serial SwayDrama \u2022 Episode 45",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1DUsxaj4J0Tuv9w4UVQMJAW2XqP4w2Q2z%26confirm=t",
+          "gdrive_file_id": "1DUsxaj4J0Tuv9w4UVQMJAW2XqP4w2Q2z"
         }
       ]
     }
