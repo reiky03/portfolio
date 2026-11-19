@@ -53725,7 +53725,7 @@
       "folder_id": "1nQGs2cdY4TQQ0krHLkKKkmPb8QJCANQ8",
       "genre": "Drama \u2022 Mini Series / Romance",
       "rating": "4.9",
-      "total_episodes": 150,
+      "total_episodes": 153,
       "poster": "./posters/serial_swaydrama.jpg",
       "synopsis": "Koleksi serial drama pendek eksklusif SwayDrama dengan 153 episode penuh intrik emosional, konflik tak terduga, dan romansa modern.",
       "episodes": [
@@ -54778,6 +54778,27 @@
           "duration": "1 Menit",
           "video_url": "https://test-worker.big-marigold.workers.dev?id=19TaOFnDHSsBb4Y13-JjM0UagAurpa1eA%26confirm=t",
           "gdrive_file_id": "19TaOFnDHSsBb4Y13-JjM0UagAurpa1eA"
+        },
+        {
+          "ep": 151,
+          "title": "Serial SwayDrama \u2022 Episode 151",
+          "duration": "1 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1sTjACw3HCd2kPlFP2tb2T2IIlEKhUZAV%26confirm=t",
+          "gdrive_file_id": "1sTjACw3HCd2kPlFP2tb2T2IIlEKhUZAV"
+        },
+        {
+          "ep": 152,
+          "title": "Serial SwayDrama \u2022 Episode 152",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1X7thDWyobEgHNYrGiaOqZ6xA7vLumIce%26confirm=t",
+          "gdrive_file_id": "1X7thDWyobEgHNYrGiaOqZ6xA7vLumIce"
+        },
+        {
+          "ep": 153,
+          "title": "Serial SwayDrama \u2022 Episode 153",
+          "duration": "2 Menit",
+          "video_url": "https://test-worker.big-marigold.workers.dev?id=1_MTRjeASu-mxpmHzCAc9SkTIAgNz0Anu%26confirm=t",
+          "gdrive_file_id": "1_MTRjeASu-mxpmHzCAc9SkTIAgNz0Anu"
         }
       ]
     }
