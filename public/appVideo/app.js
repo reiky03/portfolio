@@ -664,8 +664,10 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.4.0';
   try {
-    const raw = sessionStorage.getItem('teleshorts_videos_cache');
+    sessionStorage.removeItem('teleshorts_videos_cache'); // Purge legacy unversioned cache
+    const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
 
@@ -676,9 +678,9 @@ async function initApp() {
     allAdultVideos = cachedData.adult_videos || [];
   }
 
-  // 2. Conditional fetch with ETag support (only downloads if modified, 304 saves 2.3MB)
+  // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch('videos.json', { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.4.0&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -690,7 +692,7 @@ async function initApp() {
       allDramas = data.dramas || FALLBACK_DATA.dramas;
       allAdultVideos = data.adult_videos || [];
       try {
-        sessionStorage.setItem('teleshorts_videos_cache', JSON.stringify({
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
           topics: allTopics,
           videos: allVideos,
           dramas: allDramas,
@@ -1988,7 +1990,7 @@ function updateModalBookmarkBtn() {
   }
 }
 
-function renderModalEpisodes(drm, batchIdx = currentModalEpisodeBatch) {
+function renderModalEpisodes(drm, jumpBatchIdx = null) {
   if (!drm || !drm.episodes) return;
   modalEpisodeList.innerHTML = '';
   const isAdultItem = isAdult18Item(drm);
@@ -2003,39 +2005,63 @@ function renderModalEpisodes(drm, batchIdx = currentModalEpisodeBatch) {
       modalEpisodeTabs.classList.remove('hidden');
       modalEpisodeTabs.innerHTML = '';
       const numTabs = Math.ceil(totalEps / BATCH_SIZE);
-      if (batchIdx >= numTabs) batchIdx = 0;
-      currentModalEpisodeBatch = batchIdx;
 
       for (let b = 0; b < numTabs; b++) {
         const start = b * BATCH_SIZE + 1;
         const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
-        const isActive = b === batchIdx;
+        const isActive = jumpBatchIdx !== null ? b === jumpBatchIdx : b === 0;
         const tabBtn = document.createElement('button');
         tabBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
           isActive
             ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
             : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
         }`;
-        tabBtn.textContent = `${start} - ${end}`;
+        tabBtn.textContent = `Ep ${start} - ${end}`;
         tabBtn.onclick = () => {
           triggerHaptic('light');
-          renderModalEpisodes(drm, b);
+          currentModalEpisodeBatch = b;
+          Array.from(modalEpisodeTabs.children).forEach((btn, idx) => {
+            btn.className = `px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+              idx === b
+                ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+                : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+            }`;
+          });
+          const targetGroup = document.getElementById(`modal-ep-group-${b}`);
+          if (targetGroup) {
+            targetGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         };
         modalEpisodeTabs.appendChild(tabBtn);
       }
     }
   }
 
-  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
-  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
-  const sliceEps = drm.episodes.slice(startIdx, endIdx);
-
   const frag = document.createDocumentFragment();
-  sliceEps.forEach((ep, sliceIdx) => {
-    const realIdx = startIdx + sliceIdx;
+
+  drm.episodes.forEach((ep, realIdx) => {
+    // If long series (> BATCH_SIZE), add sticky section anchor at every 30 episodes
+    if (totalEps > BATCH_SIZE && realIdx % BATCH_SIZE === 0) {
+      const bIdx = Math.floor(realIdx / BATCH_SIZE);
+      const bStart = bIdx * BATCH_SIZE + 1;
+      const bEnd = Math.min((bIdx + 1) * BATCH_SIZE, totalEps);
+      const divider = document.createElement('div');
+      divider.id = `modal-ep-group-${bIdx}`;
+      divider.className = 'sticky top-0 z-10 py-1.5 px-3 bg-zinc-950/90 backdrop-blur-md text-[11px] font-bold text-amber-400 border-y border-zinc-800/80 rounded-lg flex items-center justify-between my-2 shadow-sm';
+      divider.innerHTML = `
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span>Episode ${bStart} - ${bEnd}</span>
+        </span>
+        <span class="text-zinc-500 font-mono text-[10px]">${bEnd - bStart + 1} episode</span>
+      `;
+      frag.appendChild(divider);
+    }
+
     const isLiked = isEpisodeLiked(drm.id, ep.ep);
     const epLabel = isAdultItem ? `Part ${ep.ep}` : `Ep ${ep.ep}`;
     const item = document.createElement('div');
+    item.id = `modal-ep-item-${realIdx}`;
     item.className = 'flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 transition-all';
     
     item.innerHTML = `
@@ -2048,7 +2074,7 @@ function renderModalEpisodes(drm, batchIdx = currentModalEpisodeBatch) {
             <h5 class="text-xs font-bold text-white line-clamp-1">${epLabel}: ${escapeHtml(ep.title)}</h5>
             ${isLiked ? '<span class="text-[10px] text-rose-500 font-bold flex items-center gap-0.5">❤️ Disukai</span>' : ''}
           </div>
-          <span class="text-[10px] text-zinc-500">${escapeHtml(ep.duration)}</span>
+          <span class="text-[10px] text-zinc-500">${escapeHtml(ep.duration || '')}</span>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
@@ -2090,6 +2116,13 @@ function renderModalEpisodes(drm, batchIdx = currentModalEpisodeBatch) {
     frag.appendChild(item);
   });
   modalEpisodeList.appendChild(frag);
+
+  if (jumpBatchIdx !== null) {
+    const targetGroup = document.getElementById(`modal-ep-group-${jumpBatchIdx}`);
+    if (targetGroup) {
+      targetGroup.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
+  }
 }
 
 // ============================================================
@@ -2749,15 +2782,10 @@ function openReelEpisodeSheet() {
   reelEpSheet.classList.remove('hidden');
 }
 
-function renderReelSheetGrid(batchIdx = null) {
-  if (!currentPlayingDrama) return;
+function renderReelSheetGrid() {
+  if (!currentPlayingDrama || !currentPlayingDrama.episodes) return;
   const totalEps = currentPlayingDrama.episodes.length;
   const BATCH_SIZE = 30;
-
-  if (batchIdx === null) {
-    batchIdx = Math.floor(currentReelEpisodeIndex / BATCH_SIZE);
-  }
-  currentReelSheetBatch = batchIdx;
 
   if (reelSheetTabs) {
     if (totalEps <= BATCH_SIZE) {
@@ -2767,10 +2795,12 @@ function renderReelSheetGrid(batchIdx = null) {
       reelSheetTabs.classList.remove('hidden');
       reelSheetTabs.innerHTML = '';
       const numTabs = Math.ceil(totalEps / BATCH_SIZE);
+      const activeBatch = Math.floor(currentReelEpisodeIndex / BATCH_SIZE);
+
       for (let b = 0; b < numTabs; b++) {
         const start = b * BATCH_SIZE + 1;
         const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
-        const isActive = b === batchIdx;
+        const isActive = b === activeBatch;
         const tabBtn = document.createElement('button');
         tabBtn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
           isActive
@@ -2780,7 +2810,18 @@ function renderReelSheetGrid(batchIdx = null) {
         tabBtn.textContent = `${start} - ${end}`;
         tabBtn.onclick = () => {
           triggerHaptic('light');
-          renderReelSheetGrid(b);
+          currentReelSheetBatch = b;
+          Array.from(reelSheetTabs.children).forEach((btn, idx) => {
+            btn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+              idx === b
+                ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+                : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+            }`;
+          });
+          const targetBtn = reelSheetGrid.querySelector(`[data-ep-idx="${start - 1}"]`);
+          if (targetBtn) {
+            targetBtn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         };
         reelSheetTabs.appendChild(tabBtn);
       }
@@ -2788,15 +2829,15 @@ function renderReelSheetGrid(batchIdx = null) {
   }
 
   reelSheetGrid.innerHTML = '';
-  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
-  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
+  const frag = document.createDocumentFragment();
 
-  for (let idx = startIdx; idx < endIdx; idx++) {
+  for (let idx = 0; idx < totalEps; idx++) {
     const ep = currentPlayingDrama.episodes[idx];
     const isCurrent = idx === currentReelEpisodeIndex;
     const isLiked = isEpisodeLiked(currentPlayingDrama.id, ep.ep);
 
     const btn = document.createElement('button');
+    btn.dataset.epIdx = idx;
     btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
       isCurrent
         ? 'bg-amber-500 text-black border-amber-400 font-bold shadow-lg ring-2 ring-amber-400/50'
@@ -2805,7 +2846,7 @@ function renderReelSheetGrid(batchIdx = null) {
 
     btn.innerHTML = `
       <span class="text-xs font-bold">Ep ${ep.ep}</span>
-      <span class="text-[9px] ${isCurrent ? 'text-black/80 font-bold' : 'text-zinc-500'}">${isLiked ? '❤️ Disukai' : ep.duration}</span>
+      <span class="text-[9px] ${isCurrent ? 'text-black/80 font-bold' : 'text-zinc-500'}">${isLiked ? '❤️ Disukai' : (ep.duration || '')}</span>
     `;
 
     btn.onclick = () => {
@@ -2817,8 +2858,17 @@ function renderReelSheetGrid(batchIdx = null) {
       }
     };
 
-    reelSheetGrid.appendChild(btn);
+    frag.appendChild(btn);
   }
+
+  reelSheetGrid.appendChild(frag);
+
+  requestAnimationFrame(() => {
+    const activeBtn = reelSheetGrid.querySelector(`[data-ep-idx="${currentReelEpisodeIndex}"]`);
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  });
 }
 
 function closeDramaReel() {
@@ -3192,16 +3242,11 @@ function closeLandscapeTheater() {
 }
 
 // In-Landscape Episode Sheet Drawer
-function openLandscapeEpisodeSheet(batchIdx = null) {
-  if (!currentLandscapeDrama) return;
+function openLandscapeEpisodeSheet() {
+  if (!currentLandscapeDrama || !currentLandscapeDrama.episodes) return;
   showLandscapeControls(false);
   const totalEps = currentLandscapeDrama.episodes.length;
   const BATCH_SIZE = 30;
-
-  if (batchIdx === null) {
-    batchIdx = Math.floor(currentLandscapeEpIndex / BATCH_SIZE);
-  }
-  currentLandscapeSheetBatch = batchIdx;
 
   if (landscapeSheetTabs) {
     if (totalEps <= BATCH_SIZE) {
@@ -3211,10 +3256,12 @@ function openLandscapeEpisodeSheet(batchIdx = null) {
       landscapeSheetTabs.classList.remove('hidden');
       landscapeSheetTabs.innerHTML = '';
       const numTabs = Math.ceil(totalEps / BATCH_SIZE);
+      const activeBatch = Math.floor(currentLandscapeEpIndex / BATCH_SIZE);
+
       for (let b = 0; b < numTabs; b++) {
         const start = b * BATCH_SIZE + 1;
         const end = Math.min((b + 1) * BATCH_SIZE, totalEps);
-        const isActive = b === batchIdx;
+        const isActive = b === activeBatch;
         const tabBtn = document.createElement('button');
         tabBtn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
           isActive
@@ -3224,7 +3271,18 @@ function openLandscapeEpisodeSheet(batchIdx = null) {
         tabBtn.textContent = `${start} - ${end}`;
         tabBtn.onclick = () => {
           triggerHaptic('light');
-          openLandscapeEpisodeSheet(b);
+          currentLandscapeSheetBatch = b;
+          Array.from(landscapeSheetTabs.children).forEach((btn, idx) => {
+            btn.className = `px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
+              idx === b
+                ? 'bg-amber-500 text-black shadow-md border border-amber-400 font-extrabold'
+                : 'bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
+            }`;
+          });
+          const targetBtn = landscapeSheetGrid.querySelector(`[data-ep-idx="${start - 1}"]`);
+          if (targetBtn) {
+            targetBtn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         };
         landscapeSheetTabs.appendChild(tabBtn);
       }
@@ -3232,16 +3290,16 @@ function openLandscapeEpisodeSheet(batchIdx = null) {
   }
 
   landscapeSheetGrid.innerHTML = '';
-  const startIdx = totalEps > BATCH_SIZE ? batchIdx * BATCH_SIZE : 0;
-  const endIdx = totalEps > BATCH_SIZE ? Math.min((batchIdx + 1) * BATCH_SIZE, totalEps) : totalEps;
+  const frag = document.createDocumentFragment();
 
-  for (let idx = startIdx; idx < endIdx; idx++) {
+  for (let idx = 0; idx < totalEps; idx++) {
     const ep = currentLandscapeDrama.episodes[idx];
     const isCurrent = idx === currentLandscapeEpIndex;
     const btn = document.createElement('button');
+    btn.dataset.epIdx = idx;
     btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
       isCurrent
-        ? 'bg-amber-500 border-amber-400 text-black font-extrabold shadow-lg'
+        ? 'bg-amber-500 border-amber-400 text-black font-extrabold shadow-lg ring-2 ring-amber-400/50'
         : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
     }`;
 
@@ -3255,10 +3313,18 @@ function openLandscapeEpisodeSheet(batchIdx = null) {
       playLandscapeEpisode(idx, 0);
     };
 
-    landscapeSheetGrid.appendChild(btn);
+    frag.appendChild(btn);
   }
 
+  landscapeSheetGrid.appendChild(frag);
   landscapeEpSheet.classList.remove('hidden');
+
+  requestAnimationFrame(() => {
+    const activeBtn = landscapeSheetGrid.querySelector(`[data-ep-idx="${currentLandscapeEpIndex}"]`);
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  });
 }
 
 // ============================================================
