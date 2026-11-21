@@ -21,17 +21,28 @@ function thumbUrl(gdriveFileId, width = 480) {
 
 function getStreamProxyUrl(gdriveFileId, fallbackUrl = '') {
   if (gdriveFileId) {
-    return `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gdriveFileId)}%26confirm=t`;
+    return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gdriveFileId)}&export=download&confirm=t`;
   }
   if (fallbackUrl) {
-    if (fallbackUrl.includes('test-worker') && !fallbackUrl.includes('confirm=t')) {
+    if (fallbackUrl.includes('drive.usercontent.google.com') && !fallbackUrl.includes('confirm=t')) {
       return fallbackUrl.includes('?') 
-        ? `${fallbackUrl}%26confirm=t`
+        ? `${fallbackUrl}&confirm=t`
         : `${fallbackUrl}?confirm=t`;
     }
     return fallbackUrl;
   }
   return '';
+}
+
+function getFallbackStreamUrl(gdriveFileId, currentSrc = '') {
+  if (!gdriveFileId) return '';
+  const gdriveDirect = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gdriveFileId)}&export=download&confirm=t`;
+  const workerProxy = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gdriveFileId)}&confirm=t`;
+  
+  if (currentSrc && currentSrc.includes('drive.usercontent.google.com')) {
+    return workerProxy;
+  }
+  return gdriveDirect;
 }
 
 const SVG_ICONS = {
@@ -664,9 +675,10 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.4.0';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.0';
   try {
-    sessionStorage.removeItem('teleshorts_videos_cache'); // Purge legacy unversioned cache
+    sessionStorage.removeItem('teleshorts_videos_cache');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -680,7 +692,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.4.0&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.0&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -1072,12 +1084,14 @@ function wireVideoLoadingIndicator(video, loaderEl) {
 
   const showLoader = () => {
     if (!video.getAttribute('src') && !video.currentSrc) return;
+    if (!video.paused && video.currentTime > 0.08 && !video.seeking) return;
     clearTimeout(showTimeout);
     showTimeout = setTimeout(() => {
-      if ((video.getAttribute('src') || video.currentSrc) && (video.readyState < 3 || video.seeking)) {
+      const isActivelyPlaying = !video.paused && video.currentTime > 0.08 && !video.seeking;
+      if (!isActivelyPlaying && (video.getAttribute('src') || video.currentSrc) && (video.readyState < 3 || video.seeking)) {
         loaderEl.classList.remove('hidden');
       }
-    }, 120);
+    }, 280);
   };
 
   const hideLoader = () => {
@@ -1092,10 +1106,11 @@ function wireVideoLoadingIndicator(video, loaderEl) {
   video.addEventListener('canplay', hideLoader);
   video.addEventListener('canplaythrough', hideLoader);
   video.addEventListener('playing', hideLoader);
+  video.addEventListener('play', hideLoader);
   video.addEventListener('seeked', hideLoader);
   video.addEventListener('emptied', hideLoader);
   video.addEventListener('timeupdate', () => {
-    if (video.readyState >= 3 && !video.seeking) {
+    if (!video.paused && video.currentTime > 0.05 && !video.seeking) {
       hideLoader();
     }
   });
@@ -1346,13 +1361,18 @@ function setupShortSlideGestures(slide, data) {
       video.play().catch(() => {});
     });
 
+    let shortRetryCount = 0;
     video.addEventListener('error', () => {
       if (!video.getAttribute('src')) return;
       const gfid = data.gdrive_file_id;
-      if (video.src && video.src.includes('test-worker') && gfid) {
-        video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
-        video.load();
-        video.play().catch(() => {});
+      if (shortRetryCount < 2 && gfid) {
+        shortRetryCount++;
+        const nextSrc = getFallbackStreamUrl(gfid, video.src);
+        if (nextSrc && nextSrc !== video.src) {
+          video.src = nextSrc;
+          video.load();
+          video.play().catch(() => {});
+        }
       }
     });
   }
@@ -2195,12 +2215,13 @@ function syncDramaSlideSources(centerIdx) {
     if (video && video.dataset.src) {
       if (!video.getAttribute('src')) {
         video.src = video.dataset.src;
+        video.load();
       }
       video.preload = 'auto';
     }
   }
 
-  // 2. Preload next episode metadata only (dist === 1)
+  // 2. Preload next episode metadata (dist === 1)
   if (centerIdx + 1 < total) {
     const nextSlide = slides[centerIdx + 1];
     const nextVideo = nextSlide?.querySelector('video');
@@ -2212,9 +2233,19 @@ function syncDramaSlideSources(centerIdx) {
     }
   }
 
-  // 3. Immediately unbind and release hardware decoders on distant slides (dist > 1)
+  // 3. Keep previous episode ready for instant scroll-back (dist === -1)
+  if (centerIdx - 1 >= 0) {
+    const prevSlide = slides[centerIdx - 1];
+    const prevVideo = prevSlide?.querySelector('video');
+    if (prevVideo && prevVideo.dataset.src && !prevVideo.getAttribute('src')) {
+      prevVideo.src = prevVideo.dataset.src;
+      prevVideo.preload = 'metadata';
+    }
+  }
+
+  // 4. Safely unbind hardware decoders on distant slides (dist > 2)
   for (let idx = 0; idx < total; idx++) {
-    if (Math.abs(idx - centerIdx) > 1) {
+    if (Math.abs(idx - centerIdx) > 2) {
       const s = slides[idx];
       const v = s?.querySelector('video');
       if (v && v.getAttribute('src')) {
@@ -2426,9 +2457,10 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
   let lastTapTime = 0;
   let singleTapTimer = null;
 
-  // Video Buffering / Loading Indicator & Auto-Retry Error Handling
-  let autoRetried = false;
+  // Video Buffering / Loading Indicator & Multi-Source Auto-Retry Error Handling
+  let retryCount = 0;
   let stallWatchdog = null;
+  const MAX_AUTO_RETRIES = 2;
 
   const clearStallWatchdog = () => {
     if (stallWatchdog) {
@@ -2441,56 +2473,64 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     clearStallWatchdog();
     if (!video || !video.getAttribute('src')) return;
     stallWatchdog = setTimeout(() => {
-      if (video.readyState < 2 && video.getAttribute('src') && !autoRetried && !dramaReelModal.classList.contains('hidden')) {
-        autoRetried = true;
-        const gfid = ep.gdrive_file_id;
-        if (gfid) {
-          video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
-          video.load();
-          video.play().catch(() => {});
+      // Intervene only if this slide is active, video hasn't started playing, and modal is visible
+      if (currentReelEpisodeIndex === idx && !dramaReelModal.classList.contains('hidden')) {
+        if (video.currentTime === 0 && video.readyState < 2 && retryCount < MAX_AUTO_RETRIES) {
+          retryCount++;
+          const gfid = ep.gdrive_file_id;
+          const altSrc = getFallbackStreamUrl(gfid, video.src);
+          if (altSrc && altSrc !== video.src) {
+            video.src = altSrc;
+            video.load();
+            playVideoSafely(video);
+          }
         }
       }
-    }, 3200);
+    }, 7500); // 7.5s buffer before failover (prevents premature abort on mobile)
   };
 
   if (video && loaderEl) {
     wireVideoLoadingIndicator(video, loaderEl);
   }
   if (video) {
-    const hideError = () => {
+    const onSuccessfulPlayback = () => {
       clearStallWatchdog();
       if (errorOverlay) errorOverlay.classList.add('hidden');
-      autoRetried = false;
+      if (loaderEl) loaderEl.classList.add('hidden');
+      retryCount = 0;
     };
-    video.addEventListener('loadeddata', hideError);
-    video.addEventListener('canplay', hideError);
-    video.addEventListener('playing', hideError);
+
+    video.addEventListener('loadeddata', onSuccessfulPlayback);
+    video.addEventListener('canplay', onSuccessfulPlayback);
+    video.addEventListener('playing', onSuccessfulPlayback);
     video.addEventListener('waiting', startStallWatchdog);
     video.addEventListener('loadstart', startStallWatchdog);
 
     video.addEventListener('error', () => {
       clearStallWatchdog();
       if (!video.getAttribute('src')) return;
-      if (!autoRetried) {
-        autoRetried = true;
+      // If error is caused by distant slide unbinding, ignore
+      if (Math.abs(currentReelEpisodeIndex - idx) > 1) return;
+
+      const gfid = ep.gdrive_file_id;
+      if (retryCount < MAX_AUTO_RETRIES && gfid) {
+        retryCount++;
+        const nextSrc = getFallbackStreamUrl(gfid, video.src);
         if (loaderEl) loaderEl.classList.remove('hidden');
         setTimeout(() => {
-          if (dramaReelModal.classList.contains('hidden')) return;
-          const src = video.dataset.src;
-          const gfid = ep.gdrive_file_id;
-          // Dual-stream self-healing: if Cloudflare worker fails, try direct Google Drive CDN!
-          if (src && src.includes('test-worker') && gfid) {
-            video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
-          } else if (src) {
-            video.src = src;
-          }
+          if (dramaReelModal.classList.contains('hidden') || currentReelEpisodeIndex !== idx) return;
+          video.src = nextSrc;
           video.load();
-          video.play().catch(() => {});
-        }, 500);
+          playVideoSafely(video);
+        }, 350);
         return;
       }
+
+      // Only show error overlay if all automatic failovers exhausted
       if (loaderEl) loaderEl.classList.add('hidden');
-      if (errorOverlay) errorOverlay.classList.remove('hidden');
+      if (errorOverlay && currentReelEpisodeIndex === idx && !dramaReelModal.classList.contains('hidden')) {
+        errorOverlay.classList.remove('hidden');
+      }
     });
   }
   if (retryBtn && video) {
@@ -2500,20 +2540,13 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       clearStallWatchdog();
       if (errorOverlay) errorOverlay.classList.add('hidden');
       if (loaderEl) loaderEl.classList.remove('hidden');
-      autoRetried = true;
-      const src = video.dataset.src;
+      retryCount = 0; // reset retry counter
       const gfid = ep.gdrive_file_id;
-      // Toggle between primary worker and direct Google Drive stream on retry
-      if (video.src && video.src.includes('drive.usercontent.google.com') && src) {
-        video.src = src;
-      } else if (gfid) {
-        video.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
-      } else if (src) {
-        video.src = src;
-      }
+      const targetSrc = getFallbackStreamUrl(gfid, video.src) || video.dataset.src;
+      video.src = targetSrc;
       video.load();
       video.muted = isMuted;
-      video.play().catch(() => {});
+      playVideoSafely(video);
     };
   }
 
@@ -3141,7 +3174,9 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   applyLandscapeVideoFit();
   showLandscapeControls(true);
 
-  let landscapeRetried = false;
+  let landscapeRetryCount = 0;
+  const MAX_LANDSCAPE_RETRIES = 2;
+
   landscapeVideo.onloadedmetadata = () => {
     applyLandscapeVideoFit();
     if (startTime > 0 && Number.isFinite(landscapeVideo.duration) && startTime < landscapeVideo.duration) {
@@ -3150,29 +3185,27 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
     landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration || 0);
   };
   landscapeVideo.onloadeddata = () => {
-    landscapeRetried = false;
+    landscapeRetryCount = 0;
+    if (landscapeLoadingIndicator) landscapeLoadingIndicator.classList.add('hidden');
   };
   landscapeVideo.onerror = () => {
     if (!landscapeVideo.getAttribute('src') || dramaLandscapeTheater.classList.contains('hidden')) return;
     if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
-    if (!landscapeRetried) {
-      landscapeRetried = true;
+    const gfid = ep.gdrive_file_id;
+    if (landscapeRetryCount < MAX_LANDSCAPE_RETRIES && gfid) {
+      landscapeRetryCount++;
+      const nextSrc = getFallbackStreamUrl(gfid, landscapeVideo.src);
       if (landscapeLoadingIndicator) landscapeLoadingIndicator.classList.remove('hidden');
       setTimeout(() => {
         if (dramaLandscapeTheater.classList.contains('hidden')) return;
         if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
-        const gfid = ep.gdrive_file_id;
-        if (streamSrc && streamSrc.includes('test-worker') && gfid) {
-          landscapeVideo.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gfid)}&export=download&confirm=t`;
-        } else {
-          landscapeVideo.src = streamSrc;
-        }
+        landscapeVideo.src = nextSrc;
         landscapeVideo.load();
         playVideoSafely(landscapeVideo, (ok) => {
           updateLandscapePlayBtn(ok);
           if (ok) resetLandscapeControlsTimer();
         });
-      }, 800);
+      }, 400);
     } else {
       showToast('Gagal memutar episode, coba pilih ulang atau periksa koneksi.', 'alert-circle', 'rose', 3500);
     }
