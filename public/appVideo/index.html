@@ -4,7 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#09090b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TeleShorts">
   <title>appVideo - Mommy Video</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f43f5e'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%2309090b'/%3E%3Cpolygon points='24,18 50,32 24,46' fill='url(%23g)'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="preconnect" href="https://test-worker.big-marigold.workers.dev" crossorigin>
@@ -605,6 +613,28 @@
               <span>Keluar</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- PWA INSTALL CARD -->
+      <div id="pwa-profile-card" class="w-full max-w-sm mb-3 p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-left shadow-lg">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center shrink-0 shadow-md">
+              <i data-lucide="download" class="w-4 h-4 text-white"></i>
+            </div>
+            <div class="min-w-0">
+              <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Instal TeleShorts</span>
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[9px] font-semibold">PWA</span>
+              </h4>
+              <p class="text-[10px] text-zinc-400 truncate">Akses cepat &amp; hemat kuota di layar utama</p>
+            </div>
+          </div>
+          <button id="btn-profile-install-pwa" type="button" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs shrink-0 active:scale-95 transition-all shadow flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+            <span>Instal</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1399,6 +1429,72 @@
   <!-- FLOATING TOAST NOTIFICATION (GLOBAL, TOP-LEVEL Z-INDEX [100]) -->
   <div id="toast-container" class="fixed bottom-[76px] inset-x-0 max-w-[480px] mx-auto z-[100] flex flex-col items-center pointer-events-none gap-2 px-4 transition-all duration-300"></div>
 
-  <script src="app.js?v=5.5.2"></script>
+  <!-- PWA FLOATING INSTALL BANNER (ANDROID / CHROME / DESKTOP) -->
+  <div id="pwa-install-banner" class="hidden fixed top-3 inset-x-3 max-w-[460px] mx-auto z-50 bg-zinc-950/95 backdrop-blur-xl border border-rose-500/30 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 transition-all duration-300">
+    <div class="flex items-center gap-3 min-w-0">
+      <img src="icons/icon-192.png" alt="TeleShorts" class="w-10 h-10 rounded-xl shadow-md shrink-0 border border-zinc-800 object-cover">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <h4 class="font-bold text-xs text-white truncate">Instal TeleShorts</h4>
+          <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-rose-500/20 text-rose-400">PWA</span>
+        </div>
+        <p class="text-[10px] text-zinc-400 truncate">Putar video lebih lancar dari layar utama</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button id="pwa-install-btn" class="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold text-xs rounded-xl shadow active:scale-95 transition-all">
+        Instal
+      </button>
+      <button id="pwa-dismiss-btn" class="p-1.5 text-zinc-400 hover:text-white rounded-lg active:scale-90 transition-all" aria-label="Tutup">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- PWA IOS INSTALL INSTRUCTION SHEET -->
+  <div id="pwa-ios-sheet" class="hidden fixed inset-0 z-50">
+    <div id="pwa-ios-sheet-backdrop" class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-[480px] mx-auto bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 pb-safe flex flex-col shadow-2xl text-left">
+      <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <img src="icons/icon-192.png" alt="TeleShorts" class="w-11 h-11 rounded-2xl shadow-lg border border-zinc-800">
+          <div>
+            <h3 class="font-bold text-sm text-white">Instal di iPhone / iPad</h3>
+            <p class="text-[11px] text-zinc-400">Ikuti 2 langkah mudah berikut:</p>
+          </div>
+        </div>
+        <button id="pwa-ios-close-btn" class="p-1.5 text-zinc-400 hover:text-white rounded-lg active:scale-90 transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800/80 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-7 h-7 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 font-bold text-xs border border-sky-500/30">
+            1
+          </div>
+          <div class="text-xs text-zinc-300">
+            Ketuk tombol <strong class="text-white">Bagikan</strong> (<i data-lucide="share" class="inline w-3.5 h-3.5 text-sky-400 mx-0.5 align-middle"></i>) di bilah navigasi Safari.
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 font-bold text-xs border border-amber-500/30">
+            2
+          </div>
+          <div class="text-xs text-zinc-300">
+            Pilih opsi <strong class="text-white">Tambah ke Layar Utama</strong> (<i data-lucide="plus-square" class="inline w-3.5 h-3.5 text-amber-400 mx-0.5 align-middle"></i>).
+          </div>
+        </div>
+      </div>
+
+      <button id="pwa-ios-got-it-btn" class="w-full py-3 bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold text-xs rounded-xl shadow-lg active:scale-95 transition-all text-center">
+        Mengerti
+      </button>
+    </div>
+  </div>
+
+  <script src="app.js?v=5.5.3"></script>
 </body>
 </html>

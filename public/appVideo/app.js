@@ -701,6 +701,193 @@ function updateTopicCountLabels() {
 }
 
 // ============================================================
+// PWA INSTALLATION & SERVICE WORKER MANAGEMENT
+// ============================================================
+let deferredInstallPrompt = null;
+
+function isPwaStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true ||
+         document.referrer.includes('android-app://');
+}
+
+function isIosDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function initPwa() {
+  // 1. Register Service Worker with scope
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then((reg) => {
+          console.log('[PWA] Service Worker registered with scope:', reg.scope);
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  showToast('Pembaruan TeleShorts tersedia! Refresh untuk versi terbaru.', 'refresh-cw', 'amber', 5000);
+                }
+              });
+            }
+          });
+        })
+        .catch((err) => {
+          console.warn('[PWA] Service Worker registration failed:', err);
+        });
+    });
+  }
+
+  const pwaInstallBanner = document.getElementById('pwa-install-banner');
+  const pwaInstallBtn = document.getElementById('pwa-install-btn');
+  const pwaDismissBtn = document.getElementById('pwa-dismiss-btn');
+  const pwaProfileCard = document.getElementById('pwa-profile-card');
+  const btnProfileInstallPwa = document.getElementById('btn-profile-install-pwa');
+
+  const pwaIosSheet = document.getElementById('pwa-ios-sheet');
+  const pwaIosSheetBackdrop = document.getElementById('pwa-ios-sheet-backdrop');
+  const pwaIosCloseBtn = document.getElementById('pwa-ios-close-btn');
+  const pwaIosGotItBtn = document.getElementById('pwa-ios-got-it-btn');
+
+  // If already standalone (installed), update UI
+  if (isPwaStandalone()) {
+    if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+    if (pwaProfileCard) {
+      pwaProfileCard.innerHTML = `
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Aplikasi Terinstal</span>
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-semibold">PWA Aktif</span>
+              </h4>
+              <p class="text-[10px] text-zinc-400 truncate">TeleShorts berjalan sebagai aplikasi mandiri</p>
+            </div>
+          </div>
+        </div>
+      `;
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+    return;
+  }
+
+  // Handle beforeinstallprompt (Android / Chrome Desktop)
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    console.log('[PWA] beforeinstallprompt event captured');
+
+    // Show floating banner if not dismissed in the last 24 hours
+    const lastDismissed = localStorage.getItem('teleshorts_pwa_dismissed');
+    const now = Date.now();
+    if (!lastDismissed || (now - parseInt(lastDismissed, 10)) > 24 * 60 * 60 * 1000) {
+      if (pwaInstallBanner) {
+        pwaInstallBanner.classList.remove('hidden');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+      }
+    }
+  });
+
+  // Floating banner install button click
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener('click', async () => {
+      triggerHaptic('medium');
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          showToast('Menginstal TeleShorts ke layar utama... ✨', 'sparkles', 'rose', 3500);
+          if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+        }
+        deferredInstallPrompt = null;
+      } else if (isIosDevice()) {
+        if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+        showIosInstallSheet();
+      } else {
+        showToast('Buka menu browser Anda lalu pilih "Instal Aplikasi"', 'info', 'zinc', 4000);
+      }
+    });
+  }
+
+  // Floating banner dismiss button click
+  if (pwaDismissBtn) {
+    pwaDismissBtn.addEventListener('click', () => {
+      triggerHaptic('light');
+      if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+      localStorage.setItem('teleshorts_pwa_dismissed', Date.now().toString());
+    });
+  }
+
+  // Profile PWA card install button click
+  if (btnProfileInstallPwa) {
+    btnProfileInstallPwa.addEventListener('click', async () => {
+      triggerHaptic('medium');
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          showToast('Menginstal TeleShorts ke layar utama! ✨', 'sparkles', 'rose', 3500);
+          if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+        }
+        deferredInstallPrompt = null;
+      } else if (isIosDevice()) {
+        showIosInstallSheet();
+      } else {
+        showToast('Gunakan opsi "Tambah ke Layar Utama" di browser Anda 📲', 'info', 'amber', 4000);
+      }
+    });
+  }
+
+  // iOS Sheet controls
+  function showIosInstallSheet() {
+    if (pwaIosSheet) {
+      pwaIosSheet.classList.remove('hidden');
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+  }
+
+  function hideIosInstallSheet() {
+    if (pwaIosSheet) pwaIosSheet.classList.add('hidden');
+  }
+
+  if (pwaIosCloseBtn) pwaIosCloseBtn.addEventListener('click', hideIosInstallSheet);
+  if (pwaIosGotItBtn) pwaIosGotItBtn.addEventListener('click', hideIosInstallSheet);
+  if (pwaIosSheetBackdrop) pwaIosSheetBackdrop.addEventListener('click', hideIosInstallSheet);
+
+  // appinstalled event
+  window.addEventListener('appinstalled', () => {
+    console.log('[PWA] TeleShorts successfully installed');
+    deferredInstallPrompt = null;
+    if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+    showToast('TeleShorts berhasil dipasang di layar utama! 🎉', 'sparkles', 'rose', 4000);
+    localStorage.removeItem('teleshorts_pwa_dismissed');
+    if (pwaProfileCard) {
+      pwaProfileCard.innerHTML = `
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Aplikasi Terinstal</span>
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-semibold">PWA Aktif</span>
+              </h4>
+              <p class="text-[10px] text-zinc-400 truncate">TeleShorts berjalan sebagai aplikasi mandiri</p>
+            </div>
+          </div>
+        </div>
+      `;
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+  });
+}
+
+// ============================================================
 // APP INIT
 // ============================================================
 async function initApp() {
@@ -708,6 +895,7 @@ async function initApp() {
     window.lucide.createIcons();
   }
   syncMuteButtonsUI();
+  initPwa();
 
   const initialLoader = document.getElementById('app-initial-loader');
   const initialLoaderText = document.getElementById('initial-loader-text');
@@ -715,12 +903,13 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.2';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.3';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.0');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.1');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.2');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -734,7 +923,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.2&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.3&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
