@@ -19,15 +19,21 @@ function thumbUrl(gdriveFileId, width = 480) {
   return gdriveFileId ? `https://lh3.googleusercontent.com/d/${gdriveFileId}=w${width}` : '';
 }
 
+function extractGdriveId(str) {
+  if (!str) return '';
+  if (/^[a-zA-Z0-9_-]{25,}$/.test(str)) return str;
+  const match = str.match(/[?&]id=([a-zA-Z0-9_-]+)/) || str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
 function getStreamProxyUrl(gdriveFileId, fallbackUrl = '') {
-  if (gdriveFileId) {
-    return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gdriveFileId)}&export=download&confirm=t`;
+  const fileId = gdriveFileId || extractGdriveId(fallbackUrl);
+  if (fileId) {
+    return `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t`;
   }
   if (fallbackUrl) {
-    if (fallbackUrl.includes('drive.usercontent.google.com') && !fallbackUrl.includes('confirm=t')) {
-      return fallbackUrl.includes('?') 
-        ? `${fallbackUrl}&confirm=t`
-        : `${fallbackUrl}?confirm=t`;
+    if (fallbackUrl.includes('test-worker') && fallbackUrl.includes('%26confirm=t')) {
+      return fallbackUrl.replace('%26confirm=t', '&confirm=t');
     }
     return fallbackUrl;
   }
@@ -35,14 +41,24 @@ function getStreamProxyUrl(gdriveFileId, fallbackUrl = '') {
 }
 
 function getFallbackStreamUrl(gdriveFileId, currentSrc = '') {
-  if (!gdriveFileId) return '';
-  const gdriveDirect = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(gdriveFileId)}&export=download&confirm=t`;
-  const workerProxy = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gdriveFileId)}&confirm=t`;
+  const fileId = gdriveFileId || extractGdriveId(currentSrc);
+  if (!fileId) return currentSrc || '';
   
-  if (currentSrc && currentSrc.includes('drive.usercontent.google.com')) {
-    return workerProxy;
+  const workerPrimary = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t`;
+  const workerRetry = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=1&t=${Date.now()}`;
+  const gdriveDirect = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
+
+  // Tier 1 -> Tier 2 (Worker bypass cache) -> Tier 3 (Direct Google Drive CDN)
+  if (!currentSrc || currentSrc.includes('drive.usercontent.google.com')) {
+    return workerPrimary;
   }
-  return gdriveDirect;
+  if (currentSrc.includes('test-worker.big-marigold.workers.dev')) {
+    if (!currentSrc.includes('retry=1')) {
+      return workerRetry;
+    }
+    return gdriveDirect;
+  }
+  return workerPrimary;
 }
 
 const SVG_ICONS = {
@@ -675,10 +691,11 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.0';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.1';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.0');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -692,7 +709,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.0&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.1&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -1364,12 +1381,13 @@ function setupShortSlideGestures(slide, data) {
     let shortRetryCount = 0;
     video.addEventListener('error', () => {
       if (!video.getAttribute('src')) return;
-      const gfid = data.gdrive_file_id;
+      const gfid = data.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
       if (shortRetryCount < 2 && gfid) {
         shortRetryCount++;
         const nextSrc = getFallbackStreamUrl(gfid, video.src);
         if (nextSrc && nextSrc !== video.src) {
           video.src = nextSrc;
+          video.dataset.src = nextSrc;
           video.load();
           video.play().catch(() => {});
         }
@@ -2082,7 +2100,7 @@ function renderModalEpisodes(drm, jumpBatchIdx = null) {
     const epLabel = isAdultItem ? `Part ${ep.ep}` : `Ep ${ep.ep}`;
     const item = document.createElement('div');
     item.id = `modal-ep-item-${realIdx}`;
-    item.className = 'flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 transition-all';
+    item.className = 'flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 transition-all cursor-pointer active:scale-[0.98]';
     
     item.innerHTML = `
       <div class="flex items-center gap-3">
@@ -2113,17 +2131,24 @@ function renderModalEpisodes(drm, jumpBatchIdx = null) {
       </div>
     `;
 
+    item.onclick = () => {
+      dramaDetailModal.classList.add('hidden');
+      openDramaReel(drm, realIdx);
+    };
+
     item.querySelector('.ep-like-btn').onclick = (e) => {
       e.stopPropagation();
       toggleEpisodeLike(drm.id, ep.ep);
     };
 
-    item.querySelector('.ep-play-btn').onclick = () => {
+    item.querySelector('.ep-play-btn').onclick = (e) => {
+      e.stopPropagation();
       dramaDetailModal.classList.add('hidden');
       openDramaReel(drm, realIdx);
     };
 
-    item.querySelector('.ep-chat-btn').onclick = () => {
+    item.querySelector('.ep-chat-btn').onclick = (e) => {
+      e.stopPropagation();
       triggerHaptic('medium');
       if (tg?.openTelegramLink) {
         tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('ep_' + ep.message_id)}`);
@@ -2183,14 +2208,22 @@ function openDramaReel(drama, startEpIndex = 0) {
   syncDramaSlideSources(startEpIndex);
   setupDramaReelObserver();
 
-  requestAnimationFrame(() => {
+  const startActiveEpisode = () => {
     const activeSlide = dramaEpisodesReel.children[startEpIndex];
     if (activeSlide) {
       activeSlide.scrollIntoView({ behavior: 'auto' });
       const video = activeSlide.querySelector('video');
-      if (video) playVideoSafely(video);
+      if (video) {
+        if (!video.getAttribute('src') && video.dataset.src) {
+          video.src = video.dataset.src;
+          video.load();
+        }
+        playVideoSafely(video);
+      }
     }
-  });
+  };
+  requestAnimationFrame(startActiveEpisode);
+  setTimeout(startActiveEpisode, 120);
 }
 
 function updateReelEpBadge(epIdx) {
@@ -2477,16 +2510,17 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       if (currentReelEpisodeIndex === idx && !dramaReelModal.classList.contains('hidden')) {
         if (video.currentTime === 0 && video.readyState < 2 && retryCount < MAX_AUTO_RETRIES) {
           retryCount++;
-          const gfid = ep.gdrive_file_id;
+          const gfid = ep.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
           const altSrc = getFallbackStreamUrl(gfid, video.src);
           if (altSrc && altSrc !== video.src) {
             video.src = altSrc;
+            video.dataset.src = altSrc;
             video.load();
             playVideoSafely(video);
           }
         }
       }
-    }, 7500); // 7.5s buffer before failover (prevents premature abort on mobile)
+    }, 12000); // 12s buffer before failover (prevents premature abort on mobile)
   };
 
   if (video && loaderEl) {
@@ -2496,10 +2530,14 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     const onSuccessfulPlayback = () => {
       clearStallWatchdog();
       if (errorOverlay) errorOverlay.classList.add('hidden');
-      if (loaderEl) loaderEl.classList.add('hidden');
+      if (loaderEl) loaderEl.classList.remove('hidden');
       retryCount = 0;
     };
 
+    video.addEventListener('loadedmetadata', () => {
+      // Server metadata received -> connection active
+      clearStallWatchdog();
+    });
     video.addEventListener('loadeddata', onSuccessfulPlayback);
     video.addEventListener('canplay', onSuccessfulPlayback);
     video.addEventListener('playing', onSuccessfulPlayback);
@@ -2512,7 +2550,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       // If error is caused by distant slide unbinding, ignore
       if (Math.abs(currentReelEpisodeIndex - idx) > 1) return;
 
-      const gfid = ep.gdrive_file_id;
+      const gfid = ep.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
       if (retryCount < MAX_AUTO_RETRIES && gfid) {
         retryCount++;
         const nextSrc = getFallbackStreamUrl(gfid, video.src);
@@ -2520,6 +2558,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
         setTimeout(() => {
           if (dramaReelModal.classList.contains('hidden') || currentReelEpisodeIndex !== idx) return;
           video.src = nextSrc;
+          video.dataset.src = nextSrc;
           video.load();
           playVideoSafely(video);
         }, 350);
@@ -2541,9 +2580,10 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       if (errorOverlay) errorOverlay.classList.add('hidden');
       if (loaderEl) loaderEl.classList.remove('hidden');
       retryCount = 0; // reset retry counter
-      const gfid = ep.gdrive_file_id;
-      const targetSrc = getFallbackStreamUrl(gfid, video.src) || video.dataset.src;
+      const gfid = ep.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
+      const targetSrc = getFallbackStreamUrl(gfid, video.src) || `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gfid)}&confirm=t`;
       video.src = targetSrc;
+      video.dataset.src = targetSrc;
       video.load();
       video.muted = isMuted;
       playVideoSafely(video);
@@ -2797,12 +2837,13 @@ function setupDramaReelObserver() {
           if (video && !dramaReelModal.classList.contains('hidden') && currentReelEpisodeIndex === idx) {
             playVideoSafely(video);
           }
-        }, 80);
-      } else if (video) {
+        }, 60);
+      } else if (video && currentReelEpisodeIndex !== idx) {
+        // Never pause the active episode during layout or initialization
         video.pause();
       }
     });
-  }, { root: dramaEpisodesReel, threshold: 0.65 });
+  }, { root: dramaEpisodesReel, threshold: 0.5 });
 
   document.querySelectorAll('#drama-episodes-reel .snap-slide').forEach(slide => {
     dramaReelObserver.observe(slide);
@@ -3191,7 +3232,7 @@ function playLandscapeEpisode(epIdx, startTime = 0) {
   landscapeVideo.onerror = () => {
     if (!landscapeVideo.getAttribute('src') || dramaLandscapeTheater.classList.contains('hidden')) return;
     if (currentLandscapeDrama !== activeDrama || currentLandscapeEpIndex !== epIdx) return;
-    const gfid = ep.gdrive_file_id;
+    const gfid = ep.gdrive_file_id || extractGdriveId(landscapeVideo.src);
     if (landscapeRetryCount < MAX_LANDSCAPE_RETRIES && gfid) {
       landscapeRetryCount++;
       const nextSrc = getFallbackStreamUrl(gfid, landscapeVideo.src);
