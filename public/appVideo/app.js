@@ -137,8 +137,36 @@ async function togglePictureInPicture(videoEl) {
   }
 }
 
+// ============================================================
+// GLOBAL AUDIO & VIDEO EXCLUSIVITY CONTROLLER
+// Jaminan 100%: Tidak akan pernah ada 2 video atau audio yang menyala bersamaan,
+// khususnya saat scroll cepat di Shorts, Drama vertikal, maupun 18+.
+// ============================================================
+function pauseAllVideosExcept(targetVideo = null) {
+  const allVids = document.querySelectorAll('video');
+  for (let i = 0; i < allVids.length; i++) {
+    const v = allVids[i];
+    if (v !== targetVideo && !v.paused) {
+      try {
+        v.pause();
+      } catch (e) {}
+    }
+  }
+}
+
+// Global capturing play listener: kapan pun ADA video di halaman yang mulai play(),
+// langsung hentikan semua video lain seketika pada frame yang sama.
+document.addEventListener('play', (e) => {
+  if (e.target && e.target.tagName === 'VIDEO') {
+    pauseAllVideosExcept(e.target);
+  }
+}, true);
+
 function playVideoSafely(video, onPlaying = null) {
   if (!video) return;
+  // Hentikan video lain sebelum mulai memutar video ini
+  pauseAllVideosExcept(video);
+
   video.muted = isMuted;
   video.playsInline = true;
   video.setAttribute('playsinline', '');
@@ -146,6 +174,7 @@ function playVideoSafely(video, onPlaying = null) {
   const p = video.play();
   if (p && typeof p.then === 'function') {
     p.then(() => {
+      pauseAllVideosExcept(video);
       if (!isMuted && !video.muted) {
         awaitingAudioUnlock = false;
         hideUnmuteBanner();
@@ -160,8 +189,10 @@ function playVideoSafely(video, onPlaying = null) {
         video.muted = true;
         awaitingAudioUnlock = true;
         showUnmuteBanner();
+        pauseAllVideosExcept(video);
         video.play()
           .then(() => {
+            pauseAllVideosExcept(video);
             showUnmuteBanner();
             if (onPlaying) onPlaying(true);
           })
@@ -200,6 +231,7 @@ let shortsObserver = null;
 let selectedDrama = null;
 let currentPlayingDrama = null;
 let currentReelEpisodeIndex = 0;
+let currentPlayingDramaVideo = null;
 let dramaReelObserver = null;
 let currentGenreFilter = 'all';
 let currentAdultCategoryFilter = 'all';
@@ -903,13 +935,14 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.3';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.4';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.0');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.1');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.2');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.3');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -923,7 +956,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.3&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.4&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -1911,6 +1944,7 @@ function setupShortsObserver() {
         if (currentPlayingShortVideo && currentPlayingShortVideo !== video && !currentPlayingShortVideo.paused) {
           currentPlayingShortVideo.pause();
         }
+        pauseAllVideosExcept(video);
 
         syncShortSlideSources(idx);
         slide.classList.remove('slide-paused');
@@ -1928,7 +1962,7 @@ function setupShortsObserver() {
             });
             if (disc) disc.classList.remove('spin-paused');
           }
-        }, 80);
+        }, 100);
 
         // Infinite Scroll: Muat batch berikutnya secara mulus saat mendekati slide akhir
         if (idx >= currentRenderedFeedCount - 4) {
@@ -2427,8 +2461,9 @@ function openDramaReel(drama, startEpIndex = 0) {
   currentPlayingDrama = drama;
   currentReelEpisodeIndex = startEpIndex;
 
-  // Pause shorts
-  if (currentPlayingShortVideo) currentPlayingShortVideo.pause();
+  // Pause semua video di Shorts, landscape, dll agar suara tidak tabrakan
+  pauseAllVideosExcept(null);
+  currentPlayingDramaVideo = null;
 
   reelDramaTitle.textContent = drama.title;
   if (reelAdultBadge) {
@@ -3104,23 +3139,42 @@ function setupDramaReelObserver() {
 
   dramaReelObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      const idx = parseInt(entry.target.dataset.index, 10);
+      const slide = entry.target;
+      const video = slide.querySelector('video');
+      const idx = parseInt(slide.dataset.index, 10);
 
       if (entry.isIntersecting && !dramaReelModal.classList.contains('hidden')) {
+        // 1. Langsung hentikan video episode sebelumnya seketika agar audio tidak pernah nimpa
+        if (currentPlayingDramaVideo && currentPlayingDramaVideo !== video && !currentPlayingDramaVideo.paused) {
+          currentPlayingDramaVideo.pause();
+        }
+
+        // 2. Hentikan semua video lain di reel
+        document.querySelectorAll('#drama-episodes-reel video').forEach(v => {
+          if (v !== video && !v.paused) v.pause();
+        });
+
         currentReelEpisodeIndex = idx;
+        currentPlayingDramaVideo = video;
         updateReelEpBadge(idx);
         syncDramaSlideSources(idx);
 
         clearTimeout(reelScrollPlayTimeout);
+        // Debounce 110ms: saat scroll cepat / swipe berkali-kali, episode perantara tidak akan mengeluarkan suara
         reelScrollPlayTimeout = setTimeout(() => {
           if (video && !dramaReelModal.classList.contains('hidden') && currentReelEpisodeIndex === idx) {
+            if (!video.getAttribute('src') && video.dataset.src) {
+              video.src = video.dataset.src;
+            }
             playVideoSafely(video);
           }
-        }, 60);
-      } else if (video && currentReelEpisodeIndex !== idx) {
-        // Never pause the active episode during layout or initialization
-        video.pause();
+        }, 110);
+      } else {
+        // Slide yang sudah bergeser keluar dari fokus: WAJIB langsung di-pause dan reset kecepatan
+        if (video) {
+          if (!video.paused) video.pause();
+          video.playbackRate = 1.0;
+        }
       }
     });
   }, { root: dramaEpisodesReel, threshold: 0.5 });
@@ -3229,11 +3283,13 @@ function closeDramaReel() {
   triggerHaptic('light');
   clearTimeout(reelScrollPlayTimeout);
   hydratedDramaSlideIndices.clear();
+  currentPlayingDramaVideo = null;
   if (dramaReelObserver) {
     dramaReelObserver.disconnect();
     dramaReelObserver = null;
   }
   if (reelSpeedBadge) reelSpeedBadge.classList.add('hidden');
+  pauseAllVideosExcept(null);
   document.querySelectorAll('#drama-episodes-reel video').forEach(v => {
     v.playbackRate = 1.0;
     v.pause();
@@ -5153,9 +5209,11 @@ function switchView(viewName) {
   navBtnProfile.className = `flex flex-col items-center gap-1 py-1 px-2.5 transition-all ${viewName === 'profile' ? 'text-white' : 'text-zinc-400'}`;
 
   if (viewName === 'shorts') {
-    if (currentPlayingShortVideo) currentPlayingShortVideo.play().catch(() => {});
+    if (currentPlayingShortVideo) {
+      playVideoSafely(currentPlayingShortVideo);
+    }
   } else {
-    if (currentPlayingShortVideo) currentPlayingShortVideo.pause();
+    pauseAllVideosExcept(null);
   }
 
   if (viewName === 'profile') {
@@ -6141,6 +6199,40 @@ function setupEvents() {
   // Drama Reel Close
   closeDramaReelBtn.onclick = closeDramaReel;
   closeReelEpSheet.onclick = () => reelEpSheet.classList.add('hidden');
+
+  // Fast Scroll Debounce Protection (Drama & Shorts)
+  // Mencegah audio bertumpukan/nimpa ketika user melakukan scroll/swipe cepat bertubi-tubi
+  if (dramaEpisodesReel) {
+    let reelFastScrollTimer = null;
+    dramaEpisodesReel.addEventListener('scroll', () => {
+      clearTimeout(reelScrollPlayTimeout);
+      clearTimeout(reelFastScrollTimer);
+      reelFastScrollTimer = setTimeout(() => {
+        if (dramaReelModal.classList.contains('hidden')) return;
+        const activeSlide = dramaEpisodesReel.children[currentReelEpisodeIndex];
+        if (activeSlide) {
+          const vid = activeSlide.querySelector('video');
+          if (vid && vid.paused && currentPlayingDramaVideo === vid) {
+            playVideoSafely(vid);
+          }
+        }
+      }, 120);
+    }, { passive: true });
+  }
+
+  if (feedContainer) {
+    let feedFastScrollTimer = null;
+    feedContainer.addEventListener('scroll', () => {
+      clearTimeout(shortsScrollPlayTimeout);
+      clearTimeout(feedFastScrollTimer);
+      feedFastScrollTimer = setTimeout(() => {
+        if (activeView !== 'shorts' || !dramaReelModal.classList.contains('hidden')) return;
+        if (currentPlayingShortVideo && currentPlayingShortVideo.paused) {
+          playVideoSafely(currentPlayingShortVideo);
+        }
+      }, 120);
+    }, { passive: true });
+  }
 
   // Header Landscape Toggle Button in Drama Reel
   const reelLandscapeToggleBtn = document.getElementById('reel-landscape-toggle-btn');
