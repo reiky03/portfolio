@@ -45,18 +45,18 @@ function getFallbackStreamUrl(gdriveFileId, currentSrc = '') {
   if (!fileId) return currentSrc || '';
   
   const workerPrimary = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t`;
-  const workerRetry = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=1&t=${Date.now()}`;
-  const gdriveDirect = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
+  const workerRetry1 = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=1&_t=${Date.now()}`;
+  const workerRetry2 = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=2&_t=${Date.now()}`;
 
-  // Tier 1 -> Tier 2 (Worker bypass cache) -> Tier 3 (Direct Google Drive CDN)
+  // Always stream through Worker proxy to prevent Google Drive CORS/CORP same-site blocking
   if (!currentSrc || currentSrc.includes('drive.usercontent.google.com')) {
     return workerPrimary;
   }
+  if (currentSrc.includes('retry=1')) {
+    return workerRetry2;
+  }
   if (currentSrc.includes('test-worker.big-marigold.workers.dev')) {
-    if (!currentSrc.includes('retry=1')) {
-      return workerRetry;
-    }
-    return gdriveDirect;
+    return workerRetry1;
   }
   return workerPrimary;
 }
@@ -108,7 +108,9 @@ const SVG_ICONS = {
   'shuffle': '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
   'book-open': '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
   'scroll': '<path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/>',
-  'layers': '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'
+  'layers': '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  'pip': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 13h5v5h-5z"/>',
+  'picture-in-picture-2': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 13h5v5h-5z"/>'
 };
 
 function iconSvg(name, cls = 'w-4 h-4') {
@@ -116,9 +118,31 @@ function iconSvg(name, cls = 'w-4 h-4') {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
+async function togglePictureInPicture(videoEl) {
+  if (!videoEl) return;
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+    } else if (document.pictureInPictureEnabled && videoEl.requestPictureInPicture) {
+      await videoEl.requestPictureInPicture();
+    } else if (videoEl.webkitSupportsPresentationMode && typeof videoEl.webkitSetPresentationMode === 'function') {
+      const nextMode = videoEl.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture';
+      videoEl.webkitSetPresentationMode(nextMode);
+    } else {
+      showToast('Fitur Picture-in-Picture tidak didukung di peramban ini', 'alert-circle', 'amber', 2500);
+    }
+  } catch (err) {
+    console.warn('PiP error:', err);
+    showToast('Tidak dapat mengaktifkan Picture-in-Picture', 'alert-circle', 'rose', 2500);
+  }
+}
+
 function playVideoSafely(video, onPlaying = null) {
   if (!video) return;
   video.muted = isMuted;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
   const p = video.play();
   if (p && typeof p.then === 'function') {
     p.then(() => {
@@ -691,11 +715,12 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.1';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.2';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.0');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.1');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -709,7 +734,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.1&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.2&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -995,6 +1020,7 @@ function renderShortsFeed(targetVideoId = null) {
 
   currentPlayingShortVideo = null;
   currentFeedVideos = filtered;
+  hydratedShortSlideIndices.clear();
 
   // Jika targetVideoId dipanggil (misal dari Koleksi / Pencarian), posisikan di depan
   // agar video langsung terbuka dan berputar tanpa jeda / lag!
@@ -1012,27 +1038,43 @@ function renderShortsFeed(targetVideoId = null) {
   feedContainer.scrollTop = 0;
 }
 
+const hydratedShortSlideIndices = new Set();
+
 function syncShortSlideSources(centerIdx) {
   if (!feedContainer) return;
   const slides = feedContainer.children;
-  for (let idx = 0; idx < slides.length; idx++) {
-    const slide = slides[idx];
-    const video = slide.querySelector('video');
-    if (!video || !video.dataset.src) continue;
-    const dist = Math.abs(idx - centerIdx);
-    const hasSrc = Boolean(video.getAttribute('src'));
+  const total = slides.length;
+  if (total === 0) return;
 
-    if (dist <= 1) {
-      if (!hasSrc) {
-        video.src = video.dataset.src;
+  // 1. Dedicated buffer untuk center & immediate next/prev slides
+  for (let offset = -1; offset <= 1; offset++) {
+    const idx = centerIdx + offset;
+    if (idx >= 0 && idx < total) {
+      const slide = slides[idx];
+      const video = slide?.querySelector('video');
+      if (video && video.dataset.src) {
+        if (!video.getAttribute('src')) {
+          video.src = video.dataset.src;
+        }
+        video.preload = (idx === centerIdx || idx === centerIdx + 1) ? 'auto' : 'metadata';
+        hydratedShortSlideIndices.add(idx);
       }
-      video.preload = (idx === centerIdx || idx === centerIdx + 1) ? 'auto' : 'metadata';
-    } else if (dist > 2 && hasSrc) {
-      if (currentPlayingShortVideo === video) currentPlayingShortVideo = null;
-      video.pause();
-      video.playbackRate = 1.0;
-      video.removeAttribute('src');
-      video.load();
+    }
+  }
+
+  // 2. Unbind video decoder distant slides dalam O(1) loop via Set
+  for (const idx of hydratedShortSlideIndices) {
+    if (Math.abs(idx - centerIdx) > 2) {
+      const slide = slides[idx];
+      const video = slide?.querySelector('video');
+      if (video && video.getAttribute('src')) {
+        if (currentPlayingShortVideo === video) currentPlayingShortVideo = null;
+        video.pause();
+        video.playbackRate = 1.0;
+        video.removeAttribute('src');
+        video.load();
+      }
+      hydratedShortSlideIndices.delete(idx);
     }
   }
 }
@@ -1251,6 +1293,15 @@ function createShortSlide(data, index) {
           </svg>
         </button>
         <span class="text-[11px] font-bold text-white drop-shadow">${formatCount(data.shares)}</span>
+      </div>
+
+      <!-- Picture-in-Picture (PiP) -->
+      <div class="flex flex-col items-center gap-1">
+        <button class="pip-btn w-12 h-12 flex items-center justify-center text-white active:scale-75 transition-all" aria-label="Picture-in-Picture" title="Putar di Luar Aplikasi">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 13h5v5h-5z"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Spinning Music Vinyl Disc -->
@@ -1624,6 +1675,15 @@ function setupShortSlideGestures(slide, data) {
       } else {
         copyShareFallback();
       }
+    });
+  }
+
+  const pipBtn = slide.querySelector('.pip-btn');
+  if (pipBtn && video) {
+    pipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      togglePictureInPicture(video);
     });
   }
 }
@@ -2235,6 +2295,8 @@ function updateReelEpBadge(epIdx) {
     : `${epNum} / ${currentPlayingDrama.total_episodes}`;
 }
 
+const hydratedDramaSlideIndices = new Set();
+
 function syncDramaSlideSources(centerIdx) {
   if (!dramaEpisodesReel) return;
   const slides = dramaEpisodesReel.children;
@@ -2251,10 +2313,11 @@ function syncDramaSlideSources(centerIdx) {
         video.load();
       }
       video.preload = 'auto';
+      hydratedDramaSlideIndices.add(centerIdx);
     }
   }
 
-  // 2. Preload next episode metadata (dist === 1)
+  // 2. Preload next episode with 'auto' for instant 0ms swipe transition (dist === 1)
   if (centerIdx + 1 < total) {
     const nextSlide = slides[centerIdx + 1];
     const nextVideo = nextSlide?.querySelector('video');
@@ -2262,7 +2325,8 @@ function syncDramaSlideSources(centerIdx) {
       if (!nextVideo.getAttribute('src')) {
         nextVideo.src = nextVideo.dataset.src;
       }
-      nextVideo.preload = 'metadata';
+      nextVideo.preload = 'auto';
+      hydratedDramaSlideIndices.add(centerIdx + 1);
     }
   }
 
@@ -2270,14 +2334,17 @@ function syncDramaSlideSources(centerIdx) {
   if (centerIdx - 1 >= 0) {
     const prevSlide = slides[centerIdx - 1];
     const prevVideo = prevSlide?.querySelector('video');
-    if (prevVideo && prevVideo.dataset.src && !prevVideo.getAttribute('src')) {
-      prevVideo.src = prevVideo.dataset.src;
+    if (prevVideo && prevVideo.dataset.src) {
+      if (!prevVideo.getAttribute('src')) {
+        prevVideo.src = prevVideo.dataset.src;
+      }
       prevVideo.preload = 'metadata';
+      hydratedDramaSlideIndices.add(centerIdx - 1);
     }
   }
 
-  // 4. Safely unbind hardware decoders on distant slides (dist > 2)
-  for (let idx = 0; idx < total; idx++) {
+  // 4. Safely unbind hardware decoders on distant slides in O(1) via tracked set
+  for (const idx of hydratedDramaSlideIndices) {
     if (Math.abs(idx - centerIdx) > 2) {
       const s = slides[idx];
       const v = s?.querySelector('video');
@@ -2286,12 +2353,14 @@ function syncDramaSlideSources(centerIdx) {
         v.removeAttribute('src');
         v.load();
       }
+      hydratedDramaSlideIndices.delete(idx);
     }
   }
 }
 
 function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
   // Clean up existing video decoding instances before clearing DOM
+  hydratedDramaSlideIndices.clear();
   Array.from(dramaEpisodesReel.querySelectorAll('video')).forEach(v => {
     v.pause();
     v.removeAttribute('src');
@@ -2395,6 +2464,13 @@ function renderDramaReelSlides(drama, startEpIndex = 0, initObserver = true) {
             ${iconSvg('maximize', 'w-5 h-5 text-amber-400')}
           </button>
           <span class="text-[10px] font-semibold text-amber-300">Lanskap</span>
+        </div>
+
+        <!-- Picture-in-Picture (PiP) -->
+        <div class="flex flex-col items-center gap-1">
+          <button class="reel-pip-slide-btn w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white active:scale-75 transition-all" aria-label="Picture-in-Picture" title="Putar di Luar Aplikasi">
+            ${iconSvg('picture-in-picture-2', 'w-4 h-4 text-zinc-300')}
+          </button>
         </div>
 
         <!-- Mute Audio -->
@@ -2611,14 +2687,19 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
         timeTotalEl.textContent = formatTime(video.duration);
       }
 
-      // Proactive Preload: Saat episode sudah ditonton > 60%, buffer episode berikutnya agar 0ms delay saat swipe
-      if (dur > 10 && (cur / dur) > 0.60 && idx < drama.episodes.length - 1) {
+      // Proactive Preload: Saat episode sudah ditonton > 15% atau > 1.5s, buffer episode berikutnya agar 0ms delay saat swipe
+      if ((cur > 1.5 || (dur > 3 && (cur / dur) > 0.15)) && idx < drama.episodes.length - 1) {
         const nextSlide = dramaEpisodesReel.children[idx + 1];
         if (nextSlide) {
           const nextVid = nextSlide.querySelector('video');
-          if (nextVid && nextVid.dataset.src && !nextVid.getAttribute('src')) {
-            nextVid.src = nextVid.dataset.src;
-            nextVid.preload = 'auto';
+          if (nextVid && nextVid.dataset.src) {
+            if (!nextVid.getAttribute('src')) {
+              nextVid.src = nextVid.dataset.src;
+            }
+            if (nextVid.preload !== 'auto') {
+              nextVid.preload = 'auto';
+            }
+            hydratedDramaSlideIndices.add(idx + 1);
           }
         }
       }
@@ -2809,7 +2890,17 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     };
   }
 
-  // 8. Mute Audio (Null-safe inline SVG toggle)
+  // 8. Picture-in-Picture (PiP)
+  const pipSlideBtn = slide.querySelector('.reel-pip-slide-btn');
+  if (pipSlideBtn && video) {
+    pipSlideBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      togglePictureInPicture(video);
+    };
+  }
+
+  // 9. Mute Audio (Null-safe inline SVG toggle)
   muteBtn.onclick = (e) => {
     e.stopPropagation();
     triggerHaptic('light');
@@ -2948,6 +3039,7 @@ function renderReelSheetGrid() {
 function closeDramaReel() {
   triggerHaptic('light');
   clearTimeout(reelScrollPlayTimeout);
+  hydratedDramaSlideIndices.clear();
   if (dramaReelObserver) {
     dramaReelObserver.disconnect();
     dramaReelObserver = null;
@@ -3189,6 +3281,33 @@ function openLandscapeTheater(drama, startEpIdx = 0, startTime = 0) {
   playLandscapeEpisode(startEpIdx, startTime);
 }
 
+let landscapePreloadVideo = null;
+
+function preloadNextLandscapeEpisode(epIdx) {
+  if (!currentLandscapeDrama) return;
+  const nextEp = currentLandscapeDrama.episodes[epIdx + 1];
+  if (!nextEp) return;
+  if (!landscapePreloadVideo) {
+    landscapePreloadVideo = document.createElement('video');
+    landscapePreloadVideo.preload = 'none';
+    landscapePreloadVideo.muted = true;
+    landscapePreloadVideo.playsInline = true;
+    landscapePreloadVideo.style.position = 'absolute';
+    landscapePreloadVideo.style.width = '1px';
+    landscapePreloadVideo.style.height = '1px';
+    landscapePreloadVideo.style.opacity = '0';
+    landscapePreloadVideo.style.pointerEvents = 'none';
+    landscapePreloadVideo.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(landscapePreloadVideo);
+  }
+  const nextSrc = getStreamProxyUrl(nextEp.gdrive_file_id, nextEp.video_url);
+  if (landscapePreloadVideo.src !== nextSrc) {
+    landscapePreloadVideo.src = nextSrc;
+    landscapePreloadVideo.preload = 'auto';
+  }
+  window.landscapePreloadVideo = landscapePreloadVideo;
+}
+
 function playLandscapeEpisode(epIdx, startTime = 0) {
   if (!currentLandscapeDrama) return;
   const activeDrama = currentLandscapeDrama;
@@ -3284,6 +3403,11 @@ function closeLandscapeTheater() {
     landscapeVideo.pause();
     landscapeVideo.removeAttribute('src');
     landscapeVideo.load();
+  }
+  if (landscapePreloadVideo) {
+    landscapePreloadVideo.pause();
+    landscapePreloadVideo.removeAttribute('src');
+    landscapePreloadVideo.load();
   }
 
   dramaLandscapeTheater.classList.add('hidden');
@@ -5863,6 +5987,17 @@ function setupEvents() {
     };
   }
 
+  // Header PiP Toggle Button in Drama Reel
+  const reelPipToggleBtn = document.getElementById('reel-pip-toggle-btn');
+  if (reelPipToggleBtn) {
+    reelPipToggleBtn.onclick = () => {
+      triggerHaptic('light');
+      const targetSlide = dramaEpisodesReel?.children[currentReelEpisodeIndex];
+      const v = targetSlide ? targetSlide.querySelector('video') : null;
+      if (v) togglePictureInPicture(v);
+    };
+  }
+
   // ============================================================
   // LANDSCAPE THEATER EVENTS (WIDESCREEN & AUTO-NEXT EPISODES)
   // ============================================================
@@ -5895,6 +6030,14 @@ function setupEvents() {
       landscapeFitMode = nextIsCover ? 'cover' : 'contain';
       applyLandscapeVideoFit();
       showLandscapeControls(true);
+    };
+  }
+  const landscapePipBtn = document.getElementById('landscape-pip-btn');
+  if (landscapePipBtn) {
+    landscapePipBtn.onclick = (e) => {
+      e.stopPropagation();
+      triggerHaptic('light');
+      togglePictureInPicture(landscapeVideo);
     };
   }
   if (landscapeEpListBtn) {
@@ -6039,11 +6182,18 @@ function setupEvents() {
     if (landscapeVideo) {
       landscapeVideo.addEventListener('timeupdate', () => {
         if (isLandscapeScrubbing || !landscapeVideo.duration) return;
-        const pct = (landscapeVideo.currentTime / landscapeVideo.duration) * 100;
+        const cur = landscapeVideo.currentTime;
+        const dur = landscapeVideo.duration;
+        const pct = (cur / dur) * 100;
         if (landscapeProgressFill) landscapeProgressFill.style.width = `${pct}%`;
-        if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(landscapeVideo.currentTime);
-        if (landscapeTimeTotal && landscapeVideo.duration && (landscapeTimeTotal.textContent === '00:00' || landscapeTimeTotal.textContent === '')) {
-          landscapeTimeTotal.textContent = formatTime(landscapeVideo.duration);
+        if (landscapeTimeNow) landscapeTimeNow.textContent = formatTime(cur);
+        if (landscapeTimeTotal && dur && (landscapeTimeTotal.textContent === '00:00' || landscapeTimeTotal.textContent === '')) {
+          landscapeTimeTotal.textContent = formatTime(dur);
+        }
+
+        // Proactive Preload: Saat episode landscape sudah berjalan > 15% atau > 1.5s, buffer episode berikutnya
+        if ((cur > 1.5 || (dur > 3 && (cur / dur) > 0.15)) && currentLandscapeDrama && currentLandscapeEpIndex < currentLandscapeDrama.episodes.length - 1) {
+          preloadNextLandscapeEpisode(currentLandscapeEpIndex);
         }
       });
     }
