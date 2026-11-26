@@ -29,11 +29,16 @@ function extractGdriveId(str) {
 function getStreamProxyUrl(gdriveFileId, fallbackUrl = '') {
   const fileId = gdriveFileId || extractGdriveId(fallbackUrl);
   if (fileId) {
-    return `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t`;
+    // PENTING: Gunakan '%26confirm=t' agar Cloudflare Worker meneruskan 'confirm=t' ke Google Drive.
+    // Tanpa '%26confirm=t', Google Drive mengembalikan halaman HTML virus scan untuk video > 100MB
+    // (misalnya Serial SwayDrama Ep 46, 47, 48 yang berukuran 120MB - 206MB).
+    return `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}%26confirm=t`;
   }
   if (fallbackUrl) {
-    if (fallbackUrl.includes('test-worker') && fallbackUrl.includes('%26confirm=t')) {
-      return fallbackUrl.replace('%26confirm=t', '&confirm=t');
+    if (fallbackUrl.includes('test-worker.big-marigold.workers.dev')) {
+      return fallbackUrl.includes('%26confirm=t')
+        ? fallbackUrl
+        : fallbackUrl.replace('&confirm=t', '%26confirm=t');
     }
     return fallbackUrl;
   }
@@ -44,16 +49,19 @@ function getFallbackStreamUrl(gdriveFileId, currentSrc = '') {
   const fileId = gdriveFileId || extractGdriveId(currentSrc);
   if (!fileId) return currentSrc || '';
   
-  const workerPrimary = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t`;
-  const workerRetry1 = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=1&_t=${Date.now()}`;
-  const workerRetry2 = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}&confirm=t&retry=2&_t=${Date.now()}`;
+  const workerPrimary = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}%26confirm=t`;
+  const workerRetry1 = `${STREAM_PROXY_BASE}?id=${encodeURIComponent(fileId)}%26confirm=t&retry=1&_t=${Date.now()}`;
+  const directDrive = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
 
-  // Always stream through Worker proxy to prevent Google Drive CORS/CORP same-site blocking
+  // Hierarki failover tangguh:
+  // 1. Worker Primary (%26confirm=t)
+  // 2. Worker Retry 1 (%26confirm=t&retry=1)
+  // 3. Direct Google Drive usercontent dengan confirm=t
   if (!currentSrc || currentSrc.includes('drive.usercontent.google.com')) {
     return workerPrimary;
   }
   if (currentSrc.includes('retry=1')) {
-    return workerRetry2;
+    return directDrive;
   }
   if (currentSrc.includes('test-worker.big-marigold.workers.dev')) {
     return workerRetry1;
@@ -935,7 +943,7 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.4';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.5';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
@@ -943,6 +951,7 @@ async function initApp() {
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.1');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.2');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.3');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.4');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -956,7 +965,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.4&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.5&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
@@ -2881,7 +2890,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
       if (loaderEl) loaderEl.classList.remove('hidden');
       retryCount = 0; // reset retry counter
       const gfid = ep.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
-      const targetSrc = getFallbackStreamUrl(gfid, video.src) || `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gfid)}&confirm=t`;
+      const targetSrc = getFallbackStreamUrl(gfid, video.src) || `${STREAM_PROXY_BASE}?id=${encodeURIComponent(gfid)}%26confirm=t`;
       video.src = targetSrc;
       video.dataset.src = targetSrc;
       video.load();
