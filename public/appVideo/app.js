@@ -943,7 +943,7 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.6';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.7';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
@@ -2266,6 +2266,7 @@ function renderDramaList(dramas) {
 
 function openDramaDetailModal(drm) {
   triggerHaptic('light');
+  pauseAllVideosExcept(null);
   selectedDrama = drm;
   const isAdultItem = isAdult18Item(drm);
   modalDramaPoster.src = drm.poster;
@@ -3568,6 +3569,7 @@ function preloadNextLandscapeEpisode(epIdx) {
 
 function playLandscapeEpisode(epIdx, startTime = 0) {
   if (!currentLandscapeDrama) return;
+  pauseAllVideosExcept(landscapeVideo);
   const activeDrama = currentLandscapeDrama;
   const ep = activeDrama.episodes[epIdx];
   if (!ep) return;
@@ -4481,6 +4483,7 @@ function updateComicHeaderAndFooterInfo() {
 
 function openComicReader(comic, chapterIdx = 0, pageIdx = 0) {
   if (!comic) return;
+  pauseAllVideosExcept(null);
   activeComic = comic;
 
   // Auto-skip empty chapter 0 if other chapters have content
