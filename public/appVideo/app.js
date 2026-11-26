@@ -952,6 +952,8 @@ async function initApp() {
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.2');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.3');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.5.4');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.5');
+    sessionStorage.removeItem('teleshorts_videos_cache_v5.5.6');
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) cachedData = JSON.parse(raw);
   } catch (e) {}
@@ -965,7 +967,7 @@ async function initApp() {
 
   // 2. Fetch fresh videos.json with cache buster
   try {
-    const resVideos = await fetch(`videos.json?v=5.5.5&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
+    const resVideos = await fetch(`videos.json?v=5.5.7&t=${Date.now()}`, { cache: 'no-cache' }).catch(e => {
       console.warn('videos.json fetch error:', e);
       return null;
     });
