@@ -943,7 +943,7 @@ async function initApp() {
 
   // 1. Instant Cache-First startup (0ms render from memory/sessionStorage)
   let cachedData = null;
-  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.5';
+  const CACHE_KEY = 'teleshorts_videos_cache_v5.5.6';
   try {
     sessionStorage.removeItem('teleshorts_videos_cache');
     sessionStorage.removeItem('teleshorts_videos_cache_v5.4.0');
@@ -2817,6 +2817,10 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
     stallWatchdog = setTimeout(() => {
       // Intervene only if this slide is active, video hasn't started playing, and modal is visible
       if (currentReelEpisodeIndex === idx && !dramaReelModal.classList.contains('hidden')) {
+        // Jika data video sedang aktif diterima dan didecode (terutama file besar >100MB), jangan batalkan unduhan
+        if (video.buffered && video.buffered.length > 0 && video.buffered.end(0) > 0.2) {
+          return;
+        }
         if (video.currentTime === 0 && video.readyState < 2 && retryCount < MAX_AUTO_RETRIES) {
           retryCount++;
           const gfid = ep.gdrive_file_id || extractGdriveId(video.src) || extractGdriveId(video.dataset.src);
@@ -2829,7 +2833,7 @@ function setupDramaSlideGestures(slide, drama, ep, idx) {
           }
         }
       }
-    }, 12000); // 12s buffer before failover (prevents premature abort on mobile)
+    }, 15000); // 15s buffer sebelum failover (memberikan ruang loading aman untuk file 100MB-500MB di mobile)
   };
 
   if (video && loaderEl) {
